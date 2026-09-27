@@ -83,3 +83,20 @@ body {
   background: #4752c4;
   transform: translateY(-1px);
 }
+.login-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.login-button.disabled:hover {
+  background: #5865f2;
+  transform: none;
+}
+
+.login-button.disabled span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #c4c8d1;
+}
