@@ -542,7 +542,9 @@ export default function App() {
 
           <section className="content">
 
-            {/* OVERVIEW */}
+            {/* ==================================================
+                OVERVIEW
+            ================================================== */}
 
             {page === "admin" && (
               <>
@@ -562,7 +564,8 @@ export default function App() {
 
                     <p>
                       Herfra kan du administrere
-                      Hjælper-botten.
+                      Hjælper-botten og se
+                      systemets aktuelle status.
                     </p>
 
                   </div>
@@ -573,7 +576,11 @@ export default function App() {
 
                 </div>
 
+                {/* OVERVIEW STATS */}
+
                 <div className="stats-grid">
+
+                  {/* BOT */}
 
                   <div className="stat-card">
 
@@ -599,6 +606,106 @@ export default function App() {
 
                   </div>
 
+                  {/* SERVERS */}
+
+                  <div className="stat-card">
+
+                    <div className="stat-icon">
+                      🖥️
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Servere
+                      </span>
+
+                      <strong>
+                        {loading
+                          ? "..."
+                          : stats?.servers ??
+                            servers.length}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  {/* USERS */}
+
+                  <div className="stat-card">
+
+                    <div className="stat-icon">
+                      👥
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Brugere
+                      </span>
+
+                      <strong>
+                        {loading
+                          ? "..."
+                          : stats?.users ?? 0}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  {/* COMMANDS */}
+
+                  <div className="stat-card">
+
+                    <div className="stat-icon">
+                      ⚡
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Commands
+                      </span>
+
+                      <strong>
+                        {loading
+                          ? "..."
+                          : stats?.commands ?? 0}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  {/* COGS */}
+
+                  <div className="stat-card">
+
+                    <div className="stat-icon">
+                      🧩
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Cogs
+                      </span>
+
+                      <strong>
+                        {loading
+                          ? "..."
+                          : stats?.cogs ??
+                            cogs.length}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  {/* API */}
+
                   <div className="stat-card">
 
                     <div className="stat-icon">
@@ -623,49 +730,9 @@ export default function App() {
 
                   </div>
 
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      🧩
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Cogs
-                      </span>
-
-                      <strong>
-                        {stats?.cogs ??
-                          cogs.length}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      🖥️
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Servere
-                      </span>
-
-                      <strong>
-                        {stats?.servers ??
-                          servers.length}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
                 </div>
+
+                {/* QUICK ACTIONS */}
 
                 <div className="section-card">
 
@@ -674,7 +741,7 @@ export default function App() {
                     <div>
 
                       <p className="small-title">
-                        BOT
+                        HURTIGE HANDLINGER
                       </p>
 
                       <h2>
@@ -712,8 +779,82 @@ export default function App() {
                         </strong>
 
                         <small>
-                          Genindlæs
-                          bot-systemer
+                          Genindlæs bot-systemer
+                        </small>
+
+                      </div>
+
+                    </button>
+
+                    <button
+                      className="action-button"
+                      onClick={() =>
+                        setPage("bot")
+                      }
+                    >
+
+                      <span>
+                        🤖
+                      </span>
+
+                      <div>
+
+                        <strong>
+                          Bot
+                        </strong>
+
+                        <small>
+                          Se bot-information
+                        </small>
+
+                      </div>
+
+                    </button>
+
+                    <button
+                      className="action-button"
+                      onClick={() =>
+                        setPage("cogs")
+                      }
+                    >
+
+                      <span>
+                        🧩
+                      </span>
+
+                      <div>
+
+                        <strong>
+                          Cogs
+                        </strong>
+
+                        <small>
+                          Se loaded Cogs
+                        </small>
+
+                      </div>
+
+                    </button>
+
+                    <button
+                      className="action-button"
+                      onClick={() =>
+                        setPage("system")
+                      }
+                    >
+
+                      <span>
+                        ⚙️
+                      </span>
+
+                      <div>
+
+                        <strong>
+                          System
+                        </strong>
+
+                        <small>
+                          Se system-information
                         </small>
 
                       </div>
@@ -734,6 +875,8 @@ export default function App() {
                   )}
 
                 </div>
+
+                {/* SYSTEM INFORMATION */}
 
                 <div className="section-card">
 
@@ -762,7 +905,18 @@ export default function App() {
 
                       <strong>
                         {status?.bot_name ||
-                          "Hjælper V2"}
+                          "Hjælper"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Bot ID
+                      </span>
+
+                      <strong>
+                        {status?.bot_id ||
+                          "--"}
                       </strong>
                     </div>
 
@@ -772,7 +926,9 @@ export default function App() {
                       </span>
 
                       <strong>
-                        FastAPI
+                        {apiOnline
+                          ? "Online"
+                          : "Offline"}
                       </strong>
                     </div>
 
@@ -782,7 +938,8 @@ export default function App() {
                       </span>
 
                       <strong>
-                        {servers.length}
+                        {stats?.servers ??
+                          servers.length}
                       </strong>
                     </div>
 
@@ -792,7 +949,30 @@ export default function App() {
                       </span>
 
                       <strong>
-                        {stats?.users ?? 0}
+                        {stats?.users ??
+                          0}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Commands
+                      </span>
+
+                      <strong>
+                        {stats?.commands ??
+                          0}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Cogs
+                      </span>
+
+                      <strong>
+                        {stats?.cogs ??
+                          cogs.length}
                       </strong>
                     </div>
 
@@ -803,7 +983,9 @@ export default function App() {
               </>
             )}
 
-            {/* BOT */}
+            {/* ==================================================
+                BOT
+            ================================================== */}
 
             {page === "bot" && (
               <div className="section-card">
@@ -877,6 +1059,16 @@ export default function App() {
                     </strong>
                   </div>
 
+                  <div>
+                    <span>
+                      Commands
+                    </span>
+
+                    <strong>
+                      {stats?.commands ?? 0}
+                    </strong>
+                  </div>
+
                 </div>
 
                 <div className="action-grid">
@@ -909,7 +1101,9 @@ export default function App() {
               </div>
             )}
 
-            {/* COGS */}
+            {/* ==================================================
+                COGS
+            ================================================== */}
 
             {page === "cogs" && (
               <div className="section-card">
@@ -971,7 +1165,9 @@ export default function App() {
               </div>
             )}
 
-            {/* LOGS */}
+            {/* ==================================================
+                LOGS
+            ================================================== */}
 
             {page === "logs" && (
               <div className="section-card">
@@ -1001,7 +1197,9 @@ export default function App() {
                     </span>
 
                     <strong className="text-online">
-                      Online
+                      {apiOnline
+                        ? "Online"
+                        : "Offline"}
                     </strong>
 
                   </div>
@@ -1047,7 +1245,9 @@ export default function App() {
               </div>
             )}
 
-            {/* SYSTEM */}
+            {/* ==================================================
+                SYSTEM
+            ================================================== */}
 
             {page === "system" && (
               <div className="section-card">
@@ -1076,7 +1276,19 @@ export default function App() {
                     </span>
 
                     <strong>
-                      Hjælper V2
+                      {status?.bot_name ||
+                        "Hjælper"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Bot ID
+                    </span>
+
+                    <strong>
+                      {status?.bot_id ||
+                        "--"}
                     </strong>
                   </div>
 
@@ -1086,7 +1298,9 @@ export default function App() {
                     </span>
 
                     <strong>
-                      FastAPI
+                      {apiOnline
+                        ? "Online"
+                        : "Offline"}
                     </strong>
                   </div>
 
@@ -1180,10 +1394,6 @@ export default function App() {
 
         <div className="login-options">
 
-          {/* ==================================================
-              ADMIN LOGIN
-          ================================================== */}
-
           <button
             className="login-option admin-option"
             onClick={adminLogin}
@@ -1210,10 +1420,6 @@ export default function App() {
             </div>
 
           </button>
-
-          {/* ==================================================
-              USER LOGIN
-          ================================================== */}
 
           <div className="login-option disabled-option">
 
