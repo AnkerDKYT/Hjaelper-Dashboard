@@ -3,45 +3,90 @@ import "./style.css";
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
-
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  function openAdminLogin() {
-    setError("");
-    setUsername("");
-    setPassword("");
-    setPage("admin-login");
-  }
-
-  function adminLogin(event) {
-    event.preventDefault();
-
+  function login() {
     if (username === "admin" && password === "5378") {
-      setAdminLoggedIn(true);
       setError("");
-      setPage("admin-panel");
-      return;
+      setPage("admin");
+    } else {
+      setError("Forkert brugernavn eller adgangskode.");
     }
-
-    setError("Forkert brugernavn eller adgangskode.");
   }
 
   function logout() {
-    setAdminLoggedIn(false);
     setUsername("");
     setPassword("");
     setError("");
     setPage("home");
   }
 
-  /* =========================
-     ADMIN PANEL
-  ========================= */
+  if (page === "admin-login") {
+    return (
+      <div className="login-page">
+        <div className="login-background" />
 
-  if (page === "admin-panel" && adminLoggedIn) {
+        <div className="login-card">
+          <div className="login-logo">🤖</div>
+
+          <p className="login-label">HJÆLPER</p>
+
+          <h1>Admin Login</h1>
+
+          <p className="login-description">
+            Log ind som administrator for at fortsætte.
+          </p>
+
+          <label>Brugernavn</label>
+
+          <input
+            type="text"
+            placeholder="Indtast brugernavn"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <label>Adgangskode</label>
+
+          <input
+            type="password"
+            placeholder="Indtast adgangskode"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                login();
+              }
+            }}
+          />
+
+          {error && (
+            <div className="login-error">
+              ❌ {error}
+            </div>
+          )}
+
+          <button
+            className="login-button"
+            onClick={login}
+          >
+            👑 Log ind som Admin
+          </button>
+
+          <button
+            className="back-button"
+            onClick={() => setPage("home")}
+          >
+            ← Tilbage
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "admin") {
     return (
       <div className="app">
         <aside className="sidebar">
@@ -99,14 +144,11 @@ export default function App() {
             </div>
 
             <div className="admin-badge">
-              <span>👑</span>
-              Administrator
+              👑 Administrator
             </div>
           </header>
 
           <section className="content">
-
-            {/* WELCOME */}
             <div className="welcome-card">
               <div>
                 <p className="small-title">
@@ -127,13 +169,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* STATS */}
             <div className="stats-grid">
-
               <div className="stat-card">
-                <div className="stat-icon">
-                  🤖
-                </div>
+                <div className="stat-icon">🤖</div>
 
                 <div>
                   <span>Bot status</span>
@@ -142,9 +180,7 @@ export default function App() {
               </div>
 
               <div className="stat-card">
-                <div className="stat-icon">
-                  🌐
-                </div>
+                <div className="stat-icon">🌐</div>
 
                 <div>
                   <span>API status</span>
@@ -153,9 +189,7 @@ export default function App() {
               </div>
 
               <div className="stat-card">
-                <div className="stat-icon">
-                  🧩
-                </div>
+                <div className="stat-icon">🧩</div>
 
                 <div>
                   <span>Cogs</span>
@@ -164,51 +198,35 @@ export default function App() {
               </div>
 
               <div className="stat-card">
-                <div className="stat-icon">
-                  🖥️
-                </div>
+                <div className="stat-icon">🖥️</div>
 
                 <div>
                   <span>Servere</span>
                   <strong>--</strong>
                 </div>
               </div>
-
             </div>
 
-            {/* BOT ADMINISTRATION */}
             <div className="section-card">
               <div className="section-header">
-
                 <div>
-                  <p className="small-title">
-                    BOT
-                  </p>
+                  <p className="small-title">BOT</p>
 
-                  <h2>
-                    Bot administration
-                  </h2>
+                  <h2>Bot administration</h2>
                 </div>
 
                 <span className="status-online">
                   ● Online
                 </span>
-
               </div>
 
               <div className="action-grid">
-
                 <button className="action-button restart">
                   <span>🔄</span>
 
                   <div>
-                    <strong>
-                      Genstart bot
-                    </strong>
-
-                    <small>
-                      Genstart Hjælper
-                    </small>
+                    <strong>Genstart bot</strong>
+                    <small>Genstart Hjælper</small>
                   </div>
                 </button>
 
@@ -216,13 +234,8 @@ export default function App() {
                   <span>▶️</span>
 
                   <div>
-                    <strong>
-                      Start bot
-                    </strong>
-
-                    <small>
-                      Start Hjælper
-                    </small>
+                    <strong>Start bot</strong>
+                    <small>Start Hjælper</small>
                   </div>
                 </button>
 
@@ -230,13 +243,8 @@ export default function App() {
                   <span>🛑</span>
 
                   <div>
-                    <strong>
-                      Stop bot
-                    </strong>
-
-                    <small>
-                      Stop Hjælper
-                    </small>
+                    <strong>Stop bot</strong>
+                    <small>Stop Hjælper</small>
                   </div>
                 </button>
 
@@ -244,36 +252,25 @@ export default function App() {
                   <span>🔃</span>
 
                   <div>
-                    <strong>
-                      Reload Cogs
-                    </strong>
-
-                    <small>
-                      Genindlæs systemer
-                    </small>
+                    <strong>Reload Cogs</strong>
+                    <small>Genindlæs systemer</small>
                   </div>
                 </button>
-
               </div>
             </div>
 
-            {/* SYSTEM */}
             <div className="section-card">
-
               <div className="section-header">
                 <div>
                   <p className="small-title">
                     SYSTEM
                   </p>
 
-                  <h2>
-                    System information
-                  </h2>
+                  <h2>System information</h2>
                 </div>
               </div>
 
               <div className="system-list">
-
                 <div>
                   <span>Bot</span>
                   <strong>Hjælper V2</strong>
@@ -286,10 +283,92 @@ export default function App() {
 
                 <div>
                   <span>Status</span>
-
                   <strong className="text-online">
                     Online
                   </strong>
                 </div>
 
                 <div>
+                  <span>Panel</span>
+                  <strong>Vercel</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="home-page">
+      <div className="home-background" />
+
+      <main className="home-content">
+        <div className="home-logo">
+          🤖
+        </div>
+
+        <p className="home-label">
+          HJÆLPER
+        </p>
+
+        <h1>
+          Velkommen til <span>Hjælper</span>
+        </h1>
+
+        <p className="home-description">
+          Log ind for at få adgang til Hjælper.
+        </p>
+
+        <div className="login-options">
+          <button
+            className="login-option admin-option"
+            onClick={() => {
+              setError("");
+              setPage("admin-login");
+            }}
+          >
+            <div className="option-icon">
+              👑
+            </div>
+
+            <div className="option-text">
+              <strong>Admin Login</strong>
+
+              <span>
+                Log ind som administrator
+              </span>
+            </div>
+
+            <div className="option-arrow">
+              →
+            </div>
+          </button>
+
+          <div className="login-option disabled-option">
+            <div className="option-icon">
+              👤
+            </div>
+
+            <div className="option-text">
+              <strong>Bruger Login</strong>
+
+              <span>
+                Kommer snart!
+              </span>
+            </div>
+
+            <div className="coming-soon">
+              KOMMER SNART
+            </div>
+          </div>
+        </div>
+
+        <p className="footer-text">
+          Hjælper V2 • Admin System
+        </p>
+      </main>
+    </div>
+  );
+}
