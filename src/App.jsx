@@ -14,9 +14,8 @@ export default function App() {
   const [cogs, setCogs] = useState({});
   const [servers, setServers] = useState({});
 
-  // ==========================================================
-  // LOAD USER
-  // ==========================================================
+  const [selectedServer, setSelectedServer] = useState(null);
+  const [leavingServer, setLeavingServer] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -26,8 +25,6 @@ export default function App() {
         });
 
         const data = await response.json();
-
-        console.log("AUTH:", data);
 
         if (data.authenticated && data.user) {
           setUser(data.user);
@@ -45,12 +42,10 @@ export default function App() {
     loadUser();
   }, []);
 
-  // ==========================================================
-  // LOAD DASHBOARD
-  // ==========================================================
-
   async function loadDashboard() {
     try {
+      setError("");
+
       const [statusRes, statsRes, cogsRes, serversRes] =
         await Promise.all([
           fetch(`${API}/api/status`, {
@@ -91,10 +86,6 @@ export default function App() {
     }
   }
 
-  // ==========================================================
-  // AUTO REFRESH
-  // ==========================================================
-
   useEffect(() => {
     if (!user) return;
 
@@ -105,17 +96,9 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // ==========================================================
-  // LOGIN
-  // ==========================================================
-
   function adminLogin() {
     window.location.href = `${API}/auth/discord`;
   }
-
-  // ==========================================================
-  // LOGOUT
-  // ==========================================================
 
   async function logout() {
     try {
@@ -129,10 +112,6 @@ export default function App() {
 
     setUser(null);
   }
-
-  // ==========================================================
-  // RELOAD COGS
-  // ==========================================================
 
   async function reloadCogs() {
     try {
@@ -158,9 +137,45 @@ export default function App() {
     }
   }
 
-  // ==========================================================
-  // LOADING
-  // ==========================================================
+  async function leaveServer() {
+    if (!selectedServer) return;
+
+    const confirmed = window.confirm(
+      `Er du sikker på, at Hjælper skal fjernes fra "${selectedServer.name}"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLeavingServer(true);
+      setError("");
+
+      const response = await fetch(
+        `${API}/api/servers/${selectedServer.id}/leave`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Kunne ikke fjerne Hjælper fra serveren."
+        );
+      }
+
+      setSelectedServer(null);
+
+      await loadDashboard();
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLeavingServer(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -172,15 +187,10 @@ export default function App() {
     );
   }
 
-  // ==========================================================
-  // LOGIN PAGE
-  // ==========================================================
-
   if (!user) {
     return (
       <div className="home">
         <div className="home-card">
-
           <div className="home-logo">
             🤖
           </div>
@@ -202,68 +212,42 @@ export default function App() {
             <div className="error">
               <span>{error}</span>
 
-              <button
-                onClick={() => setError("")}
-              >
+              <button onClick={() => setError("")}>
                 ×
               </button>
             </div>
           )}
 
-          {/* ADMIN LOGIN */}
-
           <button
             className="login"
             onClick={adminLogin}
           >
-            <span>
-              🔐 Admin Login
-            </span>
-
-            <span>
-              →
-            </span>
+            <span>🔐 Admin Login</span>
+            <span>→</span>
           </button>
-
-          {/* BRUGER LOGIN */}
 
           <button
             className="login disabled"
             disabled
           >
-            <span>
-              👤 Bruger Login
-            </span>
-
-            <small>
-              Kommer snart
-            </small>
+            <span>👤 Bruger Login</span>
+            <small>Kommer snart</small>
           </button>
 
           <div className="login-note">
             Admin Login bruger Discord OAuth
           </div>
-
         </div>
       </div>
     );
   }
-
-  // ==========================================================
-  // USER
-  // ==========================================================
 
   const displayName =
     user.global_name ||
     user.username ||
     "Admin";
 
-  const isOwner =
-    user.role === "owner";
-
-  // ==========================================================
-  // AVATAR
-  // ==========================================================
+  const isOwner = user.role === "owner";
 
   let avatarUrl =
     "https://cdn.discordapp.com/embed/avatars/0.png";
@@ -279,10 +263,6 @@ export default function App() {
       `${user.id}/${user.avatar}.${extension}?size=128`;
   }
 
-  // ==========================================================
-  // NAVIGATION
-  // ==========================================================
-
   const navigation = [
     ["overview", "🏠", "Overview"],
     ["bot", "🤖", "Bot"],
@@ -292,19 +272,12 @@ export default function App() {
     ["system", "⚙️", "System"],
   ];
 
-  // ==========================================================
-  // DASHBOARD
-  // ==========================================================
-
   return (
     <div className="dashboard">
-
-      {/* SIDEBAR */}
 
       <aside className="sidebar">
 
         <div className="brand">
-
           <div className="brand-logo">
             🤖
           </div>
@@ -313,7 +286,6 @@ export default function App() {
             <b>Hjælper</b>
             <span>Admin Panel</span>
           </div>
-
         </div>
 
         <nav>
@@ -325,15 +297,16 @@ export default function App() {
                   ? "nav active"
                   : "nav"
               }
-              onClick={() => setPage(id)}
+              onClick={() => {
+                setPage(id);
+                setSelectedServer(null);
+              }}
             >
               <i>{icon}</i>
               {name}
             </button>
           ))}
         </nav>
-
-        {/* USER */}
 
         <div className="sidebar-bottom">
 
@@ -350,17 +323,13 @@ export default function App() {
             />
 
             <div className="profile-info">
-
-              <b>
-                {displayName}
-              </b>
+              <b>{displayName}</b>
 
               <span>
                 {isOwner
                   ? "👑 Ejer"
                   : "🛡️ Admin"}
               </span>
-
             </div>
 
           </div>
@@ -373,19 +342,14 @@ export default function App() {
           </button>
 
         </div>
-
       </aside>
-
-      {/* MAIN */}
 
       <main>
 
         <header>
 
           <div>
-            <h2>
-              Hjælper Admin Panel
-            </h2>
+            <h2>Hjælper Admin Panel</h2>
 
             <p>
               Administrer din Discord-bot
@@ -423,18 +387,14 @@ export default function App() {
             </div>
           )}
 
-          {/* ==================================================
-              OVERVIEW
-          ================================================== */}
+          {/* OVERVIEW */}
 
           {page === "overview" && (
             <>
               <div className="title">
 
                 <div>
-                  <h1>
-                    🏠 Overview
-                  </h1>
+                  <h1>🏠 Overview</h1>
 
                   <p>
                     Velkommen tilbage til
@@ -557,9 +517,7 @@ export default function App() {
             </>
           )}
 
-          {/* ==================================================
-              BOT
-          ================================================== */}
+          {/* BOT */}
 
           {page === "bot" && (
             <>
@@ -605,9 +563,7 @@ export default function App() {
             </>
           )}
 
-          {/* ==================================================
-              COGS
-          ================================================== */}
+          {/* COGS */}
 
           {page === "cogs" && (
             <>
@@ -632,15 +588,11 @@ export default function App() {
                       className="list-item"
                       key={cog.name}
                     >
-
-                      <b>
-                        {cog.name}
-                      </b>
+                      <b>{cog.name}</b>
 
                       <span>
                         🟢 Loaded
                       </span>
-
                     </div>
                   ))}
 
@@ -656,11 +608,9 @@ export default function App() {
             </>
           )}
 
-          {/* ==================================================
-              SERVERS
-          ================================================== */}
+          {/* SERVERS */}
 
-          {page === "servers" && (
+          {page === "servers" && !selectedServer && (
             <>
               <Title
                 title="🖥️ Servere"
@@ -672,9 +622,13 @@ export default function App() {
                 <div className="server-list">
 
                   {(servers.servers || []).map((server) => (
-                    <div
-                      className="server"
+                    <button
+                      className="server server-button"
                       key={server.id}
+                      onClick={() => {
+                        setSelectedServer(server);
+                        setError("");
+                      }}
                     >
 
                       {server.icon ? (
@@ -690,9 +644,7 @@ export default function App() {
 
                       <div className="server-name">
 
-                        <b>
-                          {server.name}
-                        </b>
+                        <b>{server.name}</b>
 
                         <span>
                           ID: {server.id}
@@ -704,7 +656,11 @@ export default function App() {
                         👥 {server.members ?? 0}
                       </div>
 
-                    </div>
+                      <div className="server-arrow">
+                        →
+                      </div>
+
+                    </button>
                   ))}
 
                   {!servers.servers?.length && (
@@ -719,9 +675,119 @@ export default function App() {
             </>
           )}
 
-          {/* ==================================================
-              LOGS
-          ================================================== */}
+          {/* SERVER DETAILS */}
+
+          {page === "servers" && selectedServer && (
+            <>
+              <div className="title">
+
+                <div>
+                  <h1>🖥️ Serverdetaljer</h1>
+
+                  <p>
+                    Administrer Hjælper på denne server.
+                  </p>
+                </div>
+
+                <button
+                  className="refresh"
+                  onClick={() => setSelectedServer(null)}
+                >
+                  ← Tilbage
+                </button>
+
+              </div>
+
+              <Panel title="Server information">
+
+                <div className="server-detail-header">
+
+                  {selectedServer.icon ? (
+                    <img
+                      className="server-detail-icon"
+                      src={selectedServer.icon}
+                      alt=""
+                    />
+                  ) : (
+                    <div className="server-detail-icon server-icon">
+                      🖥️
+                    </div>
+                  )}
+
+                  <div>
+                    <h2>
+                      {selectedServer.name}
+                    </h2>
+
+                    <p>
+                      Hjælper er medlem af serveren
+                    </p>
+                  </div>
+
+                </div>
+
+                <div className="server-detail-info">
+
+                  <Info
+                    name="Servernavn"
+                    value={selectedServer.name}
+                  />
+
+                  <Info
+                    name="Server ID"
+                    value={selectedServer.id}
+                  />
+
+                  <Info
+                    name="Medlemmer"
+                    value={selectedServer.members ?? 0}
+                  />
+
+                  <Info
+                    name="Serverejer ID"
+                    value={
+                      selectedServer.owner_id ||
+                      "Ukendt"
+                    }
+                  />
+
+                  <Info
+                    name="Bot status"
+                    value="🟢 Hjælper er online"
+                  />
+
+                </div>
+
+                <div className="danger-zone">
+
+                  <div>
+                    <h3>
+                      🚪 Fjern Hjælper
+                    </h3>
+
+                    <p>
+                      Dette får Hjælper til at forlade
+                      denne Discord-server.
+                    </p>
+                  </div>
+
+                  <button
+                    className="danger-button"
+                    onClick={leaveServer}
+                    disabled={leavingServer}
+                  >
+                    {leavingServer
+                      ? "⏳ Fjerner..."
+                      : "🚪 Fjern Hjælper"}
+                  </button>
+
+                </div>
+
+              </Panel>
+            </>
+          )}
+
+          {/* LOGS */}
 
           {page === "logs" && (
             <>
@@ -755,9 +821,7 @@ export default function App() {
             </>
           )}
 
-          {/* ==================================================
-              SYSTEM
-          ================================================== */}
+          {/* SYSTEM */}
 
           {page === "system" && (
             <>
@@ -809,9 +873,7 @@ export default function App() {
           )}
 
         </section>
-
       </main>
-
     </div>
   );
 }
@@ -821,11 +883,7 @@ export default function App() {
 // CARD
 // ============================================================
 
-function Card({
-  icon,
-  title,
-  value,
-}) {
+function Card({ icon, title, value }) {
   return (
     <div className="card">
 
@@ -847,10 +905,7 @@ function Card({
 // PANEL
 // ============================================================
 
-function Panel({
-  title,
-  children,
-}) {
+function Panel({ title, children }) {
   return (
     <div className="panel">
 
@@ -869,20 +924,13 @@ function Panel({
 // INFO
 // ============================================================
 
-function Info({
-  name,
-  value,
-}) {
+function Info({ name, value }) {
   return (
     <div className="info">
 
-      <span>
-        {name}
-      </span>
+      <span>{name}</span>
 
-      <b>
-        {value}
-      </b>
+      <b>{value}</b>
 
     </div>
   );
@@ -893,10 +941,7 @@ function Info({
 // TITLE
 // ============================================================
 
-function Title({
-  title,
-  text,
-}) {
+function Title({ title, text }) {
   return (
     <div className="title">
 
