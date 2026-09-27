@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./style.css";
 
-const API = "/backend";
+const API = "http://51.79.44.111:9305";
 
 function App() {
   const [page, setPage] = useState("login");
