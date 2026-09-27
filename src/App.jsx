@@ -1,1458 +1,684 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "./style.css";
 
 const API_BASE = "/backend";
 
 export default function App() {
-  const [page, setPage] = useState("home");
-
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState("overview");
 
   const [status, setStatus] = useState(null);
   const [stats, setStats] = useState(null);
-  const [cogs, setCogs] = useState([]);
-  const [servers, setServers] = useState([]);
-
+  const [cogs, setCogs] = useState(null);
+  const [servers, setServers] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [reloadMessage, setReloadMessage] = useState("");
-
-  // ==========================================================
-  // CHECK LOGIN
-  // ==========================================================
 
   async function checkAuth() {
     try {
-      const response = await fetch(
-        `${API_BASE}/auth/me`,
-        {
-          credentials: "include"
-        }
-      );
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        credentials: "include",
+      });
 
-      if (!response.ok) {
+      if (!res.ok) {
         setUser(null);
-        setPage("home");
         return;
       }
 
-      const data = await response.json();
-
-      if (data.authenticated && data.user) {
-        setUser(data.user);
-        setPage("admin");
-      } else {
-        setUser(null);
-        setPage("home");
-      }
-    } catch (err) {
-      console.error(
-        "Kunne ikke kontrollere login:",
-        err
-      );
-
+      const data = await res.json();
+      setUser(data);
+    } catch {
       setUser(null);
-      setPage("home");
     } finally {
       setAuthLoading(false);
     }
   }
 
-  // ==========================================================
-  // STARTUP
-  // ==========================================================
-
-  useEffect(() => {
-    checkAuth();
-
-    const params = new URLSearchParams(
-      window.location.search
-    );
-
-    const authStatus = params.get("auth");
-
-    if (authStatus === "denied") {
-      setError(
-        "❌ Din Discord-konto har ikke adgang til admin-panelet."
-      );
-
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      );
-    }
-
-    if (authStatus === "error") {
-      setError(
-        "❌ Der opstod en fejl under admin-login."
-      );
-
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      );
-    }
-
-    if (authStatus === "success") {
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      );
-    }
-  }, []);
-
-  // ==========================================================
-  // LOAD API DATA
-  // ==========================================================
-
   async function loadData() {
+    if (!user) return;
+
+    setLoading(true);
+
     try {
-      setLoading(true);
+      const [statusRes, statsRes, cogsRes, serversRes] =
+        await Promise.all([
+          fetch(`${API_BASE}/api/status`, { credentials: "include" }),
+          fetch(`${API_BASE}/api/stats`, { credentials: "include" }),
+          fetch(`${API_BASE}/api/cogs`, { credentials: "include" }),
+          fetch(`${API_BASE}/api/servers`, { credentials: "include" }),
+        ]);
 
-      const [
-        statusResponse,
-        statsResponse,
-        cogsResponse,
-        serversResponse
-      ] = await Promise.all([
-        fetch(`${API_BASE}/api/status`, {
-          credentials: "include"
-        }),
-
-        fetch(`${API_BASE}/api/stats`, {
-          credentials: "include"
-        }),
-
-        fetch(`${API_BASE}/api/cogs`, {
-          credentials: "include"
-        }),
-
-        fetch(`${API_BASE}/api/servers`, {
-          credentials: "include"
-        })
-      ]);
-
-      if (
-        statusResponse.status === 401 ||
-        statsResponse.status === 401 ||
-        cogsResponse.status === 401 ||
-        serversResponse.status === 401
-      ) {
-        setUser(null);
-        setPage("home");
-        setError(
-          "🔐 Din login-session er udløbet. Log ind igen."
-        );
-        return;
-      }
-
-      const statusData =
-        await statusResponse.json();
-
-      const statsData =
-        await statsResponse.json();
-
-      const cogsData =
-        await cogsResponse.json();
-
-      const serversData =
-        await serversResponse.json();
-
-      setStatus(statusData);
-      setStats(statsData);
-      setCogs(cogsData.cogs || []);
-      setServers(serversData.servers || []);
-
-    } catch (err) {
-      console.error(
-        "Kunne ikke hente API-data:",
-        err
-      );
+      if (statusRes.ok) setStatus(await statusRes.json());
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (cogsRes.ok) setCogs(await cogsRes.json());
+      if (serversRes.ok) setServers(await serversRes.json());
+    } catch {
+      setError("Kunne ikke hente data fra API'et.");
     } finally {
       setLoading(false);
     }
   }
 
-  // ==========================================================
-  // AUTO REFRESH
-  // ==========================================================
+  useEffect(() => {
+    checkAuth();
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("auth") === "denied") {
+      setError("❌ Du har ikke adgang til admin-panelet.");
+      window.history.replaceState({}, "", "/");
+    }
+
+    if (params.get("auth") === "error") {
+      setError("❌ Der opstod en fejl under admin-login.");
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
 
   useEffect(() => {
-    if (
-      page !== "admin" &&
-      page !== "bot" &&
-      page !== "cogs" &&
-      page !== "logs" &&
-      page !== "system"
-    ) {
-      return;
-    }
-
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
     loadData();
 
-    const interval = setInterval(() => {
-      loadData();
-    }, 10000);
-
+    const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
-  }, [page, user]);
-
-  // ==========================================================
-  // ADMIN LOGIN
-  // ==========================================================
-
-  function adminLogin() {
-    window.location.href =
-      `${API_BASE}/auth/discord`;
-  }
-
-  // ==========================================================
-  // LOGOUT
-  // ==========================================================
-
-  async function logout() {
-    try {
-      await fetch(
-        `${API_BASE}/auth/logout`,
-        {
-          method: "POST",
-          credentials: "include"
-        }
-      );
-    } catch (err) {
-      console.error(
-        "Logout fejlede:",
-        err
-      );
-    }
-
-    setUser(null);
-    setStatus(null);
-    setStats(null);
-    setCogs([]);
-    setServers([]);
-    setError("");
-    setPage("home");
-  }
-
-  // ==========================================================
-  // RELOAD COGS
-  // ==========================================================
+  }, [user]);
 
   async function reloadCogs() {
     try {
-      setReloadMessage(
-        "🔄 Genindlæser Cogs..."
-      );
+      const res = await fetch(`${API_BASE}/api/reload-cogs`, {
+        method: "POST",
+        credentials: "include",
+      });
 
-      const response = await fetch(
-        `${API_BASE}/api/reload-cogs`,
-        {
-          method: "POST",
-          credentials: "include"
-        }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.detail ||
-          "Reload fejlede."
-        );
+      if (!res.ok) {
+        setError("❌ Kunne ikke reloade Cogs.");
+        return;
       }
 
-      setReloadMessage(
-        `✅ ${
-          data.message ||
-          "Cogs blev genindlæst."
-        }`
-      );
-
       await loadData();
-
-      setTimeout(() => {
-        setReloadMessage("");
-      }, 5000);
-
-    } catch (err) {
-      console.error(err);
-
-      setReloadMessage(
-        `❌ ${
-          err.message ||
-          "Kunne ikke reloade Cogs."
-        }`
-      );
+    } catch {
+      setError("❌ API-forbindelsen fejlede.");
     }
   }
 
-  // ==========================================================
-  // AUTH LOADING
-  // ==========================================================
+  function adminLogin() {
+    window.location.href = `${API_BASE}/auth/discord`;
+  }
+
+  async function logout() {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        credentials: "include",
+      });
+    } catch {}
+
+    setUser(null);
+    setPage("overview");
+  }
+
+  const isOwner = user?.role === "owner";
+  const roleName = isOwner ? "Ejer" : "Admin";
+  const roleIcon = isOwner ? "👑" : "🛡️";
 
   if (authLoading) {
     return (
-      <div className="home-page">
-        <div className="home-background" />
-
-        <main className="home-content">
-
-          <div className="home-logo">
-            🤖
-          </div>
-
-          <p className="home-label">
-            HJÆLPER
-          </p>
-
-          <h1>
-            Kontrollerer login...
-          </h1>
-
-          <p className="home-description">
-            Vent et øjeblik...
-          </p>
-
-        </main>
+      <div className="app">
+        <div className="loading-screen">
+          <div className="loading-spinner">⏳</div>
+          <h2>Hjælper</h2>
+          <p>Indlæser...</p>
+        </div>
       </div>
     );
   }
 
-  // ==========================================================
-  // ADMIN DASHBOARD
-  // ==========================================================
-
-  if (
-    user &&
-    (
-      page === "admin" ||
-      page === "bot" ||
-      page === "cogs" ||
-      page === "logs" ||
-      page === "system"
-    )
-  ) {
-    const botOnline =
-      status?.bot_connected === true;
-
-    const apiOnline =
-      status?.status === "online";
-
-    const isOwner =
-      user.role === "owner";
-
-    const roleName =
-      isOwner
-        ? "Ejer"
-        : "Admin";
-
-    const roleIcon =
-      isOwner
-        ? "👑"
-        : "🛡️";
-
+  if (!user) {
     return (
       <div className="app">
+        <div className="login-page">
+          <div className="login-card">
+            <div className="login-icon">🤖</div>
 
-        {/* SIDEBAR */}
+            <h1>Hjælper</h1>
+            <p>Admin Panel</p>
 
-        <aside className="sidebar">
+            {error && <div className="error-box">{error}</div>}
 
-          <div className="logo">
+            <button className="login-button" onClick={adminLogin}>
+              🔐 Admin Login
+            </button>
 
-            <div className="logo-icon">
-              🤖
-            </div>
+            <span className="login-subtitle">
+              Log ind som administrator
+            </span>
+
+            <button className="disabled-login" disabled>
+              👤 Bruger Login
+            </button>
+
+            <span className="login-subtitle">Kommer snart</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-icon">🤖</div>
+          <div>
+            <strong>Hjælper</strong>
+            <span>Admin Panel</span>
+          </div>
+        </div>
+
+        <nav>
+          <button
+            className={page === "overview" ? "active" : ""}
+            onClick={() => setPage("overview")}
+          >
+            🏠 <span>Overview</span>
+          </button>
+
+          <button
+            className={page === "bot" ? "active" : ""}
+            onClick={() => setPage("bot")}
+          >
+            🤖 <span>Bot</span>
+          </button>
+
+          <button
+            className={page === "cogs" ? "active" : ""}
+            onClick={() => setPage("cogs")}
+          >
+            🧩 <span>Cogs</span>
+          </button>
+
+          <button
+            className={page === "servers" ? "active" : ""}
+            onClick={() => setPage("servers")}
+          >
+            🖥️ <span>Servere</span>
+          </button>
+
+          <button
+            className={page === "logs" ? "active" : ""}
+            onClick={() => setPage("logs")}
+          >
+            📜 <span>Logs</span>
+          </button>
+
+          <button
+            className={page === "system" ? "active" : ""}
+            onClick={() => setPage("system")}
+          >
+            ⚙️ <span>System</span>
+          </button>
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="user-box">
+            <div className="user-avatar">{roleIcon}</div>
 
             <div>
-              <h2>
-                Hjælper
-              </h2>
-
-              <span>
-                Admin Panel
-              </span>
+              <strong>{user.username || "Admin"}</strong>
+              <span>{roleName}</span>
             </div>
-
           </div>
 
-          <nav className="navigation">
+          <button className="logout-button" onClick={logout}>
+            🚪 Log ud
+          </button>
+        </div>
+      </aside>
 
-            <button
-              className={`nav-item ${
-                page === "admin"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("admin")
-              }
-            >
-              <span>📊</span>
-              Overview
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "bot"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("bot")
-              }
-            >
-              <span>🤖</span>
-              Bot
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "cogs"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("cogs")
-              }
-            >
-              <span>🧩</span>
-              Cogs
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "logs"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("logs")
-              }
-            >
-              <span>📜</span>
-              Logs
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "system"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("system")
-              }
-            >
-              <span>⚙️</span>
-              System
-            </button>
-
-          </nav>
-
-          <div className="sidebar-bottom">
-
-            <div
-              style={{
-                padding: "12px",
-                marginBottom: "10px",
-                borderRadius: "10px",
-                background:
-                  "rgba(255,255,255,0.05)"
-              }}
-            >
-
-              <div
-                style={{
-                  fontWeight: "600"
-                }}
-              >
-                {roleIcon} {roleName}
-              </div>
-
-              <div
-                style={{
-                  opacity: 0.7,
-                  fontSize: "13px",
-                  marginTop: "4px"
-                }}
-              >
-                {user.username}
-              </div>
-
-            </div>
-
-            <button
-              className="logout-button"
-              onClick={logout}
-            >
-              🚪 Log ud
-            </button>
-
+      <main className="main">
+        <header className="topbar">
+          <div>
+            <h2>Hjælper Admin Panel</h2>
+            <span>Administrer din Discord-bot</span>
           </div>
 
-        </aside>
-
-        {/* MAIN */}
-
-        <main className="main-content">
-
-          <header className="topbar">
-
-            <div>
-
-              <p className="small-title">
-                HJÆLPER
-              </p>
-
-              <h1>
-                {page === "admin" &&
-                  "Admin Panel"}
-
-                {page === "bot" &&
-                  "Bot"}
-
-                {page === "cogs" &&
-                  "Cogs"}
-
-                {page === "logs" &&
-                  "Logs"}
-
-                {page === "system" &&
-                  "System"}
-              </h1>
-
-            </div>
-
-            <div className="admin-badge">
+          <div className="topbar-right">
+            <div className="role-badge">
               {roleIcon} {roleName}
             </div>
 
-          </header>
+            <div className="online-badge">
+              <span className="online-dot" />
+              Online
+            </div>
+          </div>
+        </header>
 
-          <section className="content">
+        <div className="content">
+          {error && (
+            <div className="error-box top-error">
+              {error}
+              <button onClick={() => setError("")}>✕</button>
+            </div>
+          )}
 
-            {/* ==================================================
-                OVERVIEW
-            ================================================== */}
+          {page === "overview" && (
+            <div className="page">
+              <div className="page-header">
+                <div>
+                  <h1>🏠 Overview</h1>
+                  <p>Velkommen tilbage til Hjælper Admin Panel.</p>
+                </div>
 
-            {page === "admin" && (
-              <>
+                <button
+                  className="secondary-button"
+                  onClick={loadData}
+                  disabled={loading}
+                >
+                  {loading ? "⏳" : "🔄"} Opdater
+                </button>
+              </div>
 
-                <div className="welcome-card">
-
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon">🤖</div>
                   <div>
-
-                    <p className="small-title">
-                      {roleName.toUpperCase()}
-                    </p>
-
-                    <h2>
-                      Velkommen til Hjælper
-                      Admin Panel 👋
-                    </h2>
-
-                    <p>
-                      Herfra kan du administrere
-                      Hjælper-botten og se
-                      systemets aktuelle status.
-                    </p>
-
-                  </div>
-
-                  <div className="welcome-icon">
-                    🤖
-                  </div>
-
-                </div>
-
-                {/* OVERVIEW STATS */}
-
-                <div className="stats-grid">
-
-                  {/* BOT */}
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      🤖
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Bot status
-                      </span>
-
-                      <strong>
-                        {loading
-                          ? "..."
-                          : botOnline
-                          ? "Online"
-                          : "Offline"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  {/* SERVERS */}
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      🖥️
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Servere
-                      </span>
-
-                      <strong>
-                        {loading
-                          ? "..."
-                          : stats?.servers ??
-                            servers.length}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  {/* USERS */}
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      👥
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Brugere
-                      </span>
-
-                      <strong>
-                        {loading
-                          ? "..."
-                          : stats?.users ?? 0}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  {/* COMMANDS */}
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      ⚡
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Commands
-                      </span>
-
-                      <strong>
-                        {loading
-                          ? "..."
-                          : stats?.commands ?? 0}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  {/* COGS */}
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      🧩
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Cogs
-                      </span>
-
-                      <strong>
-                        {loading
-                          ? "..."
-                          : stats?.cogs ??
-                            cogs.length}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  {/* API */}
-
-                  <div className="stat-card">
-
-                    <div className="stat-icon">
-                      🌐
-                    </div>
-
-                    <div>
-
-                      <span>
-                        API status
-                      </span>
-
-                      <strong>
-                        {loading
-                          ? "..."
-                          : apiOnline
-                          ? "Online"
-                          : "Offline"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                {/* QUICK ACTIONS */}
-
-                <div className="section-card">
-
-                  <div className="section-header">
-
-                    <div>
-
-                      <p className="small-title">
-                        HURTIGE HANDLINGER
-                      </p>
-
-                      <h2>
-                        Bot administration
-                      </h2>
-
-                    </div>
-
-                    <span className="status-online">
-
-                      ●{" "}
-                      {botOnline
+                    <span>Bot status</span>
+                    <strong>
+                      {status?.status === "online"
                         ? "Online"
                         : "Offline"}
+                    </strong>
+                  </div>
+                </div>
 
-                    </span>
+                <div className="stat-card">
+                  <div className="stat-icon">🖥️</div>
+                  <div>
+                    <span>Servere</span>
+                    <strong>{servers?.count ?? stats?.servers ?? 0}</strong>
+                  </div>
+                </div>
 
+                <div className="stat-card">
+                  <div className="stat-icon">👥</div>
+                  <div>
+                    <span>Brugere</span>
+                    <strong>{stats?.users ?? 0}</strong>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon">⚡</div>
+                  <div>
+                    <span>Commands</span>
+                    <strong>{stats?.commands ?? 0}</strong>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon">🧩</div>
+                  <div>
+                    <span>Cogs</span>
+                    <strong>{cogs?.cogs?.length ?? cogs?.count ?? 0}</strong>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon">🌐</div>
+                  <div>
+                    <span>API</span>
+                    <strong>Online</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-grid">
+                <div className="panel">
+                  <div className="panel-header">
+                    <h2>Hurtige handlinger</h2>
                   </div>
 
-                  <div className="action-grid">
-
-                    <button
-                      className="action-button"
-                      onClick={reloadCogs}
-                    >
-
-                      <span>
-                        🔃
-                      </span>
-
-                      <div>
-
-                        <strong>
-                          Reload Cogs
-                        </strong>
-
-                        <small>
-                          Genindlæs bot-systemer
-                        </small>
-
-                      </div>
-
+                  <div className="quick-actions">
+                    <button onClick={() => setPage("bot")}>
+                      🤖 Bot
                     </button>
 
-                    <button
-                      className="action-button"
-                      onClick={() =>
-                        setPage("bot")
-                      }
-                    >
-
-                      <span>
-                        🤖
-                      </span>
-
-                      <div>
-
-                        <strong>
-                          Bot
-                        </strong>
-
-                        <small>
-                          Se bot-information
-                        </small>
-
-                      </div>
-
+                    <button onClick={() => setPage("cogs")}>
+                      🧩 Cogs
                     </button>
 
-                    <button
-                      className="action-button"
-                      onClick={() =>
-                        setPage("cogs")
-                      }
-                    >
-
-                      <span>
-                        🧩
-                      </span>
-
-                      <div>
-
-                        <strong>
-                          Cogs
-                        </strong>
-
-                        <small>
-                          Se loaded Cogs
-                        </small>
-
-                      </div>
-
+                    <button onClick={() => setPage("servers")}>
+                      🖥️ Servere
                     </button>
 
-                    <button
-                      className="action-button"
-                      onClick={() =>
-                        setPage("system")
-                      }
-                    >
-
-                      <span>
-                        ⚙️
-                      </span>
-
-                      <div>
-
-                        <strong>
-                          System
-                        </strong>
-
-                        <small>
-                          Se system-information
-                        </small>
-
-                      </div>
-
+                    <button onClick={() => setPage("system")}>
+                      ⚙️ System
                     </button>
 
+                    <button onClick={reloadCogs}>
+                      🔄 Reload Cogs
+                    </button>
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <div className="panel-header">
+                    <h2>System</h2>
                   </div>
 
-                  {reloadMessage && (
-                    <p
-                      style={{
-                        marginTop: "15px",
-                        opacity: 0.9
-                      }}
-                    >
-                      {reloadMessage}
-                    </p>
+                  <div className="info-list">
+                    <div>
+                      <span>Bot</span>
+                      <strong>{status?.bot_name || "Hjælper"}</strong>
+                    </div>
+
+                    <div>
+                      <span>API</span>
+                      <strong>Online</strong>
+                    </div>
+
+                    <div>
+                      <span>Frontend</span>
+                      <strong>Vercel</strong>
+                    </div>
+
+                    <div>
+                      <span>Bot hosting</span>
+                      <strong>Wispbyte</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {page === "bot" && (
+            <div className="page">
+              <div className="page-header">
+                <div>
+                  <h1>🤖 Bot</h1>
+                  <p>Information om Hjælper.</p>
+                </div>
+
+                <button
+                  className="secondary-button"
+                  onClick={loadData}
+                >
+                  🔄 Opdater
+                </button>
+              </div>
+
+              <div className="panel">
+                <div className="panel-header">
+                  <h2>Bot information</h2>
+                </div>
+
+                <div className="info-list">
+                  <div>
+                    <span>Navn</span>
+                    <strong>{status?.bot_name || "Hjælper"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Bot ID</span>
+                    <strong>{status?.bot_id || "Ukendt"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Status</span>
+                    <strong>
+                      {status?.status === "online"
+                        ? "🟢 Online"
+                        : "🔴 Offline"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Servere</span>
+                    <strong>{servers?.count ?? 0}</strong>
+                  </div>
+
+                  <div>
+                    <span>Brugere</span>
+                    <strong>{stats?.users ?? 0}</strong>
+                  </div>
+                </div>
+
+                <button className="primary-button" onClick={reloadCogs}>
+                  🔄 Reload Cogs
+                </button>
+              </div>
+            </div>
+          )}
+
+          {page === "cogs" && (
+            <div className="page">
+              <div className="page-header">
+                <div>
+                  <h1>🧩 Cogs</h1>
+                  <p>Administrer bot-moduler.</p>
+                </div>
+
+                <button
+                  className="primary-button"
+                  onClick={reloadCogs}
+                >
+                  🔄 Reload Cogs
+                </button>
+              </div>
+
+              <div className="panel">
+                <div className="panel-header">
+                  <h2>Loaded Cogs</h2>
+                  <span>
+                    {cogs?.cogs?.length ?? cogs?.count ?? 0}
+                  </span>
+                </div>
+
+                <div className="cog-list">
+                  {cogs?.cogs?.length ? (
+                    cogs.cogs.map((cog) => (
+                      <div className="cog-item" key={cog.name || cog}>
+                        <div>
+                          <strong>{cog.name || cog}</strong>
+                          <span>
+                            {cog.loaded === false
+                              ? "🔴 Unloaded"
+                              : "🟢 Loaded"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      🧩 Ingen Cogs fundet.
+                    </div>
                   )}
-
                 </div>
-
-                {/* SYSTEM INFORMATION */}
-
-                <div className="section-card">
-
-                  <div className="section-header">
-
-                    <div>
-
-                      <p className="small-title">
-                        SYSTEM
-                      </p>
-
-                      <h2>
-                        System information
-                      </h2>
-
-                    </div>
-
-                  </div>
-
-                  <div className="system-list">
-
-                    <div>
-                      <span>
-                        Bot
-                      </span>
-
-                      <strong>
-                        {status?.bot_name ||
-                          "Hjælper"}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Bot ID
-                      </span>
-
-                      <strong>
-                        {status?.bot_id ||
-                          "--"}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        API
-                      </span>
-
-                      <strong>
-                        {apiOnline
-                          ? "Online"
-                          : "Offline"}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Servere
-                      </span>
-
-                      <strong>
-                        {stats?.servers ??
-                          servers.length}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Brugere
-                      </span>
-
-                      <strong>
-                        {stats?.users ??
-                          0}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Commands
-                      </span>
-
-                      <strong>
-                        {stats?.commands ??
-                          0}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Cogs
-                      </span>
-
-                      <strong>
-                        {stats?.cogs ??
-                          cogs.length}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </>
-            )}
-
-            {/* ==================================================
-                BOT
-            ================================================== */}
-
-            {page === "bot" && (
-              <div className="section-card">
-
-                <div className="section-header">
-
-                  <div>
-
-                    <p className="small-title">
-                      BOT
-                    </p>
-
-                    <h2>
-                      Hjælper Bot
-                    </h2>
-
-                  </div>
-
-                  <span className="status-online">
-
-                    ●{" "}
-                    {botOnline
-                      ? "Online"
-                      : "Offline"}
-
-                  </span>
-
-                </div>
-
-                <div className="system-list">
-
-                  <div>
-                    <span>
-                      Navn
-                    </span>
-
-                    <strong>
-                      {status?.bot_name ||
-                        "Hjælper"}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Bot ID
-                    </span>
-
-                    <strong>
-                      {status?.bot_id ||
-                        "--"}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Servere
-                    </span>
-
-                    <strong>
-                      {stats?.servers ?? 0}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Brugere
-                    </span>
-
-                    <strong>
-                      {stats?.users ?? 0}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Commands
-                    </span>
-
-                    <strong>
-                      {stats?.commands ?? 0}
-                    </strong>
-                  </div>
-
-                </div>
-
-                <div className="action-grid">
-
-                  <button
-                    className="action-button"
-                    onClick={reloadCogs}
-                  >
-
-                    <span>
-                      🔃
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        Reload Cogs
-                      </strong>
-
-                      <small>
-                        Genindlæs alle Cogs
-                      </small>
-
-                    </div>
-
-                  </button>
-
-                </div>
-
               </div>
-            )}
+            </div>
+          )}
 
-            {/* ==================================================
-                COGS
-            ================================================== */}
-
-            {page === "cogs" && (
-              <div className="section-card">
-
-                <div className="section-header">
-
-                  <div>
-
-                    <p className="small-title">
-                      SYSTEMER
-                    </p>
-
-                    <h2>
-                      Loaded Cogs
-                    </h2>
-
-                  </div>
-
-                  <span className="status-online">
-                    {cogs.length} loaded
-                  </span>
-
+          {page === "servers" && (
+            <div className="page">
+              <div className="page-header">
+                <div>
+                  <h1>🖥️ Servere</h1>
+                  <p>Alle Discord-servere som Hjælper er i.</p>
                 </div>
 
-                {cogs.length === 0 ? (
+                <button
+                  className="secondary-button"
+                  onClick={loadData}
+                >
+                  🔄 Opdater
+                </button>
+              </div>
 
-                  <p>
-                    Ingen Cogs blev fundet.
-                  </p>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon">🖥️</div>
+                  <div>
+                    <span>Discord-servere</span>
+                    <strong>{servers?.count ?? 0}</strong>
+                  </div>
+                </div>
+              </div>
 
-                ) : (
+              <div className="panel">
+                <div className="panel-header">
+                  <h2>Servere</h2>
+                  <span>{servers?.count ?? 0}</span>
+                </div>
 
-                  <div className="system-list">
+                <div className="server-list">
+                  {servers?.servers?.length ? (
+                    servers.servers.map((server) => (
+                      <div className="server-card" key={server.id}>
+                        <div className="server-left">
+                          {server.icon ? (
+                            <img
+                              src={server.icon}
+                              alt=""
+                              className="server-icon"
+                            />
+                          ) : (
+                            <div className="server-icon server-placeholder">
+                              🖥️
+                            </div>
+                          )}
 
-                    {cogs.map((cog) => (
+                          <div className="server-info">
+                            <strong>{server.name}</strong>
+                            <span>ID: {server.id}</span>
+                          </div>
+                        </div>
 
-                      <div
-                        key={cog.name}
-                      >
-
-                        <span>
-                          🧩 {cog.name}
-                        </span>
-
-                        <strong className="text-online">
-                          {cog.loaded
-                            ? "Loaded"
-                            : "Offline"}
-                        </strong>
-
+                        <div className="server-members">
+                          👥 {server.members ?? 0}
+                        </div>
                       </div>
-
-                    ))}
-
-                  </div>
-
-                )}
-
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      🖥️ Ingen servere fundet.
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* ==================================================
-                LOGS
-            ================================================== */}
-
-            {page === "logs" && (
-              <div className="section-card">
-
-                <div className="section-header">
-
-                  <div>
-
-                    <p className="small-title">
-                      SYSTEM
-                    </p>
-
-                    <h2>
-                      Logs
-                    </h2>
-
-                  </div>
-
+          {page === "logs" && (
+            <div className="page">
+              <div className="page-header">
+                <div>
+                  <h1>📜 Logs</h1>
+                  <p>Seneste events fra Hjælper.</p>
                 </div>
-
-                <div className="system-list">
-
-                  <div>
-
-                    <span>
-                      API forbindelse
-                    </span>
-
-                    <strong className="text-online">
-                      {apiOnline
-                        ? "Online"
-                        : "Offline"}
-                    </strong>
-
-                  </div>
-
-                  <div>
-
-                    <span>
-                      API endpoint
-                    </span>
-
-                    <strong>
-                      /api/status
-                    </strong>
-
-                  </div>
-
-                  <div>
-
-                    <span>
-                      Cogs endpoint
-                    </span>
-
-                    <strong>
-                      /api/cogs
-                    </strong>
-
-                  </div>
-
-                  <div>
-
-                    <span>
-                      Servers endpoint
-                    </span>
-
-                    <strong>
-                      /api/servers
-                    </strong>
-
-                  </div>
-
-                </div>
-
               </div>
-            )}
 
-            {/* ==================================================
-                SYSTEM
-            ================================================== */}
-
-            {page === "system" && (
-              <div className="section-card">
-
-                <div className="section-header">
-
-                  <div>
-
-                    <p className="small-title">
-                      SYSTEM
-                    </p>
-
-                    <h2>
-                      System information
-                    </h2>
-
-                  </div>
-
+              <div className="panel">
+                <div className="panel-header">
+                  <h2>System Events</h2>
                 </div>
 
-                <div className="system-list">
-
-                  <div>
-                    <span>
-                      Bot
-                    </span>
-
-                    <strong>
-                      {status?.bot_name ||
-                        "Hjælper"}
-                    </strong>
+                <div className="log-list">
+                  <div className="log-item">
+                    <span>🟢</span>
+                    <div>
+                      <strong>API forbindelse</strong>
+                      <small>API'et er online.</small>
+                    </div>
                   </div>
 
-                  <div>
-                    <span>
-                      Bot ID
-                    </span>
-
-                    <strong>
-                      {status?.bot_id ||
-                        "--"}
-                    </strong>
+                  <div className="log-item">
+                    <span>🤖</span>
+                    <div>
+                      <strong>Bot status</strong>
+                      <small>
+                        {status?.status === "online"
+                          ? "Hjælper er online."
+                          : "Hjælper er offline."}
+                      </small>
+                    </div>
                   </div>
 
-                  <div>
-                    <span>
-                      API
-                    </span>
-
-                    <strong>
-                      {apiOnline
-                        ? "Online"
-                        : "Offline"}
-                    </strong>
+                  <div className="log-item">
+                    <span>🧩</span>
+                    <div>
+                      <strong>Cogs</strong>
+                      <small>
+                        {cogs?.cogs?.length ?? 0} Cogs loaded.
+                      </small>
+                    </div>
                   </div>
-
-                  <div>
-                    <span>
-                      Frontend
-                    </span>
-
-                    <strong>
-                      Vercel
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Bot hosting
-                    </span>
-
-                    <strong>
-                      Wispbyte
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Cogs
-                    </span>
-
-                    <strong>
-                      {cogs.length}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Discord servere
-                    </span>
-
-                    <strong>
-                      {servers.length}
-                    </strong>
-                  </div>
-
                 </div>
-
               </div>
-            )}
+            </div>
+          )}
 
-          </section>
+          {page === "system" && (
+            <div className="page">
+              <div className="page-header">
+                <div>
+                  <h1>⚙️ System</h1>
+                  <p>Information om systemet bag Hjælper.</p>
+                </div>
+              </div>
 
-        </main>
+              <div className="panel">
+                <div className="panel-header">
+                  <h2>System information</h2>
+                </div>
 
-      </div>
-    );
-  }
+                <div className="info-list">
+                  <div>
+                    <span>Bot</span>
+                    <strong>Hjælper</strong>
+                  </div>
 
-  // ==========================================================
-  // HOME / ADMIN LOGIN
-  // ==========================================================
+                  <div>
+                    <span>Bot status</span>
+                    <strong>
+                      {status?.status === "online"
+                        ? "🟢 Online"
+                        : "🔴 Offline"}
+                    </strong>
+                  </div>
 
-  return (
-    <div className="home-page">
+                  <div>
+                    <span>API</span>
+                    <strong>🟢 Online</strong>
+                  </div>
 
-      <div className="home-background" />
+                  <div>
+                    <span>Frontend</span>
+                    <strong>Vercel</strong>
+                  </div>
 
-      <main className="home-content">
+                  <div>
+                    <span>Bot hosting</span>
+                    <strong>Wispbyte</strong>
+                  </div>
 
-        <div className="home-logo">
-          🤖
+                  <div>
+                    <span>Cogs</span>
+                    <strong>{cogs?.cogs?.length ?? 0}</strong>
+                  </div>
+
+                  <div>
+                    <span>Servere</span>
+                    <strong>{servers?.count ?? 0}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-
-        <p className="home-label">
-          HJÆLPER
-        </p>
-
-        <h1>
-          Velkommen til{" "}
-          <span>Hjælper</span>
-        </h1>
-
-        <p className="home-description">
-          Log ind som administrator for at få
-          adgang til Hjælper Admin Panel.
-        </p>
-
-        {error && (
-          <div className="login-error">
-            {error}
-          </div>
-        )}
-
-        <div className="login-options">
-
-          <button
-            className="login-option admin-option"
-            onClick={adminLogin}
-          >
-
-            <div className="option-icon">
-              🔐
-            </div>
-
-            <div className="option-text">
-
-              <strong>
-                Admin Login
-              </strong>
-
-              <span>
-                Log ind som administrator
-              </span>
-
-            </div>
-
-            <div className="option-arrow">
-              →
-            </div>
-
-          </button>
-
-          <div className="login-option disabled-option">
-
-            <div className="option-icon">
-              👤
-            </div>
-
-            <div className="option-text">
-
-              <strong>
-                Bruger Login
-              </strong>
-
-              <span>
-                Kommer snart!
-              </span>
-
-            </div>
-
-            <div className="coming-soon">
-              KOMMER SNART
-            </div>
-
-          </div>
-
-        </div>
-
-        <p className="footer-text">
-          Hjælper V2 • Admin System
-        </p>
-
       </main>
-
     </div>
   );
 }
