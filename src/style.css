@@ -6,239 +6,127 @@ body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
   background: #0b0d12;
-  color: #ffffff;
+  color: white;
 }
 
 button {
   font-family: inherit;
 }
 
-.dashboard {
-  display: flex;
+#root {
   min-height: 100vh;
 }
 
-/* SIDEBAR */
+/* =========================
+   LANDING PAGE
+========================= */
 
-.sidebar {
-  width: 250px;
+.landing-page {
   min-height: 100vh;
-  background: #11141b;
-  border-right: 1px solid #252a35;
-  padding: 24px 16px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  position: relative;
+  background:
+    radial-gradient(
+      circle at top,
+      #202542 0%,
+      #0b0d12 45%
+    );
 }
 
-.logo {
-  font-size: 24px;
-  font-weight: 800;
-  padding: 10px 12px 30px;
+.landing-card {
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  background: #151922;
+  border: 1px solid #292e3a;
+  border-radius: 22px;
+  padding: 45px 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
-.logo span {
-  margin-left: 6px;
-}
-
-.menu {
+.bot-icon {
+  width: 82px;
+  height: 82px;
+  margin: 0 auto 22px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  background: #5865f2;
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(88, 101, 242, 0.3);
 }
 
-.menu button {
+.landing-card h1 {
+  margin: 0;
+  font-size: 38px;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #8f97a7;
+  font-size: 17px;
+}
+
+.description {
+  margin: 28px 0;
+  color: #aeb5c2;
+  line-height: 1.6;
+}
+
+.discord-login {
+  width: 100%;
   border: 0;
-  background: transparent;
-  color: #aeb4c0;
-  padding: 13px 14px;
-  border-radius: 10px;
-  text-align: left;
-  font-size: 15px;
+  border-radius: 11px;
+  padding: 15px 20px;
+  background: #5865f2;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
   transition: 0.2s;
 }
 
-.menu button:hover {
-  background: #1b1f28;
-  color: white;
+.discord-login:hover {
+  background: #4752c4;
+  transform: translateY(-1px);
 }
 
-.menu button.active {
-  background: #5865f2;
-  color: white;
+.discord-login span {
+  margin-right: 9px;
 }
 
-.sidebar-bottom {
-  margin-top: auto;
-  padding: 15px 12px 5px;
-  color: #666d7a;
+.login-info {
+  margin: 20px 0 0;
+  color: #686f7d;
   font-size: 13px;
 }
 
-/* CONTENT */
-
-.content {
-  flex: 1;
-  padding: 35px;
-  max-width: 1500px;
+footer {
+  position: absolute;
+  bottom: 22px;
+  color: #555c69;
+  font-size: 13px;
 }
 
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
+/* =========================
+   MOBILE
+========================= */
 
-.small-title {
-  color: #727987;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  margin: 0 0 7px;
-}
-
-h1 {
-  margin: 0;
-  font-size: 32px;
-}
-
-.status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #141820;
-  border: 1px solid #252a35;
-  padding: 10px 15px;
-  border-radius: 10px;
-  color: #b9c0cc;
-}
-
-.status span {
-  width: 9px;
-  height: 9px;
-  background: #43d17a;
-  border-radius: 50%;
-}
-
-/* WELCOME */
-
-.welcome-card {
-  background: #151922;
-  border: 1px solid #252a35;
-  border-radius: 16px;
-  padding: 28px;
-  margin-bottom: 25px;
-}
-
-.welcome-card h2 {
-  margin-top: 0;
-  font-size: 23px;
-}
-
-.welcome-card p {
-  color: #9299a7;
-  margin-bottom: 0;
-}
-
-/* CARDS */
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-}
-
-.card {
-  background: #151922;
-  border: 1px solid #252a35;
-  border-radius: 16px;
-  padding: 24px;
-}
-
-.card-icon {
-  font-size: 30px;
-  margin-bottom: 15px;
-}
-
-.card h3 {
-  margin: 0 0 8px;
-  font-size: 19px;
-}
-
-.card p {
-  color: #858c9a;
-  margin: 0 0 15px;
-}
-
-.card strong {
-  color: #6ee7a0;
-}
-
-/* SETTINGS */
-
-.settings-box {
-  background: #151922;
-  border: 1px solid #252a35;
-  border-radius: 16px;
-  padding: 28px;
-}
-
-.settings-box h2 {
-  margin-top: 0;
-}
-
-.settings-box p {
-  color: #9299a7;
-  line-height: 1.6;
-}
-
-.primary {
-  border: 0;
-  background: #5865f2;
-  color: white;
-  padding: 12px 18px;
-  border-radius: 9px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.primary:hover {
-  background: #4752c4;
-}
-
-/* MOBILE */
-
-@media (max-width: 800px) {
-  .dashboard {
-    flex-direction: column;
+@media (max-width: 600px) {
+  .landing-page {
+    padding: 20px;
   }
 
-  .sidebar {
-    width: 100%;
-    min-height: auto;
+  .landing-card {
+    padding: 35px 25px;
   }
 
-  .menu {
-    flex-direction: row;
-    overflow-x: auto;
-  }
-
-  .sidebar-bottom {
-    display: none;
-  }
-
-  .content {
-    padding: 22px;
-  }
-
-  .cards {
-    grid-template-columns: 1fr;
-  }
-
-  header {
-    align-items: flex-start;
-    gap: 15px;
-    flex-direction: column;
+  .landing-card h1 {
+    font-size: 32px;
   }
 }
