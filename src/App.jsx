@@ -1,397 +1,1005 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import "./style.css";
 
-const ADMIN_CODE = "5378";
+const API_URL = "http://51.79.44.111:9305";
 
-const demoServers = [
-  {
-    id: "123456789012345678",
-    name: "AnkerSMP",
-    members: 128,
-    status: "Online",
-  },
-  {
-    id: "987654321098765432",
-    name: "Hjælper Community",
-    members: 74,
-    status: "Online",
-  },
-  {
-    id: "555555555555555555",
-    name: "Test Server",
-    members: 31,
-    status: "Online",
-  },
-];
+function App() {
+  const [activePage, setActivePage] = useState("dashboard");
 
-const menuItems = [
-  ["overview", "📊", "Oversigt"],
-  ["servers", "🖥️", "Servere"],
-  ["bot", "🤖", "Bot"],
-  ["system", "📜", "System"],
-  ["users", "👤", "Brugere"],
-  ["settings", "⚙️", "Indstillinger"],
-];
+  const [status, setStatus] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [servers, setServers] = useState([]);
+  const [cogs, setCogs] = useState([]);
 
-export default function App() {
-  const [page, setPage] = useState("home");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
-  const [activePage, setActivePage] = useState("overview");
-  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [error, setError] = useState(null);
 
-  function checkCode() {
-    if (code === ADMIN_CODE) {
-      setError("");
-      setCode("");
-      setPage("dashboard");
-    } else {
-      setError("❌ Forkert admin-kode");
-      setCode("");
+  const loadData = async () => {
+    try {
+      setError(null);
+
+      const [
+        statusResponse,
+        statsResponse,
+        serversResponse,
+        cogsResponse,
+      ] = await Promise.all([
+        fetch(`${API_URL}/api/status`),
+        fetch(`${API_URL}/api/stats`),
+        fetch(`${API_URL}/api/servers`),
+        fetch(`${API_URL}/api/cogs`),
+      ]);
+
+      if (
+        !statusResponse.ok ||
+        !statsResponse.ok ||
+        !serversResponse.ok ||
+        !cogsResponse.ok
+      ) {
+        throw new Error("API'en kunne ikke kontaktes.");
+      }
+
+      const statusData = await statusResponse.json();
+      const statsData = await statsResponse.json();
+      const serversData = await serversResponse.json();
+      const cogsData = await cogsResponse.json();
+
+      setStatus(statusData);
+      setStats(statsData);
+      setServers(serversData.servers || []);
+      setCogs(cogsData.cogs || []);
+
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  function logout() {
-    setPage("home");
-    setActivePage("overview");
-  }
+  useEffect(() => {
+    loadData();
 
-  if (page === "home") {
-    return (
-      <div className="admin-page">
-        <div className="admin-card">
-          <div className="bot-icon">🤖</div>
+    const interval = setInterval(() => {
+      loadData();
+    }, 15000);
 
-          <h1>Hjælper</h1>
+    return () => clearInterval(interval);
+  }, []);
 
-          <div className="buttons">
-            <button
-              className="admin-button"
-              onClick={() => setPage("login")}
-            >
-              🔐 Admin adgang
-            </button>
+  const botOnline = status?.bot_connected === true;
 
-            <button className="login-button" disabled>
-              🔵 Log ind
-              <span>Kommer snart</span>
-            </button>
-          </div>
-        </div>
+  const formatNumber = (number) => {
+    if (number === undefined || number === null) {
+      return "0";
+    }
 
-        <div className="version">
-          Hjælper Dashboard • V1
-        </div>
-      </div>
-    );
-  }
+    return number.toLocaleString("da-DK");
+  };
 
-  if (page === "login") {
-    return (
-      <div className="admin-page">
-        <div className="admin-card">
-          <div className="bot-icon">🔐</div>
+  const formatTime = () => {
+    if (!lastUpdate) {
+      return "Ikke opdateret endnu";
+    }
 
-          <h1>Admin adgang</h1>
-
-          <p className="muted">
-            Indtast admin-koden for at fortsætte.
-          </p>
-
-          <input
-            className="code-input"
-            type="password"
-            value={code}
-            maxLength={4}
-            placeholder="Admin-kode"
-            onChange={(e) => {
-              setCode(e.target.value);
-              setError("");
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") checkCode();
-            }}
-          />
-
-          {error && <div className="error">{error}</div>}
-
-          <div className="buttons">
-            <button className="admin-button" onClick={checkCode}>
-              🔓 Fortsæt
-            </button>
-
-            <button
-              className="login-button back-button"
-              onClick={() => {
-                setPage("home");
-                setCode("");
-                setError("");
-              }}
-            >
-              ← Tilbage
-            </button>
-          </div>
-        </div>
-
-        <div className="version">
-          Hjælper Dashboard • V1
-        </div>
-      </div>
-    );
-  }
-
-  const filteredServers = demoServers.filter((server) =>
-    `${server.name} ${server.id}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+    return lastUpdate.toLocaleTimeString("da-DK");
+  };
 
   return (
-    <div className="dashboard">
+    <div className="app">
+
+      {/* SIDEBAR */}
+
       <aside className="sidebar">
+
         <div className="brand">
-          <div className="brand-icon">🤖</div>
+          <div className="brand-icon">H</div>
 
           <div>
-            <strong>Hjælper</strong>
-            <span>Admin Panel</span>
+            <h2>Hjælper</h2>
+            <span>Dashboard V2</span>
           </div>
         </div>
 
-        <div className="sidebar-menu">
-          {menuItems.map(([id, icon, label]) => (
-            <button
-              key={id}
-              className={activePage === id ? "menu-item active" : "menu-item"}
-              onClick={() => setActivePage(id)}
-            >
-              <span>{icon}</span>
-              {label}
-            </button>
-          ))}
+        <div className="nav-title">
+          ADMIN
         </div>
+
+        <button
+          className={`nav-button ${
+            activePage === "dashboard" ? "active" : ""
+          }`}
+          onClick={() => setActivePage("dashboard")}
+        >
+          <span>🏠</span>
+          Dashboard
+        </button>
+
+        <button
+          className={`nav-button ${
+            activePage === "servers" ? "active" : ""
+          }`}
+          onClick={() => setActivePage("servers")}
+        >
+          <span>🖥️</span>
+          Servere
+        </button>
+
+        <button
+          className={`nav-button ${
+            activePage === "bot" ? "active" : ""
+          }`}
+          onClick={() => setActivePage("bot")}
+        >
+          <span>🤖</span>
+          Bot
+        </button>
+
+        <button
+          className={`nav-button ${
+            activePage === "system" ? "active" : ""
+          }`}
+          onClick={() => setActivePage("system")}
+        >
+          <span>⚙️</span>
+          System
+        </button>
+
+        <button
+          className={`nav-button ${
+            activePage === "settings" ? "active" : ""
+          }`}
+          onClick={() => setActivePage("settings")}
+        >
+          <span>🔧</span>
+          Indstillinger
+        </button>
 
         <div className="sidebar-bottom">
-          <button className="logout-button" onClick={logout}>
-            🚪 Log ud
-          </button>
 
-          <div className="sidebar-version">
-            Hjælper V1.0
+          <div className="connection-status">
+
+            <span
+              className={`status-dot ${
+                botOnline ? "online" : "offline"
+              }`}
+            />
+
+            <div>
+              <strong>
+                {botOnline ? "Bot online" : "Bot offline"}
+              </strong>
+
+              <small>
+                {botOnline
+                  ? "Forbundet til Discord"
+                  : "Ingen forbindelse"}
+              </small>
+            </div>
+
           </div>
+
         </div>
+
       </aside>
 
-      <main className="dashboard-main">
+
+      {/* MAIN */}
+
+      <main className="main">
+
+        {/* TOPBAR */}
+
         <header className="topbar">
+
           <div>
             <h1>
-              {activePage === "overview" && "📊 Oversigt"}
-              {activePage === "servers" && "🖥️ Servere"}
-              {activePage === "bot" && "🤖 Bot"}
-              {activePage === "system" && "📜 System"}
-              {activePage === "users" && "👤 Brugere"}
-              {activePage === "settings" && "⚙️ Indstillinger"}
+              {activePage === "dashboard" && "Dashboard"}
+
+              {activePage === "servers" && "Servere"}
+
+              {activePage === "bot" && "Bot"}
+
+              {activePage === "system" && "System"}
+
+              {activePage === "settings" && "Indstillinger"}
             </h1>
 
-            <p>Velkommen til Hjælper Admin Panel.</p>
+            <p>
+              Hjælper V2 administration
+            </p>
           </div>
 
-          <div className="status-pill">
-            <span></span>
-            Online
+          <div className="topbar-actions">
+
+            <div className="api-status">
+
+              <span
+                className={`status-dot ${
+                  botOnline ? "online" : "offline"
+                }`}
+              />
+
+              {botOnline
+                ? "API forbundet"
+                : "API offline"}
+
+            </div>
+
+            <button
+              className="refresh-button"
+              onClick={loadData}
+              disabled={loading}
+            >
+              🔄 Opdater
+            </button>
+
           </div>
+
         </header>
 
-        {activePage === "overview" && (
-          <>
-            <section className="stats-grid">
-              <Stat icon="🖥️" title="Servere" value="3" />
-              <Stat icon="👥" title="Medlemmer" value="233" />
-              <Stat icon="🔢" title="Commands" value="4" />
-              <Stat icon="🎫" title="Åbne tickets" value="0" />
-              <Stat icon="🧩" title="Loaded cogs" value="2" />
-              <Stat icon="⚠️" title="Warnings" value="0" />
-            </section>
 
-            <section className="content-grid">
-              <div className="panel">
-                <div className="panel-header">
-                  <h2>📡 Bot-status</h2>
-                </div>
+        {/* ERROR */}
 
-                <div className="status-list">
-                  <StatusRow label="Status" value="Online" />
-                  <StatusRow label="Latency" value="42 ms" />
-                  <StatusRow label="Uptime" value="2 dage, 4 timer" />
-                  <StatusRow label="Version" value="Hjælper V1" />
-                  <StatusRow label="Discord.py" value="2.7.1" />
-                </div>
+        {error && (
+          <div className="error-box">
+            <strong>⚠️ API-fejl</strong>
+            <span>{error}</span>
+          </div>
+        )}
+
+
+        {/* DASHBOARD */}
+
+        {activePage === "dashboard" && (
+          <section className="content">
+
+            <div className="welcome-card">
+
+              <div>
+                <span className="eyebrow">
+                  HJÆLPER V2
+                </span>
+
+                <h2>
+                  Velkommen til dashboardet 👋
+                </h2>
+
+                <p>
+                  Her kan du overvåge din Hjælper-bot
+                  og se live information fra Discord.
+                </p>
               </div>
 
+              <div className="bot-status-large">
+
+                <span
+                  className={`status-dot ${
+                    botOnline ? "online" : "offline"
+                  }`}
+                />
+
+                <div>
+                  <strong>
+                    {botOnline ? "Online" : "Offline"}
+                  </strong>
+
+                  <small>
+                    {status?.bot_name || "Hjælper V2"}
+                  </small>
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <div className="stats-grid">
+
+              <StatCard
+                icon="🤖"
+                title="Bot status"
+                value={botOnline ? "Online" : "Offline"}
+                subtitle={
+                  status?.bot_name || "Hjælper V2"
+                }
+              />
+
+              <StatCard
+                icon="🖥️"
+                title="Servere"
+                value={formatNumber(stats?.servers)}
+                subtitle="Discord servere"
+              />
+
+              <StatCard
+                icon="👥"
+                title="Brugere"
+                value={formatNumber(stats?.users)}
+                subtitle="Samlede medlemmer"
+              />
+
+              <StatCard
+                icon="🔢"
+                title="Commands"
+                value={formatNumber(stats?.commands)}
+                subtitle="Slash commands"
+              />
+
+              <StatCard
+                icon="🧩"
+                title="Cogs"
+                value={formatNumber(stats?.cogs)}
+                subtitle="Loaded modules"
+              />
+
+              <StatCard
+                icon="🌐"
+                title="API"
+                value={status?.status === "online" ? "Online" : "Offline"}
+                subtitle={`Port 9305`}
+              />
+
+            </div>
+
+
+            <div className="section-grid">
+
               <div className="panel">
+
                 <div className="panel-header">
-                  <h2>🧩 Loaded cogs</h2>
+
+                  <div>
+                    <h3>Discord servere</h3>
+                    <p>
+                      Servere hvor Hjælper er installeret
+                    </p>
+                  </div>
+
+                  <button
+                    className="small-button"
+                    onClick={() => setActivePage("servers")}
+                  >
+                    Se alle
+                  </button>
+
+                </div>
+
+                <div className="server-list">
+
+                  {loading && servers.length === 0 ? (
+                    <div className="empty-state">
+                      Henter servere...
+                    </div>
+                  ) : servers.length === 0 ? (
+                    <div className="empty-state">
+                      Ingen servere fundet.
+                    </div>
+                  ) : (
+                    servers.slice(0, 5).map((server) => (
+                      <ServerRow
+                        key={server.id}
+                        server={server}
+                      />
+                    ))
+                  )}
+
+                </div>
+
+              </div>
+
+
+              <div className="panel">
+
+                <div className="panel-header">
+
+                  <div>
+                    <h3>Loaded Cogs</h3>
+                    <p>
+                      Aktive moduler i botten
+                    </p>
+                  </div>
+
+                  <span className="count-badge">
+                    {cogs.length}
+                  </span>
+
                 </div>
 
                 <div className="cog-list">
-                  <div>📦 `general.py` <span>Loaded</span></div>
-                  <div>🎫 `tickets.py` <span>Loaded</span></div>
+
+                  {cogs.length === 0 ? (
+                    <div className="empty-state">
+                      Ingen cogs fundet.
+                    </div>
+                  ) : (
+                    cogs.map((cog) => (
+                      <div
+                        className="cog-row"
+                        key={cog.name}
+                      >
+                        <div className="cog-icon">
+                          🧩
+                        </div>
+
+                        <div>
+                          <strong>
+                            {cog.name}
+                          </strong>
+
+                          <small>
+                            Loaded
+                          </small>
+                        </div>
+
+                        <span className="loaded-badge">
+                          ✓
+                        </span>
+                      </div>
+                    ))
+                  )}
+
                 </div>
-              </div>
-            </section>
-          </>
-        )}
 
-        {activePage === "servers" && (
-          <section className="panel full-panel">
-            <div className="panel-header server-header">
-              <div>
-                <h2>🖥️ Hjælper servere</h2>
-                <p>{demoServers.length} servere</p>
               </div>
 
-              <input
-                className="server-search"
-                placeholder="🔎 Søg efter navn eller server-ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
             </div>
 
-            <div className="server-list">
-              {filteredServers.map((server) => (
-                <div className="server-card" key={server.id}>
-                  <div className="server-avatar">
-                    {server.name.charAt(0)}
+
+            <div className="last-update">
+              Sidst opdateret: {formatTime()}
+              {" • "}
+              Automatisk opdatering hvert 15. sekund
+            </div>
+
+          </section>
+        )}
+
+
+        {/* SERVERS */}
+
+        {activePage === "servers" && (
+          <section className="content">
+
+            <div className="page-header">
+
+              <div>
+                <span className="eyebrow">
+                  DISCORD
+                </span>
+
+                <h2>
+                  Servere
+                </h2>
+
+                <p>
+                  Alle servere hvor Hjælper V2 er installeret.
+                </p>
+              </div>
+
+              <div className="page-number">
+                {servers.length} servere
+              </div>
+
+            </div>
+
+
+            <div className="server-grid">
+
+              {servers.map((server) => (
+                <div
+                  className="server-card"
+                  key={server.id}
+                >
+
+                  <div className="server-card-top">
+
+                    {server.icon ? (
+                      <img
+                        src={server.icon}
+                        alt={server.name}
+                        className="server-icon"
+                      />
+                    ) : (
+                      <div className="server-icon-placeholder">
+                        🖥️
+                      </div>
+                    )}
+
+                    <div>
+                      <h3>
+                        {server.name}
+                      </h3>
+
+                      <span>
+                        ID: {server.id}
+                      </span>
+                    </div>
+
                   </div>
 
                   <div className="server-info">
-                    <h3>{server.name}</h3>
-                    <p>🆔 {server.id}</p>
-                    <p>👥 {server.members} medlemmer</p>
+
+                    <div>
+                      <span>👥</span>
+                      <strong>
+                        {formatNumber(server.members)}
+                      </strong>
+                      <small>
+                        medlemmer
+                      </small>
+                    </div>
+
+                    <div>
+                      <span>👑</span>
+                      <strong>
+                        {server.owner_id || "Ukendt"}
+                      </strong>
+                      <small>
+                        owner ID
+                      </small>
+                    </div>
+
                   </div>
 
-                  <div className="server-actions">
-                    <span className="online-text">
-                      🟢 {server.status}
-                    </span>
+                  <button
+                    className="server-action"
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        String(server.id)
+                      )
+                    }
+                  >
+                    📋 Kopiér server-ID
+                  </button>
 
-                    <button className="danger-button">
-                      🚪 Fjern bot
-                    </button>
-                  </div>
                 </div>
               ))}
 
-              {filteredServers.length === 0 && (
-                <div className="empty">
-                  🔎 Ingen servere fundet.
-                </div>
-              )}
             </div>
+
           </section>
         )}
+
+
+        {/* BOT */}
 
         {activePage === "bot" && (
-          <section className="panel full-panel">
-            <div className="panel-header">
-              <h2>🤖 Bot-kontrol</h2>
+          <section className="content">
+
+            <div className="page-header">
+
+              <div>
+                <span className="eyebrow">
+                  HJÆLPER V2
+                </span>
+
+                <h2>
+                  Bot
+                </h2>
+
+                <p>
+                  Information om den aktive Discord-bot.
+                </p>
+              </div>
+
             </div>
 
-            <div className="action-grid">
-              <AdminAction icon="🔄" title="Genstart bot" />
-              <AdminAction icon="📡" title="Se bot-status" />
-              <AdminAction icon="🔢" title="Se antal commands" />
-              <AdminAction icon="🧩" title="Se loaded cogs" />
+
+            <div className="info-grid">
+
+              <InfoCard
+                icon="🤖"
+                title="Bot"
+                value={status?.bot_name || "Ukendt"}
+              />
+
+              <InfoCard
+                icon="🆔"
+                title="Bot ID"
+                value={status?.bot_id || "Ukendt"}
+              />
+
+              <InfoCard
+                icon="🏠"
+                title="Servere"
+                value={formatNumber(status?.servers)}
+              />
+
+              <InfoCard
+                icon="📡"
+                title="Forbindelse"
+                value={botOnline ? "Online" : "Offline"}
+              />
+
             </div>
+
+
+            <div className="panel">
+
+              <div className="panel-header">
+
+                <div>
+                  <h3>Loaded Cogs</h3>
+                  <p>
+                    Moduler som aktuelt er loaded.
+                  </p>
+                </div>
+
+              </div>
+
+              <div className="cog-list">
+
+                {cogs.map((cog) => (
+                  <div
+                    className="cog-row"
+                    key={cog.name}
+                  >
+
+                    <div className="cog-icon">
+                      🧩
+                    </div>
+
+                    <div>
+                      <strong>
+                        {cog.name}
+                      </strong>
+
+                      <small>
+                        Aktiv
+                      </small>
+                    </div>
+
+                    <span className="loaded-badge">
+                      ✓ Loaded
+                    </span>
+
+                  </div>
+                ))}
+
+              </div>
+
+            </div>
+
           </section>
         )}
+
+
+        {/* SYSTEM */}
 
         {activePage === "system" && (
-          <section className="panel full-panel">
-            <div className="panel-header">
-              <h2>📜 System</h2>
+          <section className="content">
+
+            <div className="page-header">
+
+              <div>
+                <span className="eyebrow">
+                  SYSTEM
+                </span>
+
+                <h2>
+                  System
+                </h2>
+
+                <p>
+                  Teknisk information om Hjælper V2.
+                </p>
+              </div>
+
             </div>
 
-            <div className="action-grid">
-              <AdminAction icon="📜" title="Se logs" />
-              <AdminAction icon="🐛" title="Se fejl" />
-              <AdminAction icon="🔔" title="Se warnings" />
-              <AdminAction icon="🗑️" title="Ryd gamle logs" />
-              <AdminAction icon="📝" title="Admin audit-log" />
-            </div>
-          </section>
-        )}
-
-        {activePage === "users" && (
-          <section className="panel full-panel">
-            <div className="panel-header">
-              <h2>👤 Brugere</h2>
-            </div>
 
             <div className="stats-grid">
-              <Stat icon="👤" title="Bot-brugere" value="233" />
-              <Stat icon="📊" title="Aktive brugere" value="187" />
-              <Stat icon="📈" title="Brug i dag" value="64" />
+
+              <StatCard
+                icon="🌐"
+                title="API"
+                value={
+                  status?.status === "online"
+                    ? "Online"
+                    : "Offline"
+                }
+                subtitle="FastAPI"
+              />
+
+              <StatCard
+                icon="🔌"
+                title="Port"
+                value="9305"
+                subtitle="API port"
+              />
+
+              <StatCard
+                icon="🐍"
+                title="Python"
+                value="3.14"
+                subtitle="Python runtime"
+              />
+
+              <StatCard
+                icon="🤖"
+                title="Discord"
+                value="2.7.1"
+                subtitle="discord.py"
+              />
+
             </div>
+
+
+            <div className="panel">
+
+              <div className="panel-header">
+
+                <div>
+                  <h3>
+                    API endpoints
+                  </h3>
+
+                  <p>
+                    Endpoints dashboardet bruger.
+                  </p>
+                </div>
+
+              </div>
+
+              <div className="endpoint-list">
+
+                <Endpoint
+                  method="GET"
+                  path="/api/status"
+                />
+
+                <Endpoint
+                  method="GET"
+                  path="/api/servers"
+                />
+
+                <Endpoint
+                  method="GET"
+                  path="/api/stats"
+                />
+
+                <Endpoint
+                  method="GET"
+                  path="/api/cogs"
+                />
+
+              </div>
+
+            </div>
+
           </section>
         )}
+
+
+        {/* SETTINGS */}
 
         {activePage === "settings" && (
-          <section className="panel full-panel">
-            <div className="panel-header">
-              <h2>⚙️ Globale bot-indstillinger</h2>
+          <section className="content">
+
+            <div className="page-header">
+
+              <div>
+                <span className="eyebrow">
+                  KONFIGURATION
+                </span>
+
+                <h2>
+                  Indstillinger
+                </h2>
+
+                <p>
+                  Dashboard-indstillinger kommer her.
+                </p>
+              </div>
+
             </div>
 
-            <div className="settings-list">
-              <Setting name="Maintenance Mode" value="Fra" />
-              <Setting name="Auto error logging" value="Til" />
-              <Setting name="Debug Mode" value="Fra" />
-              <Setting name="Global Commands" value="Til" />
+
+            <div className="panel">
+
+              <div className="setting-row">
+
+                <div>
+                  <strong>
+                    Automatisk opdatering
+                  </strong>
+
+                  <small>
+                    Dashboardet henter nye data
+                    hvert 15. sekund.
+                  </small>
+                </div>
+
+                <span className="setting-enabled">
+                  ✓ Aktiv
+                </span>
+
+              </div>
+
+
+              <div className="setting-row">
+
+                <div>
+                  <strong>
+                    API forbindelse
+                  </strong>
+
+                  <small>
+                    {API_URL}
+                  </small>
+                </div>
+
+                <span
+                  className={
+                    botOnline
+                      ? "setting-enabled"
+                      : "setting-disabled"
+                  }
+                >
+                  {botOnline
+                    ? "✓ Online"
+                    : "✕ Offline"}
+                </span>
+
+              </div>
+
+
+              <div className="setting-row">
+
+                <div>
+                  <strong>
+                    Dashboard version
+                  </strong>
+
+                  <small>
+                    Hjælper Dashboard V2
+                  </small>
+                </div>
+
+                <span className="version-badge">
+                  V2
+                </span>
+
+              </div>
+
             </div>
+
           </section>
         )}
+
+        <footer>
+          Hjælper Dashboard • V2
+        </footer>
+
       </main>
+
     </div>
   );
 }
 
-function Stat({ icon, title, value }) {
+
+/* ============================================================
+   COMPONENTS
+============================================================ */
+
+function StatCard({
+  icon,
+  title,
+  value,
+  subtitle,
+}) {
   return (
     <div className="stat-card">
-      <div className="stat-icon">{icon}</div>
+
+      <div className="stat-icon">
+        {icon}
+      </div>
+
+      <div className="stat-content">
+
+        <span>
+          {title}
+        </span>
+
+        <strong>
+          {value}
+        </strong>
+
+        <small>
+          {subtitle}
+        </small>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function ServerRow({ server }) {
+  return (
+    <div className="server-row">
+
+      {server.icon ? (
+        <img
+          src={server.icon}
+          alt={server.name}
+          className="server-row-icon"
+        />
+      ) : (
+        <div className="server-row-icon placeholder">
+          🖥️
+        </div>
+      )}
+
+      <div className="server-row-info">
+
+        <strong>
+          {server.name}
+        </strong>
+
+        <small>
+          {server.members || 0} medlemmer
+        </small>
+
+      </div>
+
+      <span className="server-online">
+        ●
+      </span>
+
+    </div>
+  );
+}
+
+
+function InfoCard({
+  icon,
+  title,
+  value,
+}) {
+  return (
+    <div className="info-card">
+
+      <div className="info-card-icon">
+        {icon}
+      </div>
 
       <div>
-        <span>{title}</span>
-        <strong>{value}</strong>
+        <span>
+          {title}
+        </span>
+
+        <strong>
+          {value}
+        </strong>
       </div>
+
     </div>
   );
 }
 
-function StatusRow({ label, value }) {
+
+function Endpoint({
+  method,
+  path,
+}) {
   return (
-    <div className="status-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="endpoint-row">
+
+      <span className="method">
+        {method}
+      </span>
+
+      <code>
+        {path}
+      </code>
+
     </div>
   );
 }
 
-function AdminAction({ icon, title }) {
-  return (
-    <button className="admin-action">
-      <span>{icon}</span>
-      <strong>{title}</strong>
-    </button>
-  );
-}
-
-function Setting({ name, value }) {
-  return (
-    <div className="setting-row">
-      <span>{name}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
+export default App;
