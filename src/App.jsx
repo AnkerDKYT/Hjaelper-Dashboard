@@ -78,7 +78,21 @@ export default function App() {
       }
 
       if (serversRes.ok) {
-        setServers(await serversRes.json());
+        const serverData = await serversRes.json();
+
+        setServers(serverData);
+
+        // Hvis vi står på en server, som netop er blevet fjernet,
+        // skal serverdetaljerne lukkes.
+        if (selectedServer) {
+          const stillExists = (serverData.servers || []).some(
+            (server) => server.id === selectedServer.id
+          );
+
+          if (!stillExists) {
+            setSelectedServer(null);
+          }
+        }
       }
     } catch (err) {
       console.error(err);
@@ -111,6 +125,8 @@ export default function App() {
     }
 
     setUser(null);
+    setSelectedServer(null);
+    setPage("overview");
   }
 
   async function reloadCogs() {
@@ -138,40 +154,83 @@ export default function App() {
   }
 
   async function leaveServer() {
-    if (!selectedServer) return;
+    if (!selectedServer) {
+      return;
+    }
+
+    const serverName = selectedServer.name;
+    const serverId = selectedServer.id;
 
     const confirmed = window.confirm(
-      `Er du sikker på, at Hjælper skal fjernes fra "${selectedServer.name}"?`
+      `Er du sikker på, at Hjælper skal forlade "${serverName}"?\n\nServer ID: ${serverId}`
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       setLeavingServer(true);
       setError("");
 
+      console.log(
+        `🚪 Forsøger at få Hjælper til at forlade: ${serverName}`
+      );
+
       const response = await fetch(
-        `${API}/api/servers/${selectedServer.id}/leave`,
+        `${API}/api/servers/${serverId}/leave`,
         {
           method: "POST",
           credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
-      const data = await response.json();
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log("Leave server response:", response.status, data);
 
       if (!response.ok) {
         throw new Error(
-          data.detail || "Kunne ikke fjerne Hjælper fra serveren."
+          data.detail ||
+            data.message ||
+            `Kunne ikke fjerne Hjælper fra serveren. HTTP ${response.status}`
         );
       }
 
+      // Luk serverdetaljerne.
       setSelectedServer(null);
 
+      // Gå tilbage til serverlisten.
+      setPage("servers");
+
+      // Hent serverlisten igen.
       await loadDashboard();
+
+      // Vis succes.
+      alert(
+        data.message ||
+          `✅ Hjælper har forladt "${serverName}".`
+      );
     } catch (err) {
-      console.error(err);
-      setError(err.message);
+      console.error("❌ Leave server fejl:", err);
+
+      setError(
+        err.message ||
+          "Kunne ikke fjerne Hjælper fra serveren."
+      );
+
+      alert(
+        `❌ ${err.message || "Kunne ikke fjerne Hjælper fra serveren."}`
+      );
     } finally {
       setLeavingServer(false);
     }
@@ -300,6 +359,7 @@ export default function App() {
               onClick={() => {
                 setPage(id);
                 setSelectedServer(null);
+                setError("");
               }}
             >
               <i>{icon}</i>
@@ -623,6 +683,7 @@ export default function App() {
 
                   {(servers.servers || []).map((server) => (
                     <button
+                      type="button"
                       className="server server-button"
                       key={server.id}
                       onClick={() => {
@@ -691,7 +752,10 @@ export default function App() {
 
                 <button
                   className="refresh"
-                  onClick={() => setSelectedServer(null)}
+                  onClick={() => {
+                    setSelectedServer(null);
+                    setError("");
+                  }}
                 >
                   ← Tilbage
                 </button>
@@ -772,6 +836,7 @@ export default function App() {
                   </div>
 
                   <button
+                    type="button"
                     className="danger-button"
                     onClick={leaveServer}
                     disabled={leavingServer}
