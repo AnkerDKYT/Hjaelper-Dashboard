@@ -1,7 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import "./style.css";
 
 export default function App() {
+
   const [page, setPage] = useState("home");
   const [adminLoggedIn, setAdminLoggedIn] = useState(false);
 
