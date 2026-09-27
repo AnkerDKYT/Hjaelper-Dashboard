@@ -42,7 +42,7 @@ function App() {
       setServers(serversData.servers || []);
       setCogs(cogsData.cogs || []);
     } catch (err) {
-      console.error(err);
+      console.error("API error:", err);
       setError("Kunne ikke forbinde til Hjælper API.");
     } finally {
       setLoading(false);
@@ -66,9 +66,10 @@ function App() {
       setCode("");
       setError("");
       setPage("servers");
-    } else {
-      setError("Forkert admin-kode.");
+      return;
     }
+
+    setError("Forkert admin-kode.");
   }
 
   function logout() {
@@ -80,11 +81,13 @@ function App() {
 
   function chooseServer(selectedServer) {
     setServer(selectedServer);
+    setError("");
     setPage("dashboard");
   }
 
   const online = status?.bot_connected === true;
 
+  /* LOGIN */
   if (page === "login") {
     return (
       <div className="login-page">
@@ -146,6 +149,7 @@ function App() {
     );
   }
 
+  /* SERVER SELECT */
   if (page === "servers") {
     return (
       <div className="server-page">
@@ -158,34 +162,4 @@ function App() {
             <h1>Vælg server</h1>
 
             <p>
-              Vælg hvilken Discord-server du vil
-              administrere.
-            </p>
-          </div>
-
-          <button
-            className="logout"
-            onClick={logout}
-          >
-            Log ud
-          </button>
-        </div>
-
-        {loading && (
-          <div className="loading">
-            Henter servere...
-          </div>
-        )}
-
-        {error && (
-          <div className="error-box">
-            {error}
-          </div>
-        )}
-
-        {!loading &&
-          !error &&
-          servers.length === 0 && (
-            <div className="loading">
-              Ingen se
-
+              Vælg
