@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import "./style.css";
 
-const API = "http://51.79.44.111:9305";
+const API = "/backend";
+const ADMIN_CODE = "5378";
 
 function App() {
   const [page, setPage] = useState("login");
@@ -20,25 +21,34 @@ function App() {
       setLoading(true);
       setError("");
 
-      const results = await Promise.all([
-        fetch(`${API}/api/status`),
-        fetch(`${API}/api/stats`),
-        fetch(`${API}/api/servers`),
-        fetch(`${API}/api/cogs`)
-      ]);
+      const [statusRes, statsRes, serversRes, cogsRes] =
+        await Promise.all([
+          fetch(`${API}/api/status`),
+          fetch(`${API}/api/stats`),
+          fetch(`${API}/api/servers`),
+          fetch(`${API}/api/cogs`)
+        ]);
 
-      if (results.some(r => !r.ok)) throw new Error("API'en kunne ikke kontaktes.");
+      if (
+        !statusRes.ok ||
+        !statsRes.ok ||
+        !serversRes.ok ||
+        !cogsRes.ok
+      ) {
+        throw new Error("API fejl");
+      }
 
-      const [s, st, sv, c] = await Promise.all(
-        results.map(r => r.json())
-      );
+      const statusData = await statusRes.json();
+      const statsData = await statsRes.json();
+      const serversData = await serversRes.json();
+      const cogsData = await cogsRes.json();
 
-      setStatus(s);
-      setStats(st);
-      setServers(sv.servers || []);
-      setCogs(c.cogs || []);
-    } catch (e) {
-      console.error(e);
+      setStatus(statusData);
+      setStats(statsData);
+      setServers(serversData.servers || []);
+      setCogs(cogsData.cogs || []);
+    } catch (err) {
+      console.error("API fejl:", err);
       setError("Kunne ikke forbinde til Hjælper API.");
     } finally {
       setLoading(false);
@@ -46,107 +56,180 @@ function App() {
   };
 
   useEffect(() => {
-    if (page === "dashboard") {
-      loadAPI();
-      const timer = setInterval(loadAPI, 15000);
-      return () => clearInterval(timer);
-    }
+    if (page !== "servers" && page !== "dashboard") return;
+
+    loadAPI();
+
+    const timer = setInterval(loadAPI, 15000);
+
+    return () => clearInterval(timer);
   }, [page]);
 
   const login = () => {
-    if (code === "5378") {
-      setError("");
+    if (code === ADMIN_CODE) {
       setCode("");
+      setError("");
       setPage("servers");
     } else {
       setError("Forkert admin-kode.");
     }
   };
 
+  const logout = () => {
+    setServer(null);
+    setCode("");
+    setError("");
+    setPage("login");
+  };
+
+  const selectServer = (selectedServer) => {
+    setServer(selectedServer);
+    setPage("dashboard");
+  };
+
   const online = status?.bot_connected === true;
+
+  /* =========================
+     LOGIN
+  ========================= */
 
   if (page === "login") {
     return (
       <div className="login-page">
         <div className="login-card">
           <div className="logo">H</div>
+
           <h1>Hjælper</h1>
           <p className="subtitle">Dashboard V2</p>
 
           <div className="login-section">
             <h2>🔐 Admin adgang</h2>
-            <p>Indtast din midlertidige admin-kode.</p>
+
+            <p>
+              Indtast din midlertidige admin-kode.
+            </p>
 
             <input
               type="password"
               placeholder="Admin kode"
               value={code}
-              onChange={e => setCode(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && login()}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") login();
+              }}
             />
 
-            <button className="primary" onClick={login}>
+            <button
+              className="primary"
+              onClick={login}
+            >
               🔓 Fortsæt
             </button>
 
-            {error && <div className="error">{error}</div>}
+            {error && (
+              <div className="error">
+                {error}
+              </div>
+            )}
           </div>
 
           <div className="divider">
             <span>eller</span>
           </div>
 
-          <button className="disabled-button" disabled>
+          <button
+            className="disabled-button"
+            disabled
+          >
             🔵 Log ind
           </button>
 
-          <small className="coming">Kommer snart</small>
+          <small className="coming">
+            Kommer snart
+          </small>
         </div>
       </div>
     );
   }
+
+  /* =========================
+     SERVER SELECT
+  ========================= */
 
   if (page === "servers") {
     return (
       <div className="server-page">
         <div className="server-header">
           <div>
-            <span className="eyebrow">HJÆLPER V2</span>
+            <span className="eyebrow">
+              HJÆLPER V2
+            </span>
+
             <h1>Vælg server</h1>
-            <p>Vælg hvilken Discord-server du vil administrere.</p>
+
+            <p>
+              Vælg hvilken Discord-server du vil
+              administrere.
+            </p>
           </div>
 
-          <button className="logout" onClick={() => setPage("login")}>
+          <button
+            className="logout"
+            onClick={logout}
+          >
             Log ud
           </button>
         </div>
 
-        {loading && <div className="loading">Henter servere...</div>}
+        {loading && (
+          <div className="loading">
+            Henter servere...
+          </div>
+        )}
 
-        {error && <div className="error-box">{error}</div>}
+        {error && (
+          <div className="error-box">
+            {error}
+          </div>
+        )}
+
+        {!loading &&
+          !error &&
+          servers.length === 0 && (
+            <div className="loading">
+              Ingen servere fundet.
+            </div>
+          )}
 
         <div className="servers">
-          {servers.map(s => (
+          {servers.map((s) => (
             <button
               className="server-card"
               key={s.id}
-              onClick={() => {
-                setServer(s);
-                setPage("dashboard");
-              }}
+              onClick={() => selectServer(s)}
             >
               {s.icon ? (
-                <img src={s.icon} alt="" />
+                <img
+                  src={s.icon}
+                  alt=""
+                />
               ) : (
-                <div className="server-placeholder">🖥️</div>
+                <div className="server-placeholder">
+                  🖥️
+                </div>
               )}
 
-              <div>
+              <div className="server-info">
                 <strong>{s.name}</strong>
-                <small>{s.members || 0} medlemmer</small>
+
+                <small>
+                  {s.members || 0} medlemmer
+                </small>
               </div>
 
-              <span>›</span>
+              <span className="arrow">
+                ›
+              </span>
             </button>
           ))}
         </div>
@@ -154,11 +237,18 @@ function App() {
     );
   }
 
+  /* =========================
+     DASHBOARD
+  ========================= */
+
   return (
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">H</div>
+          <div className="brand-icon">
+            H
+          </div>
+
           <div>
             <strong>Hjælper</strong>
             <small>Dashboard V2</small>
@@ -166,133 +256,23 @@ function App() {
         </div>
 
         <button
-          className={page === "dashboard" ? "nav active" : "nav"}
+          className="nav active"
           onClick={() => setPage("dashboard")}
         >
           🏠 Dashboard
         </button>
 
-        <button className="nav" onClick={() => setPage("servers")}>
+        <button
+          className="nav"
+          onClick={() => setPage("servers")}
+        >
           🖥️ Servere
         </button>
 
-        <button className="nav">🎫 Tickets</button>
-        <button className="nav">🛡️ Moderation</button>
-        <button className="nav">👋 Server</button>
-        <button className="nav">⚙️ Indstillinger</button>
+        <button className="nav">
+          🎫 Tickets
+        </button>
 
-        <div className="sidebar-bottom">
-          <span className={online ? "dot online" : "dot"} />
-          {online ? "Bot online" : "Bot offline"}
-        </div>
-      </aside>
+        <button className="nav">
+          🛡️
 
-      <main className="main">
-        <header className="topbar">
-          <div>
-            <h1>Dashboard</h1>
-            <p>{server?.name || "Hjælper V2 administration"}</p>
-          </div>
-
-          <div className="actions">
-            <span className={online ? "api online-text" : "api"}>
-              ● {online ? "API forbundet" : "API offline"}
-            </span>
-
-            <button onClick={loadAPI} disabled={loading}>
-              🔄 Opdater
-            </button>
-          </div>
-        </header>
-
-        {error && <div className="error-box">{error}</div>}
-
-        <section className="content">
-          <div className="welcome">
-            <div>
-              <span className="eyebrow">HJÆLPER V2</span>
-              <h2>Velkommen 👋</h2>
-              <p>Her kan du administrere og overvåge Hjælper.</p>
-            </div>
-
-            <div className="bot-state">
-              <span className={online ? "dot online" : "dot"} />
-              <div>
-                <strong>{online ? "Online" : "Offline"}</strong>
-                <small>{status?.bot_name || "Hjælper"}</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="stats">
-            <Card icon="🤖" title="Bot" value={online ? "Online" : "Offline"} />
-            <Card icon="🖥️" title="Servere" value={stats?.servers ?? 0} />
-            <Card icon="👥" title="Brugere" value={stats?.users ?? 0} />
-            <Card icon="🔢" title="Commands" value={stats?.commands ?? 0} />
-            <Card icon="🧩" title="Cogs" value={stats?.cogs ?? 0} />
-            <Card icon="🌐" title="API" value={status?.status === "online" ? "Online" : "Offline"} />
-          </div>
-
-          <div className="columns">
-            <Panel title="Discord servere">
-              {servers.map(s => (
-                <div className="row" key={s.id}>
-                  {s.icon ? (
-                    <img src={s.icon} alt="" />
-                  ) : (
-                    <div className="mini-icon">🖥️</div>
-                  )}
-
-                  <div>
-                    <strong>{s.name}</strong>
-                    <small>{s.members || 0} medlemmer</small>
-                  </div>
-                </div>
-              ))}
-            </Panel>
-
-            <Panel title="Loaded Cogs">
-              {cogs.map(c => (
-                <div className="row" key={c.name}>
-                  <div className="mini-icon">🧩</div>
-
-                  <div>
-                    <strong>{c.name}</strong>
-                    <small>Loaded</small>
-                  </div>
-
-                  <span className="loaded">✓</span>
-                </div>
-              ))}
-            </Panel>
-          </div>
-        </section>
-
-        <footer>Hjælper Dashboard • V2</footer>
-      </main>
-    </div>
-  );
-}
-
-function Card({ icon, title, value }) {
-  return (
-    <div className="card">
-      <div className="card-icon">{icon}</div>
-      <div>
-        <small>{title}</small>
-        <strong>{value}</strong>
-      </div>
-    </div>
-  );
-}
-
-function Panel({ title, children }) {
-  return (
-    <div className="panel">
-      <div className="panel-title">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-export default App;
