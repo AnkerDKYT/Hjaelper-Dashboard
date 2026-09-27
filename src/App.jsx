@@ -14,220 +14,369 @@ export default function App() {
   const [cogs, setCogs] = useState({});
   const [servers, setServers] = useState({});
 
-  const load = async () => {
+  const loadDashboard = async () => {
     try {
-      const [s, st, c, sv] = await Promise.all([
-        fetch(`${API}/api/status`, { credentials: "include" }),
-        fetch(`${API}/api/stats`, { credentials: "include" }),
-        fetch(`${API}/api/cogs`, { credentials: "include" }),
-        fetch(`${API}/api/servers`, { credentials: "include" }),
-      ]);
+      const [statusResponse, statsResponse, cogsResponse, serversResponse] =
+        await Promise.all([
+          fetch(`${API}/api/status`, {
+            credentials: "include",
+          }),
 
-      if (s.ok) setStatus(await s.json());
-      if (st.ok) setStats(await st.json());
-      if (c.ok) setCogs(await c.json());
-      if (sv.ok) setServers(await sv.json());
-    } catch {
-      setError("Kunne ikke hente data fra API'et.");
+          fetch(`${API}/api/stats`, {
+            credentials: "include",
+          }),
+
+          fetch(`${API}/api/cogs`, {
+            credentials: "include",
+          }),
+
+          fetch(`${API}/api/servers`, {
+            credentials: "include",
+          }),
+        ]);
+
+      if (statusResponse.ok) {
+        setStatus(await statusResponse.json());
+      }
+
+      if (statsResponse.ok) {
+        setStats(await statsResponse.json());
+      }
+
+      if (cogsResponse.ok) {
+        setCogs(await cogsResponse.json());
+      }
+
+      if (serversResponse.ok) {
+        setServers(await serversResponse.json());
+      }
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        "Kunne ikke hente data fra API'et."
+      );
     }
   };
 
+
+  // ==========================================================
+  // LOGIN USER
+  // ==========================================================
+
   useEffect(() => {
-    fetch(`${API}/auth/me`, {
-      credentials: "include",
-    })
-      .then(async (r) => {
-        if (!r.ok) {
+    const loadUser = async () => {
+      try {
+        const response = await fetch(
+          `${API}/auth/me`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
           setUser(null);
           return;
         }
 
-        const data = await r.json();
+        const data = await response.json();
 
-        console.log("AUTH USER:", data);
+        console.log(
+          "Hjælper /auth/me:",
+          data
+        );
 
-        setUser(data);
-      })
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+        if (
+          !data.authenticated ||
+          !data.user
+        ) {
+          setUser(null);
+          return;
+        }
+
+        setUser(data.user);
+
+      } catch (err) {
+        console.error(err);
+        setUser(null);
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
 
+
+  // ==========================================================
+  // DASHBOARD AUTO REFRESH
+  // ==========================================================
+
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
-    load();
+    loadDashboard();
 
-    const timer = setInterval(load, 10000);
+    const interval = setInterval(
+      loadDashboard,
+      10000
+    );
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(interval);
+    };
   }, [user]);
 
+
+  // ==========================================================
+  // LOGIN
+  // ==========================================================
+
   const login = () => {
-    window.location.href = `${API}/auth/discord`;
+    window.location.href =
+      `${API}/auth/discord`;
   };
+
+
+  // ==========================================================
+  // LOGOUT
+  // ==========================================================
 
   const logout = async () => {
     try {
-      await fetch(`${API}/auth/logout`, {
-        credentials: "include",
-      });
-    } finally {
-      setUser(null);
+      await fetch(
+        `${API}/auth/logout`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+    } catch (err) {
+      console.error(err);
     }
+
+    setUser(null);
   };
+
+
+  // ==========================================================
+  // RELOAD COGS
+  // ==========================================================
 
   const reloadCogs = async () => {
     try {
-      const r = await fetch(`${API}/api/reload-cogs`, {
-        method: "POST",
-        credentials: "include",
-      });
+      setError("");
 
-      if (!r.ok) throw new Error();
+      const response = await fetch(
+        `${API}/api/reload-cogs`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
 
-      await load();
-    } catch {
-      setError("Kunne ikke reloade Cogs.");
+      if (!response.ok) {
+        throw new Error(
+          "Reload Cogs fejlede."
+        );
+      }
+
+      await loadDashboard();
+
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        "Kunne ikke reloade Cogs."
+      );
     }
   };
+
+
+  // ==========================================================
+  // LOADING
+  // ==========================================================
 
   if (loading) {
     return (
       <div className="loading">
-        <div className="loading-logo">🤖</div>
-        <h2>Hjælper</h2>
-        <p>Indlæser Admin Panel...</p>
+
+        <div className="loading-logo">
+          🤖
+        </div>
+
+        <h2>
+          Hjælper
+        </h2>
+
+        <p>
+          Indlæser Admin Panel...
+        </p>
+
       </div>
     );
   }
 
+
+  // ==========================================================
+  // NOT LOGGED IN
+  // ==========================================================
+
   if (!user) {
     return (
       <div className="home">
+
         <div className="home-card">
-          <div className="home-logo">🤖</div>
+
+          <div className="home-logo">
+            🤖
+          </div>
 
           <div className="eyebrow">
             HJÆLPER ADMIN PANEL
           </div>
 
           <h1>
-            Velkommen til <span>Hjælper</span>
+            Velkommen til{" "}
+            <span>
+              Hjælper
+            </span>
           </h1>
 
           <p>
-            Administrer din Discord-bot fra ét simpelt dashboard.
+            Administrer din Discord-bot
+            fra ét simpelt dashboard.
           </p>
 
           {error && (
             <div className="error">
-              <span>{error}</span>
-              <button onClick={() => setError("")}>×</button>
+
+              <span>
+                {error}
+              </span>
+
+              <button
+                onClick={() =>
+                  setError("")
+                }
+              >
+                ×
+              </button>
+
             </div>
           )}
 
-          <button className="login" onClick={login}>
-            <span>🔐 Admin Login</span>
-            <span>→</span>
+          <button
+            className="login"
+            onClick={login}
+          >
+            <span>
+              🔐 Admin Login
+            </span>
+
+            <span>
+              →
+            </span>
           </button>
 
           <div className="login-note">
-            Log ind som administrator
+            Log ind med Discord
           </div>
 
-          <button className="login disabled" disabled>
-            <span>👤 Bruger Login</span>
-            <small>Kommer snart</small>
-          </button>
         </div>
+
       </div>
     );
   }
 
-  /*
-   * Discord-brugerdata.
-   *
-   * Vi prøver flere almindelige feltnavne,
-   * så frontend virker med forskellige /auth/me-formater.
-   */
 
-  const username =
-    user.username ||
-    user.global_name ||
-    user.name ||
-    user.discord_username ||
-    "Admin";
+  // ==========================================================
+  // USER DATA
+  // ==========================================================
 
   const displayName =
     user.global_name ||
     user.username ||
-    user.name ||
-    username;
+    "Admin";
 
-  const role =
-    user.role === "owner" ||
-    user.role === "Ejer" ||
-    user.is_owner === true
-      ? "owner"
-      : "admin";
+  const isOwner =
+    user.role === "owner";
 
-  const owner = role === "owner";
+  const roleName =
+    user.role_name ||
+    (isOwner
+      ? "Ejer"
+      : "Admin");
 
-  /*
-   * Avatar.
-   *
-   * Hvis backend allerede sender en avatar_url,
-   * bruger vi den direkte.
-   *
-   * Hvis backend sender avatar + id,
-   * laver vi Discord-avatar URL'en selv.
-   */
 
-  let avatarUrl =
-    user.avatar_url ||
-    user.avatarURL ||
-    user.avatarUrl ||
-    user.avatar;
+  // ==========================================================
+  // DISCORD AVATAR
+  // ==========================================================
+
+  let avatarUrl = null;
 
   if (
-    avatarUrl &&
-    !avatarUrl.startsWith("http") &&
+    user.avatar &&
     user.id
   ) {
-    avatarUrl = `https://cdn.discordapp.com/avatars/${user.id}/${avatarUrl}.png?size=128`;
+    avatarUrl =
+      `https://cdn.discordapp.com/avatars/` +
+      `${user.id}/${user.avatar}.png?size=128`;
   }
 
-  if (
-    !avatarUrl &&
-    user.id &&
-    user.avatar
-  ) {
-    avatarUrl = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-  }
+  const fallbackAvatar =
+    "https://cdn.discordapp.com/embed/avatars/0.png";
 
-  /*
-   * Discord fallback-avatar hvis backend
-   * ikke sender et avatar-billede.
-   */
 
-  const avatarFallback =
-    user.discriminator &&
-    user.discriminator !== "0"
-      ? `https://cdn.discordapp.com/embed/avatars/${
-          Number(user.discriminator) % 5
-        }.png`
-      : `https://cdn.discordapp.com/embed/avatars/0.png`;
-
-  const finalAvatar = avatarUrl || avatarFallback;
+  // ==========================================================
+  // NAVIGATION
+  // ==========================================================
 
   const nav = [
-    ["overview", "🏠", "Overview"],
-    ["bot", "🤖", "Bot"],
-    ["cogs", "🧩", "Cogs"],
-    ["servers", "🖥️", "Servere"],
-    ["logs", "📜", "Logs"],
-    ["system", "⚙️", "System"],
+    [
+      "overview",
+      "🏠",
+      "Overview"
+    ],
+
+    [
+      "bot",
+      "🤖",
+      "Bot"
+    ],
+
+    [
+      "cogs",
+      "🧩",
+      "Cogs"
+    ],
+
+    [
+      "servers",
+      "🖥️",
+      "Servere"
+    ],
+
+    [
+      "logs",
+      "📜",
+      "Logs"
+    ],
+
+    [
+      "system",
+      "⚙️",
+      "System"
+    ],
   ];
+
+
+  // ==========================================================
+  // DASHBOARD
+  // ==========================================================
 
   return (
     <div className="dashboard">
@@ -237,34 +386,62 @@ export default function App() {
       <aside className="sidebar">
 
         <div className="brand">
+
           <div className="brand-logo">
             🤖
           </div>
 
           <div>
-            <b>Hjælper</b>
-            <span>Admin Panel</span>
+            <b>
+              Hjælper
+            </b>
+
+            <span>
+              Admin Panel
+            </span>
           </div>
+
         </div>
 
+
+        {/* NAV */}
+
         <nav>
-          {nav.map(([id, icon, name]) => (
-            <button
-              key={id}
-              className={
-                page === id
-                  ? "nav active"
-                  : "nav"
-              }
-              onClick={() => setPage(id)}
-            >
-              <i>{icon}</i>
-              {name}
-            </button>
-          ))}
+
+          {nav.map(
+            ([
+              id,
+              icon,
+              name,
+            ]) => (
+
+              <button
+                key={id}
+                className={
+                  page === id
+                    ? "nav active"
+                    : "nav"
+                }
+                onClick={() =>
+                  setPage(id)
+                }
+              >
+
+                <i>
+                  {icon}
+                </i>
+
+                {name}
+
+              </button>
+
+            )
+          )}
+
         </nav>
 
-        {/* PROFIL */}
+
+        {/* USER PROFILE */}
 
         <div className="sidebar-bottom">
 
@@ -272,25 +449,33 @@ export default function App() {
 
             <img
               className="profile-avatar"
-              src={finalAvatar}
-              alt={`${displayName} avatar`}
-              onError={(e) => {
-                e.currentTarget.src =
-                  avatarFallback;
+              src={
+                avatarUrl ||
+                fallbackAvatar
+              }
+              alt="Discord avatar"
+              onError={(event) => {
+                event.currentTarget.src =
+                  fallbackAvatar;
               }}
             />
 
             <div className="profile-info">
 
-              <b>{displayName}</b>
+              <b>
+                {displayName}
+              </b>
 
               <span>
-                {owner ? "👑 Ejer" : "🛡️ Admin"}
+                {isOwner
+                  ? "👑 Ejer"
+                  : "🛡️ Admin"}
               </span>
 
             </div>
 
           </div>
+
 
           <button
             className="logout"
@@ -300,60 +485,88 @@ export default function App() {
           </button>
 
         </div>
+
       </aside>
+
 
       {/* MAIN */}
 
       <main>
 
+        {/* HEADER */}
+
         <header>
 
           <div>
-            <h2>Hjælper Admin Panel</h2>
+
+            <h2>
+              Hjælper Admin Panel
+            </h2>
 
             <p>
               Administrer din Discord-bot
             </p>
+
           </div>
+
 
           <div className="header-right">
 
             <div className="role">
-              {owner
+
+              {isOwner
                 ? "👑 Ejer"
                 : "🛡️ Admin"}
+
             </div>
 
             <div className="online">
+
               <span />
+
               Online
+
             </div>
 
           </div>
 
         </header>
 
+
+        {/* CONTENT */}
+
         <section className="content">
 
           {error && (
             <div className="error">
-              <span>{error}</span>
+
+              <span>
+                {error}
+              </span>
 
               <button
-                onClick={() => setError("")}
+                onClick={() =>
+                  setError("")
+                }
               >
                 ×
               </button>
+
             </div>
           )}
 
-          {/* OVERVIEW */}
+
+          {/* =================================================
+              OVERVIEW
+          ================================================= */}
 
           {page === "overview" && (
             <>
+
               <div className="title">
 
                 <div>
+
                   <h1>
                     🏠 Overview
                   </h1>
@@ -362,16 +575,18 @@ export default function App() {
                     Velkommen tilbage til
                     Hjælper Admin Panel.
                   </p>
+
                 </div>
 
                 <button
                   className="refresh"
-                  onClick={load}
+                  onClick={loadDashboard}
                 >
                   🔄 Opdater
                 </button>
 
               </div>
+
 
               <div className="cards">
 
@@ -384,19 +599,25 @@ export default function App() {
                 <Card
                   icon="🖥️"
                   title="Servere"
-                  value={servers.count ?? 0}
+                  value={
+                    servers.count ?? 0
+                  }
                 />
 
                 <Card
                   icon="👥"
                   title="Brugere"
-                  value={stats.users ?? 0}
+                  value={
+                    stats.users ?? 0
+                  }
                 />
 
                 <Card
                   icon="⚡"
                   title="Commands"
-                  value={stats.commands ?? 0}
+                  value={
+                    stats.commands ?? 0
+                  }
                 />
 
                 <Card
@@ -417,9 +638,12 @@ export default function App() {
 
               </div>
 
+
               <div className="columns">
 
-                <Panel title="⚡ Hurtige handlinger">
+                <Panel
+                  title="⚡ Hurtige handlinger"
+                >
 
                   <div className="actions">
 
@@ -465,7 +689,10 @@ export default function App() {
 
                 </Panel>
 
-                <Panel title="📊 System">
+
+                <Panel
+                  title="📊 System"
+                >
 
                   <Info
                     name="Bot"
@@ -490,19 +717,26 @@ export default function App() {
                 </Panel>
 
               </div>
+
             </>
           )}
 
-          {/* BOT */}
+
+          {/* =================================================
+              BOT
+          ================================================= */}
 
           {page === "bot" && (
             <>
+
               <Title
                 title="🤖 Bot"
                 text="Information om Hjælper."
               />
 
-              <Panel title="Bot information">
+              <Panel
+                title="Bot information"
+              >
 
                 <Info
                   name="Navn"
@@ -547,19 +781,26 @@ export default function App() {
                 </button>
 
               </Panel>
+
             </>
           )}
 
-          {/* COGS */}
+
+          {/* =================================================
+              COGS
+          ================================================= */}
 
           {page === "cogs" && (
             <>
+
               <Title
                 title="🧩 Cogs"
                 text="Administrer bot-moduler."
               />
 
-              <Panel title="Loaded Cogs">
+              <Panel
+                title="Loaded Cogs"
+              >
 
                 <button
                   className="primary top-button"
@@ -568,35 +809,55 @@ export default function App() {
                   🔄 Reload Cogs
                 </button>
 
+
                 <div className="list">
 
                   {(cogs.cogs || []).map(
-                    (c) => (
+                    (cog) => (
+
                       <div
                         className="list-item"
-                        key={c.name || c}
+                        key={
+                          cog.name ||
+                          cog
+                        }
                       >
+
                         <b>
-                          {c.name || c}
+                          {cog.name ||
+                            cog}
                         </b>
 
                         <span>
                           🟢 Loaded
                         </span>
+
                       </div>
+
                     )
+                  )}
+
+                  {!cogs.cogs?.length && (
+                    <div className="empty">
+                      🧩 Ingen Cogs fundet.
+                    </div>
                   )}
 
                 </div>
 
               </Panel>
+
             </>
           )}
 
-          {/* SERVERE */}
+
+          {/* =================================================
+              SERVERS
+          ================================================= */}
 
           {page === "servers" && (
             <>
+
               <Title
                 title="🖥️ Servere"
                 text="Alle Discord-servere som Hjælper er tilsluttet."
@@ -614,27 +875,36 @@ export default function App() {
 
               </div>
 
-              <Panel title="Discord-servere">
+
+              <Panel
+                title="Discord-servere"
+              >
 
                 <div className="server-list">
 
                   {(servers.servers || []).map(
                     (server) => (
+
                       <div
                         className="server"
                         key={server.id}
                       >
 
                         {server.icon ? (
+
                           <img
                             src={server.icon}
                             alt=""
                           />
+
                         ) : (
+
                           <div className="server-icon">
                             🖥️
                           </div>
+
                         )}
+
 
                         <div className="server-name">
 
@@ -648,14 +918,19 @@ export default function App() {
 
                         </div>
 
+
                         <div className="members">
+
                           👥{" "}
                           {server.members ?? 0}
+
                         </div>
 
                       </div>
+
                     )
                   )}
+
 
                   {!servers.servers?.length && (
                     <div className="empty">
@@ -666,53 +941,73 @@ export default function App() {
                 </div>
 
               </Panel>
+
             </>
           )}
 
-          {/* LOGS */}
+
+          {/* =================================================
+              LOGS
+          ================================================= */}
 
           {page === "logs" && (
             <>
+
               <Title
                 title="📜 Logs"
                 text="Seneste events fra Hjælper."
               />
 
-              <Panel title="System Events">
+              <Panel
+                title="System Events"
+              >
 
                 <div className="list">
 
                   <div className="log">
                     🟢 API forbindelse
-                    <span>Online</span>
+                    <span>
+                      Online
+                    </span>
                   </div>
 
                   <div className="log">
                     🤖 Bot status
-                    <span>Online</span>
+                    <span>
+                      Online
+                    </span>
                   </div>
 
                   <div className="log">
                     🧩 Cogs
-                    <span>Loaded</span>
+                    <span>
+                      Loaded
+                    </span>
                   </div>
 
                 </div>
 
               </Panel>
+
             </>
           )}
 
-          {/* SYSTEM */}
+
+          {/* =================================================
+              SYSTEM
+          ================================================= */}
 
           {page === "system" && (
             <>
+
               <Title
                 title="⚙️ System"
                 text="Information om systemet bag Hjælper."
               />
 
-              <Panel title="System information">
+              <Panel
+                title="System information"
+              >
 
                 <Info
                   name="Bot"
@@ -751,23 +1046,29 @@ export default function App() {
                 />
 
               </Panel>
+
             </>
           )}
 
         </section>
+
       </main>
+
     </div>
   );
 }
 
 
-/* CARD */
+/* ============================================================
+   CARD
+============================================================ */
 
 function Card({
   icon,
   title,
-  value,
+  value
 }) {
+
   return (
     <div className="card">
 
@@ -776,8 +1077,15 @@ function Card({
       </div>
 
       <div>
-        <span>{title}</span>
-        <b>{value}</b>
+
+        <span>
+          {title}
+        </span>
+
+        <b>
+          {value}
+        </b>
+
       </div>
 
     </div>
@@ -785,12 +1093,15 @@ function Card({
 }
 
 
-/* PANEL */
+/* ============================================================
+   PANEL
+============================================================ */
 
 function Panel({
   title,
-  children,
+  children
 }) {
+
   return (
     <div className="panel">
 
@@ -805,38 +1116,52 @@ function Panel({
 }
 
 
-/* INFO */
+/* ============================================================
+   INFO
+============================================================ */
 
 function Info({
   name,
-  value,
+  value
 }) {
+
   return (
     <div className="info">
 
-      <span>{name}</span>
+      <span>
+        {name}
+      </span>
 
-      <b>{value}</b>
+      <b>
+        {value}
+      </b>
 
     </div>
   );
 }
 
 
-/* TITLE */
+/* ============================================================
+   TITLE
+============================================================ */
 
 function Title({
   title,
-  text,
+  text
 }) {
+
   return (
     <div className="title">
 
       <div>
 
-        <h1>{title}</h1>
+        <h1>
+          {title}
+        </h1>
 
-        <p>{text}</p>
+        <p>
+          {text}
+        </p>
 
       </div>
 
