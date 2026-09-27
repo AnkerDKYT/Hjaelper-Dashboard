@@ -13,9 +13,10 @@ export default function App() {
 
         <p>Admin adgang</p>
 
-        <button className="login-button">
-          🔐 Log ind
-        </button>
+        <div className="login-button disabled">
+  🔐 Log ind
+  <span>(Kommer snart)</span>
+</div>
 
       </div>
     </div>
