@@ -11,13 +11,24 @@ export default function App() {
 
         <h1>Hjælper</h1>
 
-        <p>Admin adgang</p>
+        <div className="admin-access">
+          <h2>Admin adgang</h2>
 
-        <div className="login-button disabled">
-  🔐 Log ind
-  <span>(Kommer snart)</span>
-</div>
+          <div className="login-box">
+            <div className="login-title">
+              🔐 Log ind
+            </div>
 
+            <div className="coming-soon">
+              Kommer snart
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div className="version">
+        Hjælper Dashboard • V1
       </div>
     </div>
   );
