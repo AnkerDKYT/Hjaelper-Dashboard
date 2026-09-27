@@ -86,9 +86,17 @@ export default function App() {
 
     if (authStatus === "error") {
       setError(
-        "❌ Der opstod en fejl under Discord-login."
+        "❌ Der opstod en fejl under admin-login."
       );
 
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+    }
+
+    if (authStatus === "success") {
       window.history.replaceState(
         {},
         document.title,
@@ -127,10 +135,6 @@ export default function App() {
           credentials: "include"
         })
       ]);
-
-      // --------------------------------------------------------
-      // LOGIN UDLØBET
-      // --------------------------------------------------------
 
       if (
         statusResponse.status === 401 ||
@@ -202,10 +206,10 @@ export default function App() {
   }, [page, user]);
 
   // ==========================================================
-  // DISCORD LOGIN
+  // ADMIN LOGIN
   // ==========================================================
 
-  function loginWithDiscord() {
+  function adminLogin() {
     window.location.href =
       `${API_BASE}/auth/discord`;
   }
@@ -360,9 +364,7 @@ export default function App() {
     return (
       <div className="app">
 
-        {/* ==================================================
-            SIDEBAR
-        ================================================== */}
+        {/* SIDEBAR */}
 
         <aside className="sidebar">
 
@@ -458,10 +460,6 @@ export default function App() {
 
           </nav>
 
-          {/* ==================================================
-              USER
-          ================================================== */}
-
           <div className="sidebar-bottom">
 
             <div
@@ -505,9 +503,7 @@ export default function App() {
 
         </aside>
 
-        {/* ==================================================
-            MAIN
-        ================================================== */}
+        {/* MAIN */}
 
         <main className="main-content">
 
@@ -539,18 +535,14 @@ export default function App() {
             </div>
 
             <div className="admin-badge">
-
               {roleIcon} {roleName}
-
             </div>
 
           </header>
 
           <section className="content">
 
-            {/* ==================================================
-                OVERVIEW
-            ================================================== */}
+            {/* OVERVIEW */}
 
             {page === "admin" && (
               <>
@@ -811,9 +803,7 @@ export default function App() {
               </>
             )}
 
-            {/* ==================================================
-                BOT
-            ================================================== */}
+            {/* BOT */}
 
             {page === "bot" && (
               <div className="section-card">
@@ -919,9 +909,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ==================================================
-                COGS
-            ================================================== */}
+            {/* COGS */}
 
             {page === "cogs" && (
               <div className="section-card">
@@ -983,9 +971,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ==================================================
-                LOGS
-            ================================================== */}
+            {/* LOGS */}
 
             {page === "logs" && (
               <div className="section-card">
@@ -1061,9 +1047,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ==================================================
-                SYSTEM
-            ================================================== */}
+            {/* SYSTEM */}
 
             {page === "system" && (
               <div className="section-card">
@@ -1160,7 +1144,7 @@ export default function App() {
   }
 
   // ==========================================================
-  // HOME / DISCORD LOGIN
+  // HOME / ADMIN LOGIN
   // ==========================================================
 
   return (
@@ -1184,8 +1168,8 @@ export default function App() {
         </h1>
 
         <p className="home-description">
-          Log ind med Discord for at få adgang
-          til Hjælper Admin Panel.
+          Log ind som administrator for at få
+          adgang til Hjælper Admin Panel.
         </p>
 
         {error && (
@@ -1197,26 +1181,26 @@ export default function App() {
         <div className="login-options">
 
           {/* ==================================================
-              DISCORD LOGIN
+              ADMIN LOGIN
           ================================================== */}
 
           <button
             className="login-option admin-option"
-            onClick={loginWithDiscord}
+            onClick={adminLogin}
           >
 
             <div className="option-icon">
-              💬
+              🔐
             </div>
 
             <div className="option-text">
 
               <strong>
-                Login med Discord
+                Admin Login
               </strong>
 
               <span>
-                Log ind med din Discord-konto
+                Log ind som administrator
               </span>
 
             </div>
