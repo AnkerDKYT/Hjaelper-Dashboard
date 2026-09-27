@@ -28,7 +28,7 @@ export default function App() {
       </div>
 
       <div className="version">
-        Hjælper Dashboard • V1
+        Hjælper Dashboard • V2
       </div>
     </div>
   );
