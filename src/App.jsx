@@ -15,10 +15,11 @@ export default function App() {
   const [publicStats, setPublicStats] = useState(null);
   const [publicLoading, setPublicLoading] = useState(false);
   const [publicError, setPublicError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  // =========================
+  // ==========================================
   // AUTH
-  // =========================
+  // ==========================================
 
   async function loadUser() {
     try {
@@ -37,6 +38,8 @@ export default function App() {
       if (data.authenticated) {
         setUser(data.user);
         setPage("overview");
+      } else {
+        setUser(null);
       }
     } catch {
       setUser(null);
@@ -63,9 +66,9 @@ export default function App() {
     setServers([]);
   }
 
-  // =========================
+  // ==========================================
   // ADMIN DATA
-  // =========================
+  // ==========================================
 
   async function loadDashboardData() {
     if (!user) return;
@@ -102,9 +105,9 @@ export default function App() {
     }
   }
 
-  // =========================
+  // ==========================================
   // PUBLIC DATA
-  // =========================
+  // ==========================================
 
   async function loadPublicStats() {
     try {
@@ -120,6 +123,7 @@ export default function App() {
       const data = await response.json();
 
       setPublicStats(data);
+      setLastUpdated(new Date());
     } catch (error) {
       setPublicError(error.message);
     } finally {
@@ -127,9 +131,9 @@ export default function App() {
     }
   }
 
-  // =========================
+  // ==========================================
   // NAVIGATION
-  // =========================
+  // ==========================================
 
   function openStats() {
     setPage("public-stats");
@@ -145,13 +149,13 @@ export default function App() {
     setPage("roadmap");
   }
 
-  function goLogin() {
+  function backToLogin() {
     setPage("login");
   }
 
-  // =========================
+  // ==========================================
   // EFFECTS
-  // =========================
+  // ==========================================
 
   useEffect(() => {
     loadUser();
@@ -186,9 +190,9 @@ export default function App() {
     return () => clearInterval(interval);
   }, [page]);
 
-  // =========================
+  // ==========================================
   // LOADING
-  // =========================
+  // ==========================================
 
   if (loading) {
     return (
@@ -196,15 +200,15 @@ export default function App() {
         <div className="loading-box">
           <div className="loading-spinner" />
           <h2>Hjælper</h2>
-          <p>Indlæser...</p>
+          <p>Indlæser dashboard...</p>
         </div>
       </div>
     );
   }
 
-  // =====================================================
+  // ==========================================
   // LOGIN
-  // =====================================================
+  // ==========================================
 
   if (!user && page === "login") {
     return (
@@ -221,8 +225,8 @@ export default function App() {
               Hjælper
             </h1>
 
-            <p className="login-subtitle">
-              Dit Discord bot-dashboard
+            <p>
+              Discord bot & dashboard
             </p>
 
             <button
@@ -234,7 +238,7 @@ export default function App() {
                   ◉
                 </span>
 
-                Log ind med Discord
+                Admin Login
               </span>
 
               <span>
@@ -242,28 +246,64 @@ export default function App() {
               </span>
             </button>
 
-            <div className="login-divider">
-              <span>Offentlige sider</span>
-            </div>
+            <button
+              className="login"
+              onClick={openStats}
+              style={{ marginTop: "9px" }}
+            >
+              <span>
+                📊 Se Statistik
+              </span>
 
-            <div className="login-links">
+              <span>
+                →
+              </span>
+            </button>
 
-              <button onClick={openStats}>
-                📊 Statistik
-              </button>
-
-              <button onClick={openStatus}>
+            <button
+              className="login"
+              onClick={openStatus}
+              style={{ marginTop: "9px" }}
+            >
+              <span>
                 🟢 Status
-              </button>
+              </span>
 
-              <button onClick={openRoadmap}>
+              <span>
+                →
+              </span>
+            </button>
+
+            <button
+              className="login"
+              onClick={openRoadmap}
+              style={{ marginTop: "9px" }}
+            >
+              <span>
                 🚀 Roadmap
-              </button>
+              </span>
 
-            </div>
+              <span>
+                →
+              </span>
+            </button>
+
+            <button
+              className="login disabled"
+              disabled
+              style={{ marginTop: "9px" }}
+            >
+              <span>
+                👤 Bruger Login
+              </span>
+
+              <span>
+                🔒
+              </span>
+            </button>
 
             <div className="login-footer">
-              Hjælper © 2026
+              Hjælper • 2026
             </div>
 
           </div>
@@ -273,9 +313,9 @@ export default function App() {
     );
   }
 
-  // =====================================================
-  // ROADMAP
-  // =====================================================
+  // ==========================================
+  // PUBLIC ROADMAP
+  // ==========================================
 
   if (!user && page === "roadmap") {
     return (
@@ -285,6 +325,7 @@ export default function App() {
           <div className="public-topbar">
 
             <div className="brand">
+
               <div className="brand-icon">
                 H
               </div>
@@ -293,11 +334,12 @@ export default function App() {
                 <h1>Hjælper</h1>
                 <span>Roadmap</span>
               </div>
+
             </div>
 
             <button
               className="back-button"
-              onClick={goLogin}
+              onClick={backToLogin}
             >
               ← Tilbage
             </button>
@@ -306,11 +348,14 @@ export default function App() {
 
           <div className="roadmap">
 
+            {/* V2.1 */}
+
             <div className="roadmap-card active">
 
               <div className="roadmap-header">
 
                 <div>
+
                   <span className="roadmap-version">
                     V2.1
                   </span>
@@ -318,6 +363,7 @@ export default function App() {
                   <h2>
                     Privacy Policy
                   </h2>
+
                 </div>
 
                 <span className="roadmap-status active">
@@ -327,10 +373,14 @@ export default function App() {
               </div>
 
               <div className="roadmap-progress">
+
                 <div
                   className="roadmap-progress-bar"
-                  style={{ width: "35%" }}
+                  style={{
+                    width: "35%",
+                  }}
                 />
+
               </div>
 
               <div className="roadmap-items">
@@ -340,7 +390,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  📄 Information om data og privatliv
+                  📄 Tydelig information om data og privatliv
                 </div>
 
                 <div>
@@ -351,11 +401,14 @@ export default function App() {
 
             </div>
 
+            {/* V2.2 */}
+
             <div className="roadmap-card">
 
               <div className="roadmap-header">
 
                 <div>
+
                   <span className="roadmap-version">
                     V2.2
                   </span>
@@ -363,6 +416,7 @@ export default function App() {
                   <h2>
                     Coming Soon
                   </h2>
+
                 </div>
 
                 <span className="roadmap-status">
@@ -402,9 +456,9 @@ export default function App() {
     );
   }
 
-  // =====================================================
+  // ==========================================
   // PUBLIC STATUS
-  // =====================================================
+  // ==========================================
 
   if (!user && page === "public-status") {
     const online =
@@ -419,19 +473,21 @@ export default function App() {
           <div className="public-topbar">
 
             <div className="brand">
+
               <div className="brand-icon">
                 H
               </div>
 
               <div>
                 <h1>Hjælper</h1>
-                <span>Status</span>
+                <span>Offentlig status</span>
               </div>
+
             </div>
 
             <button
               className="back-button"
-              onClick={goLogin}
+              onClick={backToLogin}
             >
               ← Login
             </button>
@@ -447,90 +503,164 @@ export default function App() {
               </span>
 
               <h2>
-                Aktuel status
+                Aktuel drift
               </h2>
 
               <p>
-                Se den aktuelle status for Hjælper.
+                Her kan du se den aktuelle status for Hjælper.
               </p>
 
             </div>
 
             {publicLoading && !publicStats ? (
               <div className="public-loading">
+
                 <div className="loading-spinner" />
-                <p>Henter status...</p>
+
+                <p>
+                  Henter status...
+                </p>
+
               </div>
             ) : publicError ? (
               <div className="error-box">
                 ❌ {publicError}
               </div>
             ) : (
-              <div className="public-status-grid">
+              <>
 
-                <div className="public-status-card">
-                  <div className="status-icon">🤖</div>
+                <div className="public-status-grid">
 
-                  <div>
-                    <span>Bot</span>
+                  <div className="public-status-card">
 
-                    <strong
-                      className={
-                        online
-                          ? "status-online"
-                          : "status-offline"
-                      }
-                    >
-                      {online ? "Online" : "Offline"}
-                    </strong>
+                    <div className="status-icon">
+                      🤖
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Bot
+                      </span>
+
+                      <strong
+                        className={
+                          online
+                            ? "status-online"
+                            : "status-offline"
+                        }
+                      >
+                        {online
+                          ? "Online"
+                          : "Offline"}
+                      </strong>
+
+                    </div>
+
                   </div>
+
+                  <div className="public-status-card">
+
+                    <div className="status-icon">
+                      🌐
+                    </div>
+
+                    <div>
+
+                      <span>
+                        API
+                      </span>
+
+                      <strong className="status-online">
+                        Online
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  <div className="public-status-card">
+
+                    <div className="status-icon">
+                      🖥️
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Servere
+                      </span>
+
+                      <strong>
+                        {publicStats?.servers ?? 0}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  <div className="public-status-card">
+
+                    <div className="status-icon">
+                      ⚡
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Commands
+                      </span>
+
+                      <strong>
+                        {publicStats?.commands ?? 0}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  <div className="public-status-card">
+
+                    <div className="status-icon">
+                      🧩
+                    </div>
+
+                    <div>
+
+                      <span>
+                        Cogs
+                      </span>
+
+                      <strong>
+                        {publicStats?.cogs ?? 0}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
                 </div>
 
-                <div className="public-status-card">
-                  <div className="status-icon">🌐</div>
+                <div className="public-info-box">
 
-                  <div>
-                    <span>API</span>
-                    <strong className="status-online">
-                      Online
-                    </strong>
-                  </div>
+                  <h3>
+                    🟢 Systemstatus
+                  </h3>
+
+                  <p>
+                    Hjælper dashboard og API overvåges løbende.
+                  </p>
+
                 </div>
 
-                <div className="public-status-card">
-                  <div className="status-icon">🖥️</div>
-
-                  <div>
-                    <span>Servere</span>
-                    <strong>
-                      {publicStats?.servers ?? 0}
-                    </strong>
+                {lastUpdated && (
+                  <div className="last-updated">
+                    Sidst opdateret:{" "}
+                    {lastUpdated.toLocaleTimeString("da-DK")}
                   </div>
-                </div>
+                )}
 
-                <div className="public-status-card">
-                  <div className="status-icon">⚡</div>
-
-                  <div>
-                    <span>Commands</span>
-                    <strong>
-                      {publicStats?.commands ?? 0}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="public-status-card">
-                  <div className="status-icon">🧩</div>
-
-                  <div>
-                    <span>Cogs</span>
-                    <strong>
-                      {publicStats?.cogs ?? 0}
-                    </strong>
-                  </div>
-                </div>
-
-              </div>
+              </>
             )}
 
           </div>
@@ -540,9 +670,9 @@ export default function App() {
     );
   }
 
-  // =====================================================
+  // ==========================================
   // PUBLIC STATS
-  // =====================================================
+  // ==========================================
 
   if (!user && page === "public-stats") {
     return (
@@ -552,19 +682,21 @@ export default function App() {
           <div className="public-topbar">
 
             <div className="brand">
+
               <div className="brand-icon">
                 H
               </div>
 
               <div>
                 <h1>Hjælper</h1>
-                <span>Statistik</span>
+                <span>Offentlig statistik</span>
               </div>
+
             </div>
 
             <button
               className="back-button"
-              onClick={goLogin}
+              onClick={backToLogin}
             >
               ← Login
             </button>
@@ -591,8 +723,13 @@ export default function App() {
 
             {publicLoading && !publicStats ? (
               <div className="public-loading">
+
                 <div className="loading-spinner" />
-                <p>Henter statistik...</p>
+
+                <p>
+                  Henter statistik...
+                </p>
+
               </div>
             ) : publicError ? (
               <div className="error-box">
@@ -600,10 +737,14 @@ export default function App() {
               </div>
             ) : (
               <>
+
                 <div className="stats-grid">
 
                   <div className="stat-card">
-                    <span>🟢 Bot</span>
+                    <span>
+                      🟢 Bot status
+                    </span>
+
                     <strong>
                       {publicStats?.status === "online" ||
                       publicStats?.bot_status === "online" ||
@@ -614,28 +755,40 @@ export default function App() {
                   </div>
 
                   <div className="stat-card">
-                    <span>🖥️ Servere</span>
+                    <span>
+                      🖥️ Servere
+                    </span>
+
                     <strong>
                       {publicStats?.servers ?? 0}
                     </strong>
                   </div>
 
                   <div className="stat-card">
-                    <span>👥 Discord-brugere</span>
+                    <span>
+                      👥 Discord-brugere
+                    </span>
+
                     <strong>
                       {publicStats?.users ?? 0}
                     </strong>
                   </div>
 
                   <div className="stat-card">
-                    <span>⚡ Commands</span>
+                    <span>
+                      ⚡ Commands
+                    </span>
+
                     <strong>
                       {publicStats?.commands ?? 0}
                     </strong>
                   </div>
 
                   <div className="stat-card">
-                    <span>🧩 Cogs</span>
+                    <span>
+                      🧩 Cogs
+                    </span>
+
                     <strong>
                       {publicStats?.cogs ?? 0}
                     </strong>
@@ -660,52 +813,84 @@ export default function App() {
                   <div className="stats-grid">
 
                     <div className="stat-card">
-                      <span>📅 I dag</span>
+
+                      <span>
+                        📅 I dag
+                      </span>
+
                       <strong>
                         {publicStats?.panel_users_today ??
                           publicStats?.dashboard_users?.today ??
                           0}
                       </strong>
+
                     </div>
 
                     <div className="stat-card">
-                      <span>📆 Denne uge</span>
+
+                      <span>
+                        📆 Denne uge
+                      </span>
+
                       <strong>
                         {publicStats?.panel_users_week ??
                           publicStats?.dashboard_users?.week ??
                           0}
                       </strong>
+
                     </div>
 
                     <div className="stat-card">
-                      <span>🗓️ Dette år</span>
+
+                      <span>
+                        🗓️ Dette år
+                      </span>
+
                       <strong>
                         {publicStats?.panel_users_year ??
                           publicStats?.dashboard_users?.year ??
                           0}
                       </strong>
+
                     </div>
 
                     <div className="stat-card">
-                      <span>👤 I alt</span>
+
+                      <span>
+                        👤 I alt
+                      </span>
+
                       <strong>
                         {publicStats?.panel_users_total ??
                           publicStats?.dashboard_users?.total ??
                           0}
                       </strong>
+
                     </div>
 
                   </div>
 
                 </div>
 
+                {lastUpdated && (
+                  <div className="last-updated">
+                    Sidst opdateret:{" "}
+                    {lastUpdated.toLocaleTimeString("da-DK")}
+                  </div>
+                )}
+
                 <button
                   className="login"
                   onClick={openStatus}
                   style={{ marginTop: "20px" }}
                 >
-                  <span>🟢 Se Status</span>
-                  <span>→</span>
+                  <span>
+                    🟢 Se Status
+                  </span>
+
+                  <span>
+                    →
+                  </span>
                 </button>
 
               </>
@@ -718,9 +903,9 @@ export default function App() {
     );
   }
 
-  // =====================================================
-  // ADMIN PANEL
-  // =====================================================
+  // ==========================================
+  // ADMIN NAVIGATION
+  // ==========================================
 
   const navigation = [
     ["overview", "🏠", "Overview"],
@@ -736,10 +921,12 @@ export default function App() {
     user?.is_owner ||
     user?.role === "owner";
 
+  // ==========================================
+  // ADMIN PANEL
+  // ==========================================
+
   return (
     <div className="app dashboard">
-
-      {/* SIDEBAR */}
 
       <aside className="sidebar">
 
@@ -750,8 +937,15 @@ export default function App() {
           </div>
 
           <div>
-            <h2>Hjælper</h2>
-            <span>Dashboard</span>
+
+            <h2>
+              Hjælper
+            </h2>
+
+            <span>
+              Dashboard
+            </span>
+
           </div>
 
         </div>
@@ -769,8 +963,13 @@ export default function App() {
                 }
                 onClick={() => setPage(id)}
               >
-                <span>{icon}</span>
-                <span>{label}</span>
+                <span>
+                  {icon}
+                </span>
+
+                <span>
+                  {label}
+                </span>
               </button>
             )
           )}
@@ -782,6 +981,7 @@ export default function App() {
           <div className="user-mini">
 
             <div className="user-avatar">
+
               {user?.avatar ? (
                 <img
                   src={user.avatar}
@@ -790,6 +990,7 @@ export default function App() {
               ) : (
                 "👤"
               )}
+
             </div>
 
             <div className="user-info">
@@ -819,8 +1020,6 @@ export default function App() {
 
       </aside>
 
-      {/* MAIN */}
-
       <main className="main">
 
         <header className="topbar">
@@ -840,9 +1039,11 @@ export default function App() {
           </div>
 
           <div className="topbar-user">
+
             {isOwner
               ? "👑 Ejer"
               : "🛡️ Admin"}
+
           </div>
 
         </header>
@@ -935,6 +1136,7 @@ export default function App() {
 
                 <div>
                   <span>Navn</span>
+
                   <strong>
                     {stats?.bot_name || "Hjælper"}
                   </strong>
@@ -942,6 +1144,7 @@ export default function App() {
 
                 <div>
                   <span>Status</span>
+
                   <strong className="status-online">
                     🟢 Online
                   </strong>
@@ -949,6 +1152,7 @@ export default function App() {
 
                 <div>
                   <span>Servere</span>
+
                   <strong>
                     {stats?.servers ?? 0}
                   </strong>
@@ -983,39 +1187,59 @@ export default function App() {
               <div className="stats-grid">
 
                 <div className="stat-card">
-                  <span>📅 I dag</span>
+
+                  <span>
+                    📅 Panelbrugere i dag
+                  </span>
+
                   <strong>
                     {stats?.panel_users_today ??
                       stats?.dashboard_users?.today ??
                       0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>📆 Denne uge</span>
+
+                  <span>
+                    📆 Panelbrugere denne uge
+                  </span>
+
                   <strong>
                     {stats?.panel_users_week ??
                       stats?.dashboard_users?.week ??
                       0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>🗓️ Dette år</span>
+
+                  <span>
+                    🗓️ Panelbrugere dette år
+                  </span>
+
                   <strong>
                     {stats?.panel_users_year ??
                       stats?.dashboard_users?.year ??
                       0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>👤 I alt</span>
+
+                  <span>
+                    👤 Panelbrugere i alt
+                  </span>
+
                   <strong>
                     {stats?.panel_users_total ??
                       stats?.dashboard_users?.total ??
                       0}
                   </strong>
+
                 </div>
 
               </div>
@@ -1039,7 +1263,7 @@ export default function App() {
                 </h2>
 
                 <p>
-                  Alle loaded extensions.
+                  Loaded extensions i Hjælper.
                 </p>
 
               </div>
@@ -1057,7 +1281,9 @@ export default function App() {
                       key={index}
                     >
 
-                      <span>🧩</span>
+                      <span>
+                        🧩
+                      </span>
 
                       <strong>
                         {typeof cog === "string"
@@ -1114,11 +1340,12 @@ export default function App() {
                       key={server.id || index}
                     >
 
-                      <span>🖥️</span>
+                      <span>
+                        🖥️
+                      </span>
 
                       <strong>
-                        {server.name ||
-                          "Ukendt server"}
+                        {server.name || "Ukendt server"}
                       </strong>
 
                       <span>
@@ -1153,7 +1380,7 @@ export default function App() {
                 </h2>
 
                 <p>
-                  Systeminformation.
+                  System- og botlogs.
                 </p>
 
               </div>
