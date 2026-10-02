@@ -51,15 +51,12 @@ export default function App() {
           fetch(`${API}/api/status`, {
             credentials: "include",
           }),
-
           fetch(`${API}/api/stats`, {
             credentials: "include",
           }),
-
           fetch(`${API}/api/cogs`, {
             credentials: "include",
           }),
-
           fetch(`${API}/api/servers`, {
             credentials: "include",
           }),
@@ -147,7 +144,7 @@ export default function App() {
       await loadDashboard();
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(err.message || "Kunne ikke reloade Cogs.");
     }
   }
 
@@ -202,3 +199,1045 @@ export default function App() {
 
       if (!response.ok) {
         throw new Error(
+          data.detail ||
+            data.message ||
+            `Kunne ikke fjerne Hjælper fra serveren. HTTP ${response.status}`
+        );
+      }
+
+      setSelectedServer(null);
+      setPage("servers");
+
+      await loadDashboard();
+
+      alert(
+        data.message ||
+          `✅ Hjælper har forladt "${serverName}".`
+      );
+    } catch (err) {
+      console.error("❌ Leave server fejl:", err);
+
+      setError(
+        err.message ||
+          "Kunne ikke fjerne Hjælper fra serveren."
+      );
+
+      alert(
+        `❌ ${
+          err.message ||
+          "Kunne ikke fjerne Hjælper fra serveren."
+        }`
+      );
+    } finally {
+      setLeavingServer(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="loading-logo">🤖</div>
+        <h2>Hjælper</h2>
+        <p>Indlæser Admin Panel...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="home">
+        <div className="home-card">
+          <div className="home-logo">🤖</div>
+
+          <div className="eyebrow">
+            HJÆLPER ADMIN PANEL
+          </div>
+
+          <h1>
+            Velkommen til <span>Hjælper</span>
+          </h1>
+
+          <p>
+            Administrer din Discord-bot fra ét simpelt dashboard.
+          </p>
+
+          {error && (
+            <div className="error">
+              <span>{error}</span>
+              <button onClick={() => setError("")}>
+                ×
+              </button>
+            </div>
+          )}
+
+          <button
+            className="login"
+            onClick={adminLogin}
+          >
+            <span>🔐 Admin Login</span>
+            <span>→</span>
+          </button>
+
+          <button
+            className="login disabled"
+            disabled
+          >
+            <span>👤 Bruger Login</span>
+            <small>Kommer snart</small>
+          </button>
+
+          <div className="login-note">
+            Admin Login bruger Discord OAuth
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const displayName =
+    user.global_name ||
+    user.username ||
+    "Admin";
+
+  const isOwner = user.role === "owner";
+
+  let avatarUrl =
+    "https://cdn.discordapp.com/embed/avatars/0.png";
+
+  if (user.avatar && user.id) {
+    const extension =
+      user.avatar.startsWith("a_")
+        ? "gif"
+        : "png";
+
+    avatarUrl =
+      `https://cdn.discordapp.com/avatars/` +
+      `${user.id}/${user.avatar}.${extension}?size=128`;
+  }
+
+  const navigation = [
+    ["overview", "🏠", "Overview"],
+    ["bot", "🤖", "Bot"],
+    ["stats", "📊", "Stats"],
+    ["cogs", "🧩", "Cogs"],
+    ["servers", "🖥️", "Servere"],
+    ["logs", "📜", "Logs"],
+    ["system", "⚙️", "System"],
+  ];
+
+  const dashboardUsers =
+    stats.dashboard_users || {};
+
+  const panelUsersToday =
+    stats.panel_users_today ??
+    dashboardUsers.today ??
+    0;
+
+  const panelUsersWeek =
+    stats.panel_users_week ??
+    dashboardUsers.week ??
+    0;
+
+  const panelUsersYear =
+    stats.panel_users_year ??
+    dashboardUsers.year ??
+    0;
+
+  const panelUsersTotal =
+    stats.panel_users_total ??
+    dashboardUsers.total ??
+    0;
+
+  return (
+    <div className="dashboard">
+      <aside className="sidebar">
+
+        <div className="brand">
+          <div className="brand-logo">
+            🤖
+          </div>
+
+          <div>
+            <b>Hjælper</b>
+            <span>Admin Panel</span>
+          </div>
+        </div>
+
+        <nav>
+          {navigation.map(
+            ([id, icon, name]) => (
+              <button
+                key={id}
+                className={
+                  page === id
+                    ? "nav active"
+                    : "nav"
+                }
+                onClick={() => {
+                  setPage(id);
+                  setSelectedServer(null);
+                  setError("");
+                }}
+              >
+                <i>{icon}</i>
+                {name}
+              </button>
+            )
+          )}
+        </nav>
+
+        <div className="sidebar-bottom">
+
+          <div className="profile">
+            <img
+              className="profile-avatar"
+              src={avatarUrl}
+              alt="Discord avatar"
+              onError={(event) => {
+                event.currentTarget.src =
+                  "https://cdn.discordapp.com/embed/avatars/0.png";
+              }}
+            />
+
+            <div className="profile-info">
+              <b>{displayName}</b>
+
+              <span>
+                {isOwner
+                  ? "👑 Ejer"
+                  : "🛡️ Admin"}
+              </span>
+            </div>
+          </div>
+
+          <button
+            className="logout"
+            onClick={logout}
+          >
+            🚪 Log ud
+          </button>
+
+        </div>
+      </aside>
+
+      <main>
+
+        <header>
+          <div>
+            <h2>Hjælper Admin Panel</h2>
+            <p>Administrer din Discord-bot</p>
+          </div>
+
+          <div className="header-right">
+
+            <div className="role">
+              {isOwner
+                ? "👑 Ejer"
+                : "🛡️ Admin"}
+            </div>
+
+            <div className="online">
+              <span />
+              Online
+            </div>
+
+          </div>
+        </header>
+
+        <section className="content">
+
+          {error && (
+            <div className="error">
+              <span>{error}</span>
+
+              <button
+                onClick={() => setError("")}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* OVERVIEW */}
+
+          {page === "overview" && (
+            <>
+              <div className="title">
+
+                <div>
+                  <h1>🏠 Overview</h1>
+
+                  <p>
+                    Velkommen tilbage til Hjælper Admin Panel.
+                  </p>
+                </div>
+
+                <button
+                  className="refresh"
+                  onClick={loadDashboard}
+                >
+                  🔄 Opdater
+                </button>
+
+              </div>
+
+              <div className="cards">
+
+                <Card
+                  icon="🤖"
+                  title="Bot status"
+                  value="Online"
+                />
+
+                <Card
+                  icon="🖥️"
+                  title="Servere"
+                  value={servers.count ?? 0}
+                />
+
+                <Card
+                  icon="👥"
+                  title="Discord-brugere"
+                  value={stats.users ?? 0}
+                />
+
+                <Card
+                  icon="⚡"
+                  title="Commands"
+                  value={stats.commands ?? 0}
+                />
+
+                <Card
+                  icon="🧩"
+                  title="Cogs"
+                  value={
+                    cogs.count ??
+                    cogs.cogs?.length ??
+                    0
+                  }
+                />
+
+              </div>
+
+              <div className="columns">
+
+                <Panel title="📊 Panelbrugere">
+
+                  <Info
+                    name="I dag"
+                    value={panelUsersToday}
+                  />
+
+                  <Info
+                    name="Denne uge"
+                    value={panelUsersWeek}
+                  />
+
+                  <Info
+                    name="Dette år"
+                    value={panelUsersYear}
+                  />
+
+                  <Info
+                    name="I alt"
+                    value={panelUsersTotal}
+                  />
+
+                </Panel>
+
+                <Panel title="⚡ Hurtige handlinger">
+
+                  <div className="actions">
+
+                    <button
+                      onClick={() =>
+                        setPage("bot")
+                      }
+                    >
+                      🤖 Bot
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setPage("stats")
+                      }
+                    >
+                      📊 Stats
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setPage("cogs")
+                      }
+                    >
+                      🧩 Cogs
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setPage("servers")
+                      }
+                    >
+                      🖥️ Servere
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setPage("system")
+                      }
+                    >
+                      ⚙️ System
+                    </button>
+
+                    <button
+                      onClick={reloadCogs}
+                    >
+                      🔄 Reload Cogs
+                    </button>
+
+                  </div>
+
+                </Panel>
+
+              </div>
+
+              <div className="columns">
+
+                <Panel title="📊 System">
+
+                  <Info
+                    name="Bot"
+                    value="Hjælper"
+                  />
+
+                  <Info
+                    name="Hosting"
+                    value="Wispbyte"
+                  />
+
+                  <Info
+                    name="Frontend"
+                    value="Vercel"
+                  />
+
+                  <Info
+                    name="API"
+                    value="Online"
+                  />
+
+                </Panel>
+
+              </div>
+            </>
+          )}
+
+          {/* BOT */}
+
+          {page === "bot" && (
+            <>
+              <Title
+                title="🤖 Bot"
+                text="Information om Hjælper."
+              />
+
+              <Panel title="Bot information">
+
+                <Info
+                  name="Navn"
+                  value={
+                    status.bot_name ||
+                    status.name ||
+                    "Hjælper"
+                  }
+                />
+
+                <Info
+                  name="Bot ID"
+                  value={
+                    status.bot_id ||
+                    status.id ||
+                    "Ukendt"
+                  }
+                />
+
+                <Info
+                  name="Status"
+                  value="🟢 Online"
+                />
+
+                <Info
+                  name="Servere"
+                  value={servers.count ?? 0}
+                />
+
+                <Info
+                  name="Discord-brugere"
+                  value={stats.users ?? 0}
+                />
+
+              </Panel>
+            </>
+          )}
+
+          {/* STATS */}
+
+          {page === "stats" && (
+            <>
+              <div className="title">
+
+                <div>
+
+                  <h1>📊 Statistik</h1>
+
+                  <p>
+                    Statistik for Hjælper Dashboardet.
+                  </p>
+
+                </div>
+
+                <button
+                  className="refresh"
+                  onClick={loadDashboard}
+                >
+                  🔄 Opdater
+                </button>
+
+              </div>
+
+              <div className="cards">
+
+                <Card
+                  icon="👤"
+                  title="Panel i dag"
+                  value={panelUsersToday}
+                />
+
+                <Card
+                  icon="📅"
+                  title="Panel denne uge"
+                  value={panelUsersWeek}
+                />
+
+                <Card
+                  icon="📈"
+                  title="Panel dette år"
+                  value={panelUsersYear}
+                />
+
+                <Card
+                  icon="👥"
+                  title="Panel i alt"
+                  value={panelUsersTotal}
+                />
+
+              </div>
+
+              <div className="columns">
+
+                <Panel title="📊 Panelbrugere">
+
+                  <Info
+                    name="I dag"
+                    value={panelUsersToday}
+                  />
+
+                  <Info
+                    name="Denne uge"
+                    value={panelUsersWeek}
+                  />
+
+                  <Info
+                    name="Dette år"
+                    value={panelUsersYear}
+                  />
+
+                  <Info
+                    name="I alt"
+                    value={panelUsersTotal}
+                  />
+
+                </Panel>
+
+                <Panel title="🤖 Bot-statistik">
+
+                  <Info
+                    name="Servere"
+                    value={
+                      stats.servers ??
+                      servers.count ??
+                      0
+                    }
+                  />
+
+                  <Info
+                    name="Discord-brugere"
+                    value={stats.users ?? 0}
+                  />
+
+                  <Info
+                    name="Commands"
+                    value={stats.commands ?? 0}
+                  />
+
+                  <Info
+                    name="Cogs"
+                    value={
+                      stats.cogs ??
+                      cogs.count ??
+                      0
+                    }
+                  />
+
+                </Panel>
+
+              </div>
+
+              <div className="columns">
+
+                <Panel title="ℹ️ Om statistikken">
+
+                  <p className="panel-description">
+                    Panel-statistikken tæller
+                    unikke Discord-brugere,
+                    som har logget ind på
+                    Hjælper Dashboardet.
+                  </p>
+
+                  <p className="panel-description">
+                    Den samme bruger tælles
+                    kun én gang pr. dag.
+                  </p>
+
+                </Panel>
+
+              </div>
+            </>
+          )}
+
+          {/* COGS */}
+
+          {page === "cogs" && (
+            <>
+              <Title
+                title="🧩 Cogs"
+                text="Administrer bot-moduler."
+              />
+
+              <Panel title="Loaded Cogs">
+
+                <button
+                  className="primary top-button"
+                  onClick={reloadCogs}
+                >
+                  🔄 Reload Cogs
+                </button>
+
+                <div className="list">
+
+                  {(cogs.cogs || []).map(
+                    (cog) => (
+                      <div
+                        className="list-item"
+                        key={cog.name}
+                      >
+                        <b>{cog.name}</b>
+
+                        <span>
+                          🟢 Loaded
+                        </span>
+                      </div>
+                    )
+                  )}
+
+                  {!cogs.cogs?.length && (
+                    <div className="empty">
+                      🧩 Ingen Cogs fundet.
+                    </div>
+                  )}
+
+                </div>
+
+              </Panel>
+            </>
+          )}
+
+          {/* SERVERS */}
+
+          {page === "servers" &&
+            !selectedServer && (
+              <>
+                <Title
+                  title="🖥️ Servere"
+                  text="Alle Discord-servere som Hjælper er tilsluttet."
+                />
+
+                <Panel title="Discord-servere">
+
+                  <div className="server-list">
+
+                    {(servers.servers || []).map(
+                      (server) => (
+                        <button
+                          type="button"
+                          className="server server-button"
+                          key={server.id}
+                          onClick={() => {
+                            setSelectedServer(server);
+                            setError("");
+                          }}
+                        >
+
+                          {server.icon ? (
+                            <img
+                              src={server.icon}
+                              alt=""
+                            />
+                          ) : (
+                            <div className="server-icon">
+                              🖥️
+                            </div>
+                          )}
+
+                          <div className="server-name">
+
+                            <b>
+                              {server.name}
+                            </b>
+
+                            <span>
+                              ID: {server.id}
+                            </span>
+
+                          </div>
+
+                          <div className="members">
+                            👥 {server.members ?? 0}
+                          </div>
+
+                          <div className="server-arrow">
+                            →
+                          </div>
+
+                        </button>
+                      )
+                    )}
+
+                    {!servers.servers?.length && (
+                      <div className="empty">
+                        🖥️ Ingen servere fundet.
+                      </div>
+                    )}
+
+                  </div>
+
+                </Panel>
+              </>
+            )}
+
+          {/* SERVER DETAILS */}
+
+          {page === "servers" &&
+            selectedServer && (
+              <>
+                <div className="title">
+
+                  <div>
+
+                    <h1>
+                      🖥️ Serverdetaljer
+                    </h1>
+
+                    <p>
+                      Administrer Hjælper på denne server.
+                    </p>
+
+                  </div>
+
+                  <button
+                    className="refresh"
+                    onClick={() => {
+                      setSelectedServer(null);
+                      setError("");
+                    }}
+                  >
+                    ← Tilbage
+                  </button>
+
+                </div>
+
+                <Panel title="Server information">
+
+                  <div className="server-detail-header">
+
+                    {selectedServer.icon ? (
+                      <img
+                        className="server-detail-icon"
+                        src={selectedServer.icon}
+                        alt=""
+                      />
+                    ) : (
+                      <div className="server-detail-icon server-icon">
+                        🖥️
+                      </div>
+                    )}
+
+                    <div>
+
+                      <h2>
+                        {selectedServer.name}
+                      </h2>
+
+                      <p>
+                        Hjælper er medlem af serveren
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="server-detail-info">
+
+                    <Info
+                      name="Servernavn"
+                      value={selectedServer.name}
+                    />
+
+                    <Info
+                      name="Server ID"
+                      value={selectedServer.id}
+                    />
+
+                    <Info
+                      name="Medlemmer"
+                      value={selectedServer.members ?? 0}
+                    />
+
+                    <Info
+                      name="Serverejer ID"
+                      value={
+                        selectedServer.owner_id ||
+                        "Ukendt"
+                      }
+                    />
+
+                    <Info
+                      name="Bot status"
+                      value="🟢 Hjælper er online"
+                    />
+
+                  </div>
+
+                  <div className="danger-zone">
+
+                    <div>
+
+                      <h3>
+                        🚪 Fjern Hjælper
+                      </h3>
+
+                      <p>
+                        Dette får Hjælper til at
+                        forlade denne Discord-server.
+                      </p>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={leaveServer}
+                      disabled={leavingServer}
+                    >
+                      {leavingServer
+                        ? "⏳ Fjerner..."
+                        : "🚪 Fjern Hjælper"}
+                    </button>
+
+                  </div>
+
+                </Panel>
+              </>
+            )}
+
+          {/* LOGS */}
+
+          {page === "logs" && (
+            <>
+              <Title
+                title="📜 Logs"
+                text="Seneste events fra Hjælper."
+              />
+
+              <Panel title="System Events">
+
+                <div className="list">
+
+                  <div className="log">
+                    🟢 API forbindelse
+                    <span>Online</span>
+                  </div>
+
+                  <div className="log">
+                    🤖 Bot status
+                    <span>Online</span>
+                  </div>
+
+                  <div className="log">
+                    🧩 Cogs
+                    <span>Loaded</span>
+                  </div>
+
+                </div>
+
+              </Panel>
+            </>
+          )}
+
+          {/* SYSTEM */}
+
+          {page === "system" && (
+            <>
+              <Title
+                title="⚙️ System"
+                text="Information om systemet bag Hjælper."
+              />
+
+              <Panel title="System information">
+
+                <Info
+                  name="Bot"
+                  value="Hjælper"
+                />
+
+                <Info
+                  name="Bot hosting"
+                  value="Wispbyte"
+                />
+
+                <Info
+                  name="Frontend"
+                  value="Vercel"
+                />
+
+                <Info
+                  name="API"
+                  value="Online"
+                />
+
+                <Info
+                  name="Cogs"
+                  value={
+                    cogs.count ??
+                    cogs.cogs?.length ??
+                    0
+                  }
+                />
+
+                <Info
+                  name="Servere"
+                  value={
+                    servers.count ?? 0
+                  }
+                />
+
+                <Info
+                  name="Panelbrugere i alt"
+                  value={panelUsersTotal}
+                />
+
+              </Panel>
+            </>
+          )}
+
+        </section>
+      </main>
+    </div>
+  );
+}
+
+
+// CARD
+
+function Card({
+  icon,
+  title,
+  value,
+}) {
+  return (
+    <div className="card">
+
+      <div className="card-icon">
+        {icon}
+      </div>
+
+      <div>
+
+        <span>{title}</span>
+
+        <b>{value}</b>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+// PANEL
+
+function Panel({
+  title,
+  children,
+}) {
+  return (
+    <div className="panel">
+
+      <div className="panel-title">
+        {title}
+      </div>
+
+      {children}
+
+    </div>
+  );
+}
+
+
+// INFO
+
+function Info({
+  name,
+  value,
+}) {
+  return (
+    <div className="info">
+
+      <span>{name}</span>
+
+      <b>{value}</b>
+
+    </div>
+  );
+}
+
+
+// TITLE
+
+function Title({
+  title,
+  text,
+}) {
+  return (
+    <div className="title">
+
+      <div>
+
+        <h1>{title}</h1>
+
+        <p>{text}</p>
+
+      </div>
+
+    </div>
+  );
+}
