@@ -60,6 +60,7 @@ export default function App() {
   async function logout() {
     try {
       await fetch(`${API}/auth/logout`, {
+        method: "POST",
         credentials: "include",
       });
     } catch {}
@@ -79,7 +80,6 @@ export default function App() {
   function getAvatarUrl() {
     if (!user) return null;
 
-    // Hvis backend allerede sender en komplet URL
     if (
       typeof user.avatar === "string" &&
       user.avatar.startsWith("http")
@@ -87,11 +87,7 @@ export default function App() {
       return user.avatar;
     }
 
-    // Hvis Discord avatar hash bliver sendt
-    if (
-      user.avatar &&
-      user.id
-    ) {
+    if (user.avatar && user.id) {
       const extension = user.avatar.startsWith("a_")
         ? "gif"
         : "png";
@@ -99,16 +95,30 @@ export default function App() {
       return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=128`;
     }
 
-    // Discord default avatar
     if (user.id) {
       try {
         const avatarIndex =
-          Number(
-            BigInt(user.id) >> 22n
-          ) % 6;
+          Number(BigInt(user.id) >> 22n) % 6;
 
         return `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
       } catch {}
+    }
+
+    return null;
+  }
+
+  // ==========================================
+  // SERVER ICON
+  // ==========================================
+
+  function getServerIcon(server) {
+    if (!server) return null;
+
+    if (
+      typeof server.icon === "string" &&
+      server.icon.startsWith("http")
+    ) {
+      return server.icon;
     }
 
     return null;
@@ -179,6 +189,7 @@ export default function App() {
     setServerError("");
     setServerSuccess("");
     setSelectedServer(server);
+    setPage("server-details");
   }
 
   function closeServer() {
@@ -187,6 +198,7 @@ export default function App() {
     setSelectedServer(null);
     setServerError("");
     setServerSuccess("");
+    setPage("servers");
   }
 
   // ==========================================
@@ -219,7 +231,6 @@ export default function App() {
         }
       );
 
-      // Hvis backend bruger DELETE i stedet
       if (response.status === 405) {
         response = await fetch(
           `${API}/api/servers/${selectedServer.id}/leave`,
@@ -235,8 +246,7 @@ export default function App() {
           "Kunne ikke fjerne Hjælper fra serveren.";
 
         try {
-          const data =
-            await response.json();
+          const data = await response.json();
 
           if (data.detail) {
             message = data.detail;
@@ -261,8 +271,8 @@ export default function App() {
       setTimeout(() => {
         setSelectedServer(null);
         setServerSuccess("");
+        setPage("servers");
       }, 1200);
-
     } catch (error) {
       console.error(
         "Remove server error:",
@@ -302,12 +312,10 @@ export default function App() {
 
       setPublicStats(data);
       setLastUpdated(new Date());
-
     } catch (error) {
       setPublicError(
         error.message
       );
-
     } finally {
       setPublicLoading(false);
     }
@@ -348,10 +356,9 @@ export default function App() {
 
     loadDashboardData();
 
-    const interval =
-      setInterval(() => {
-        loadDashboardData();
-      }, 15000);
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 15000);
 
     return () =>
       clearInterval(interval);
@@ -367,10 +374,9 @@ export default function App() {
 
     loadPublicStats();
 
-    const interval =
-      setInterval(() => {
-        loadPublicStats();
-      }, 10000);
+    const interval = setInterval(() => {
+      loadPublicStats();
+    }, 10000);
 
     return () =>
       clearInterval(interval);
@@ -383,9 +389,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="loading-screen">
-
         <div className="loading-box">
-
           <div className="loading-spinner" />
 
           <h2>
@@ -395,9 +399,7 @@ export default function App() {
           <p>
             Indlæser dashboard...
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -409,9 +411,7 @@ export default function App() {
   if (!user && page === "login") {
     return (
       <div className="app">
-
         <div className="login-page">
-
           <div className="login-box">
 
             <div className="login-logo">
@@ -431,19 +431,16 @@ export default function App() {
               onClick={login}
             >
               <span>
-
                 <span className="discord-icon">
                   ◉
                 </span>
 
                 Admin Login
-
               </span>
 
               <span>
                 →
               </span>
-
             </button>
 
             <button
@@ -460,7 +457,6 @@ export default function App() {
               <span>
                 →
               </span>
-
             </button>
 
             <button
@@ -477,7 +473,6 @@ export default function App() {
               <span>
                 →
               </span>
-
             </button>
 
             <button
@@ -494,7 +489,6 @@ export default function App() {
               <span>
                 →
               </span>
-
             </button>
 
             <button
@@ -511,7 +505,6 @@ export default function App() {
               <span>
                 🔒
               </span>
-
             </button>
 
             <div className="login-footer">
@@ -519,9 +512,7 @@ export default function App() {
             </div>
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -533,7 +524,6 @@ export default function App() {
   if (!user && page === "roadmap") {
     return (
       <div className="app">
-
         <div className="public-page">
 
           <div className="public-topbar">
@@ -665,9 +655,7 @@ export default function App() {
             </div>
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -680,7 +668,6 @@ export default function App() {
     !user &&
     page === "public-status"
   ) {
-
     const online =
       publicStats?.status === "online" ||
       publicStats?.bot_status === "online" ||
@@ -688,7 +675,6 @@ export default function App() {
 
     return (
       <div className="app">
-
         <div className="public-page">
 
           <div className="public-topbar">
@@ -764,13 +750,11 @@ export default function App() {
                 <div className="public-status-grid">
 
                   <div className="public-status-card">
-
                     <div className="status-icon">
                       🤖
                     </div>
 
                     <div>
-
                       <span>
                         Bot
                       </span>
@@ -786,9 +770,7 @@ export default function App() {
                           ? "Online"
                           : "Offline"}
                       </strong>
-
                     </div>
-
                   </div>
 
                   <div className="public-status-card">
@@ -798,7 +780,6 @@ export default function App() {
                     </div>
 
                     <div>
-
                       <span>
                         API
                       </span>
@@ -806,7 +787,6 @@ export default function App() {
                       <strong className="status-online">
                         Online
                       </strong>
-
                     </div>
 
                   </div>
@@ -818,7 +798,6 @@ export default function App() {
                     </div>
 
                     <div>
-
                       <span>
                         Servere
                       </span>
@@ -826,7 +805,6 @@ export default function App() {
                       <strong>
                         {publicStats?.servers ?? 0}
                       </strong>
-
                     </div>
 
                   </div>
@@ -838,7 +816,6 @@ export default function App() {
                     </div>
 
                     <div>
-
                       <span>
                         Commands
                       </span>
@@ -846,7 +823,6 @@ export default function App() {
                       <strong>
                         {publicStats?.commands ?? 0}
                       </strong>
-
                     </div>
 
                   </div>
@@ -858,7 +834,6 @@ export default function App() {
                     </div>
 
                     <div>
-
                       <span>
                         Cogs
                       </span>
@@ -866,7 +841,6 @@ export default function App() {
                       <strong>
                         {publicStats?.cogs ?? 0}
                       </strong>
-
                     </div>
 
                   </div>
@@ -895,13 +869,10 @@ export default function App() {
                 )}
 
               </>
-
             )}
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -914,7 +885,6 @@ export default function App() {
     !user &&
     page === "public-stats"
   ) {
-
     return (
       <div className="app">
 
@@ -995,7 +965,6 @@ export default function App() {
                 <div className="stats-grid">
 
                   <div className="stat-card">
-
                     <span>
                       🟢 Bot status
                     </span>
@@ -1007,11 +976,9 @@ export default function App() {
                         ? "Online"
                         : "Offline"}
                     </strong>
-
                   </div>
 
                   <div className="stat-card">
-
                     <span>
                       🖥️ Servere
                     </span>
@@ -1019,11 +986,9 @@ export default function App() {
                     <strong>
                       {publicStats?.servers ?? 0}
                     </strong>
-
                   </div>
 
                   <div className="stat-card">
-
                     <span>
                       👥 Discord-brugere
                     </span>
@@ -1031,11 +996,9 @@ export default function App() {
                     <strong>
                       {publicStats?.users ?? 0}
                     </strong>
-
                   </div>
 
                   <div className="stat-card">
-
                     <span>
                       ⚡ Commands
                     </span>
@@ -1043,11 +1006,9 @@ export default function App() {
                     <strong>
                       {publicStats?.commands ?? 0}
                     </strong>
-
                   </div>
 
                   <div className="stat-card">
-
                     <span>
                       🧩 Cogs
                     </span>
@@ -1055,7 +1016,6 @@ export default function App() {
                     <strong>
                       {publicStats?.cogs ?? 0}
                     </strong>
-
                   </div>
 
                 </div>
@@ -1159,17 +1119,13 @@ export default function App() {
                   <span>
                     →
                   </span>
-
                 </button>
 
               </>
-
             )}
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -1232,9 +1188,12 @@ export default function App() {
                     ? "nav-item active"
                     : "nav-item"
                 }
-                onClick={() =>
-                  setPage(id)
-                }
+                onClick={() => {
+                  setSelectedServer(null);
+                  setServerError("");
+                  setServerSuccess("");
+                  setPage(id);
+                }}
               >
 
                 <span>
@@ -1263,23 +1222,19 @@ export default function App() {
                   src={getAvatarUrl()}
                   alt=""
                   onError={(event) => {
-                    event.currentTarget.src =
-                      user?.id
-                        ? `https://cdn.discordapp.com/embed/avatars/${
-                            (() => {
-                              try {
-                                return (
-                                  Number(
-                                    BigInt(user.id) >>
-                                      22n
-                                  ) % 6
-                                );
-                              } catch {
-                                return 0;
-                              }
-                            })()
-                          }.png`
-                        : "";
+                    try {
+                      const avatarIndex =
+                        Number(
+                          BigInt(user.id) >>
+                            22n
+                        ) % 6;
+
+                      event.currentTarget.src =
+                        `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
+                    } catch {
+                      event.currentTarget.style.display =
+                        "none";
+                    }
                   }}
                 />
 
@@ -1326,15 +1281,20 @@ export default function App() {
           <div>
 
             <h1>
-              {navigation.find(
-                ([id]) =>
-                  id === page
-              )?.[2] ||
-                "Dashboard"}
+              {page === "server-details"
+                ? selectedServer?.name ||
+                  "Server"
+                : navigation.find(
+                    ([id]) =>
+                      id === page
+                  )?.[2] ||
+                  "Dashboard"}
             </h1>
 
             <span>
-              Hjælper V2
+              {page === "server-details"
+                ? "Server detaljer"
+                : "Hjælper V2"}
             </span>
 
           </div>
@@ -1679,7 +1639,7 @@ export default function App() {
                 </h2>
 
                 <p>
-                  Klik på en server for at se detaljer.
+                  Klik på en server for at åbne serverens side.
                 </p>
 
               </div>
@@ -1691,9 +1651,7 @@ export default function App() {
               )}
 
               {serverSuccess && (
-                <div
-                  className="success-box"
-                >
+                <div className="success-box">
                   ✅ {serverSuccess}
                 </div>
               )}
@@ -1718,14 +1676,29 @@ export default function App() {
                           index
                         }
                         onClick={() =>
-                          openServer(
-                            server
-                          )
+                          openServer(server)
                         }
                       >
 
                         <span className="server-icon">
-                          🖥️
+
+                          {getServerIcon(server) ? (
+
+                            <img
+                              src={getServerIcon(server)}
+                              alt=""
+                              onError={(event) => {
+                                event.currentTarget.style.display =
+                                  "none";
+                              }}
+                            />
+
+                          ) : (
+
+                            "🖥️"
+
+                          )}
+
                         </span>
 
                         <span className="server-main">
@@ -1765,6 +1738,174 @@ export default function App() {
 
             </div>
           )}
+
+          {/* ==========================================
+              SERVER DETAILS PAGE
+          ========================================== */}
+
+          {page === "server-details" &&
+            selectedServer && (
+              <div className="server-details-page">
+
+                <button
+                  className="back-button"
+                  onClick={closeServer}
+                  disabled={removingServer}
+                >
+                  ← Tilbage til servere
+                </button>
+
+                <div className="server-hero">
+
+                  <div className="server-hero-icon">
+
+                    {getServerIcon(
+                      selectedServer
+                    ) ? (
+
+                      <img
+                        src={getServerIcon(
+                          selectedServer
+                        )}
+                        alt=""
+                        onError={(event) => {
+                          event.currentTarget.style.display =
+                            "none";
+                        }}
+                      />
+
+                    ) : (
+
+                      <span>
+                        🖥️
+                      </span>
+
+                    )}
+
+                  </div>
+
+                  <div className="server-hero-info">
+
+                    <span className="eyebrow">
+                      DISCORD SERVER
+                    </span>
+
+                    <h2>
+                      {selectedServer.name ||
+                        "Ukendt server"}
+                    </h2>
+
+                    <p>
+                      Hjælper er tilføjet til denne server.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                {serverSuccess && (
+                  <div className="success-box">
+                    ✅ {serverSuccess}
+                  </div>
+                )}
+
+                {serverError && (
+                  <div className="error-box">
+                    ❌ {serverError}
+                  </div>
+                )}
+
+                <div className="server-detail-grid">
+
+                  <div className="server-detail-card">
+
+                    <span>
+                      👥 Medlemmer
+                    </span>
+
+                    <strong>
+                      {selectedServer.members ??
+                        selectedServer.member_count ??
+                        0}
+                    </strong>
+
+                    <small>
+                      Discord-brugere på serveren
+                    </small>
+
+                  </div>
+
+                  <div className="server-detail-card">
+
+                    <span>
+                      🆔 Server ID
+                    </span>
+
+                    <strong className="server-id">
+                      {selectedServer.id ||
+                        "Ukendt"}
+                    </strong>
+
+                    <small>
+                      Discord Guild ID
+                    </small>
+
+                  </div>
+
+                  <div className="server-detail-card">
+
+                    <span>
+                      🤖 Hjælper
+                    </span>
+
+                    <strong className="status-online">
+                      🟢 Tilsluttet
+                    </strong>
+
+                    <small>
+                      Botten er medlem af serveren
+                    </small>
+
+                  </div>
+
+                </div>
+
+                <div className="server-danger-card">
+
+                  <div>
+
+                    <span className="eyebrow">
+                      SERVER HANDLING
+                    </span>
+
+                    <h3>
+                      Fjern Hjælper
+                    </h3>
+
+                    <p>
+                      Dette får Hjælper til at forlade
+                      serveren. Handlingen kan ikke
+                      fortrydes fra dashboardet.
+                    </p>
+
+                  </div>
+
+                  <button
+                    className="danger-button"
+                    onClick={
+                      removeHelperFromServer
+                    }
+                    disabled={removingServer}
+                  >
+                    {removingServer
+                      ? "⏳ Fjerner..."
+                      : "🔴 Fjern Hjælper"}
+                  </button>
+
+                </div>
+
+              </div>
+            )}
 
           {/* ==========================================
               LOGS
@@ -1887,115 +2028,7 @@ export default function App() {
           )}
 
         </div>
-
       </main>
-
-      {/* ==========================================
-          SERVER MODAL
-      ========================================== */}
-
-      {selectedServer && (
-        <div
-          className="server-modal-overlay"
-          onClick={(event) => {
-            if (
-              event.target ===
-              event.currentTarget
-            ) {
-              closeServer();
-            }
-          }}
-        >
-
-          <div className="server-modal">
-
-            <button
-              className="server-modal-close"
-              onClick={closeServer}
-              disabled={removingServer}
-            >
-              ×
-            </button>
-
-            <div className="server-modal-icon">
-              🖥️
-            </div>
-
-            <span className="eyebrow">
-              DISCORD SERVER
-            </span>
-
-            <h2>
-              {selectedServer.name ||
-                "Ukendt server"}
-            </h2>
-
-            <div className="server-details">
-
-              <div>
-
-                <span>
-                  Server ID
-                </span>
-
-                <strong>
-                  {selectedServer.id ||
-                    "Ukendt"}
-                </strong>
-
-              </div>
-
-              <div>
-
-                <span>
-                  Brugere
-                </span>
-
-                <strong>
-                  {selectedServer.members ??
-                    selectedServer.member_count ??
-                    0}
-                </strong>
-
-              </div>
-
-            </div>
-
-            {serverError && (
-              <div className="error-box">
-                ❌ {serverError}
-              </div>
-            )}
-
-            <div className="server-modal-actions">
-
-              <button
-                className="back-button"
-                onClick={closeServer}
-                disabled={removingServer}
-              >
-                Annuller
-              </button>
-
-              <button
-                className="danger-button"
-                onClick={
-                  removeHelperFromServer
-                }
-                disabled={removingServer}
-              >
-                {removingServer
-                  ? "Fjerner..."
-                  : "🔴 Fjern Hjælper"}
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
     </div>
   );
 }
