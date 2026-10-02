@@ -1204,3 +1204,282 @@ button:focus-visible {
   }
 
 }
+/* ==========================================
+   SERVER DETAILS PAGE
+   ========================================== */
+
+.server-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.server-row:last-child {
+  border-bottom: none;
+}
+
+.server-row:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.server-icon {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 15px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 24px;
+}
+
+.server-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.server-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.server-main strong {
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-main small {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+}
+
+.server-members {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.server-arrow {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.45);
+  transition: 0.2s ease;
+}
+
+.server-row:hover .server-arrow {
+  transform: translateX(4px);
+  color: white;
+}
+
+
+/* ==========================================
+   SERVER DETAILS
+   ========================================== */
+
+.server-details-page {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.server-details-page > .back-button {
+  margin-bottom: 24px;
+}
+
+.server-hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 30px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 24px;
+}
+
+.server-hero-icon {
+  width: 110px;
+  height: 110px;
+  min-width: 110px;
+  border-radius: 25px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 45px;
+}
+
+.server-hero-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.server-hero-info {
+  min-width: 0;
+}
+
+.server-hero-info h2 {
+  margin: 5px 0 8px;
+  font-size: 30px;
+  word-break: break-word;
+}
+
+.server-hero-info p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+
+/* ==========================================
+   SERVER DETAIL CARDS
+   ========================================== */
+
+.server-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.server-detail-card {
+  padding: 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.server-detail-card span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+.server-detail-card strong {
+  font-size: 22px;
+}
+
+.server-detail-card small {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 12px;
+}
+
+.server-id {
+  font-size: 14px !important;
+  word-break: break-all;
+}
+
+
+/* ==========================================
+   SERVER DANGER AREA
+   ========================================== */
+
+.server-danger-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 25px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 70, 70, 0.25);
+  background: rgba(255, 50, 50, 0.055);
+}
+
+.server-danger-card h3 {
+  margin: 5px 0 8px;
+  font-size: 20px;
+}
+
+.server-danger-card p {
+  margin: 0;
+  max-width: 650px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+}
+
+.danger-button {
+  border: none;
+  border-radius: 12px;
+  padding: 13px 19px;
+  background: #d83b3b;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.2s ease;
+}
+
+.danger-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #ef4444;
+}
+
+.danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 850px) {
+  .server-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .server-danger-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .danger-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 650px) {
+  .server-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .server-members {
+    display: none;
+  }
+
+  .server-row {
+    gap: 12px;
+  }
+
+  .server-icon {
+    width: 45px;
+    height: 45px;
+    min-width: 45px;
+  }
+
+  .server-hero-icon {
+    width: 85px;
+    height: 85px;
+    min-width: 85px;
+  }
+}
