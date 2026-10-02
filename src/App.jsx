@@ -12,6 +12,11 @@ export default function App() {
   const [cogs, setCogs] = useState([]);
   const [servers, setServers] = useState([]);
 
+  const [selectedServer, setSelectedServer] = useState(null);
+  const [removingServer, setRemovingServer] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [serverSuccess, setServerSuccess] = useState("");
+
   const [publicStats, setPublicStats] = useState(null);
   const [publicLoading, setPublicLoading] = useState(false);
   const [publicError, setPublicError] = useState("");
@@ -64,6 +69,49 @@ export default function App() {
     setStats(null);
     setCogs([]);
     setServers([]);
+    setSelectedServer(null);
+  }
+
+  // ==========================================
+  // DISCORD AVATAR
+  // ==========================================
+
+  function getAvatarUrl() {
+    if (!user) return null;
+
+    // Hvis backend allerede sender en komplet URL
+    if (
+      typeof user.avatar === "string" &&
+      user.avatar.startsWith("http")
+    ) {
+      return user.avatar;
+    }
+
+    // Hvis Discord avatar hash bliver sendt
+    if (
+      user.avatar &&
+      user.id
+    ) {
+      const extension = user.avatar.startsWith("a_")
+        ? "gif"
+        : "png";
+
+      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=128`;
+    }
+
+    // Discord default avatar
+    if (user.id) {
+      try {
+        const avatarIndex =
+          Number(
+            BigInt(user.id) >> 22n
+          ) % 6;
+
+        return `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
+      } catch {}
+    }
+
+    return null;
   }
 
   // ==========================================
@@ -74,18 +122,23 @@ export default function App() {
     if (!user) return;
 
     try {
-      const [statsResponse, cogsResponse, serversResponse] =
-        await Promise.all([
-          fetch(`${API}/api/stats`, {
-            credentials: "include",
-          }),
-          fetch(`${API}/api/cogs`, {
-            credentials: "include",
-          }),
-          fetch(`${API}/api/servers`, {
-            credentials: "include",
-          }),
-        ]);
+      const [
+        statsResponse,
+        cogsResponse,
+        serversResponse,
+      ] = await Promise.all([
+        fetch(`${API}/api/stats`, {
+          credentials: "include",
+        }),
+
+        fetch(`${API}/api/cogs`, {
+          credentials: "include",
+        }),
+
+        fetch(`${API}/api/servers`, {
+          credentials: "include",
+        }),
+      ]);
 
       if (statsResponse.ok) {
         setStats(await statsResponse.json());
@@ -93,15 +146,135 @@ export default function App() {
 
       if (cogsResponse.ok) {
         const data = await cogsResponse.json();
-        setCogs(data.cogs || []);
+
+        setCogs(
+          Array.isArray(data.cogs)
+            ? data.cogs
+            : []
+        );
       }
 
       if (serversResponse.ok) {
         const data = await serversResponse.json();
-        setServers(data.servers || []);
+
+        setServers(
+          Array.isArray(data.servers)
+            ? data.servers
+            : []
+        );
       }
     } catch (error) {
-      console.error("Dashboard error:", error);
+      console.error(
+        "Dashboard error:",
+        error
+      );
+    }
+  }
+
+  // ==========================================
+  // SERVER DETAILS
+  // ==========================================
+
+  function openServer(server) {
+    setServerError("");
+    setServerSuccess("");
+    setSelectedServer(server);
+  }
+
+  function closeServer() {
+    if (removingServer) return;
+
+    setSelectedServer(null);
+    setServerError("");
+    setServerSuccess("");
+  }
+
+  // ==========================================
+  // REMOVE BOT FROM SERVER
+  // ==========================================
+
+  async function removeHelperFromServer() {
+    if (!selectedServer?.id) return;
+
+    const serverName =
+      selectedServer.name ||
+      "denne server";
+
+    const confirmed = window.confirm(
+      `Er du sikker på, at Hjælper skal fjernes fra "${serverName}"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setRemovingServer(true);
+      setServerError("");
+      setServerSuccess("");
+
+      let response = await fetch(
+        `${API}/api/servers/${selectedServer.id}/leave`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      // Hvis backend bruger DELETE i stedet
+      if (response.status === 405) {
+        response = await fetch(
+          `${API}/api/servers/${selectedServer.id}/leave`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+      }
+
+      if (!response.ok) {
+        let message =
+          "Kunne ikke fjerne Hjælper fra serveren.";
+
+        try {
+          const data =
+            await response.json();
+
+          if (data.detail) {
+            message = data.detail;
+          }
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      setServerSuccess(
+        `Hjælper blev fjernet fra ${serverName}.`
+      );
+
+      setServers((current) =>
+        current.filter(
+          (server) =>
+            String(server.id) !==
+            String(selectedServer.id)
+        )
+      );
+
+      setTimeout(() => {
+        setSelectedServer(null);
+        setServerSuccess("");
+      }, 1200);
+
+    } catch (error) {
+      console.error(
+        "Remove server error:",
+        error
+      );
+
+      setServerError(
+        error.message ||
+          "Der opstod en fejl."
+      );
+    } finally {
+      setRemovingServer(false);
     }
   }
 
@@ -114,18 +287,27 @@ export default function App() {
       setPublicLoading(true);
       setPublicError("");
 
-      const response = await fetch(`${API}/api/public/stats`);
+      const response = await fetch(
+        `${API}/api/public/stats`
+      );
 
       if (!response.ok) {
-        throw new Error("Kunne ikke hente statistik.");
+        throw new Error(
+          "Kunne ikke hente statistik."
+        );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       setPublicStats(data);
       setLastUpdated(new Date());
+
     } catch (error) {
-      setPublicError(error.message);
+      setPublicError(
+        error.message
+      );
+
     } finally {
       setPublicLoading(false);
     }
@@ -166,11 +348,13 @@ export default function App() {
 
     loadDashboardData();
 
-    const interval = setInterval(() => {
-      loadDashboardData();
-    }, 15000);
+    const interval =
+      setInterval(() => {
+        loadDashboardData();
+      }, 15000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, [user]);
 
   useEffect(() => {
@@ -183,11 +367,13 @@ export default function App() {
 
     loadPublicStats();
 
-    const interval = setInterval(() => {
-      loadPublicStats();
-    }, 10000);
+    const interval =
+      setInterval(() => {
+        loadPublicStats();
+      }, 10000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, [page]);
 
   // ==========================================
@@ -197,11 +383,21 @@ export default function App() {
   if (loading) {
     return (
       <div className="loading-screen">
+
         <div className="loading-box">
+
           <div className="loading-spinner" />
-          <h2>Hjælper</h2>
-          <p>Indlæser dashboard...</p>
+
+          <h2>
+            Hjælper
+          </h2>
+
+          <p>
+            Indlæser dashboard...
+          </p>
+
         </div>
+
       </div>
     );
   }
@@ -213,6 +409,7 @@ export default function App() {
   if (!user && page === "login") {
     return (
       <div className="app">
+
         <div className="login-page">
 
           <div className="login-box">
@@ -234,22 +431,27 @@ export default function App() {
               onClick={login}
             >
               <span>
+
                 <span className="discord-icon">
                   ◉
                 </span>
 
                 Admin Login
+
               </span>
 
               <span>
                 →
               </span>
+
             </button>
 
             <button
               className="login"
               onClick={openStats}
-              style={{ marginTop: "9px" }}
+              style={{
+                marginTop: "9px",
+              }}
             >
               <span>
                 📊 Se Statistik
@@ -258,12 +460,15 @@ export default function App() {
               <span>
                 →
               </span>
+
             </button>
 
             <button
               className="login"
               onClick={openStatus}
-              style={{ marginTop: "9px" }}
+              style={{
+                marginTop: "9px",
+              }}
             >
               <span>
                 🟢 Status
@@ -272,12 +477,15 @@ export default function App() {
               <span>
                 →
               </span>
+
             </button>
 
             <button
               className="login"
               onClick={openRoadmap}
-              style={{ marginTop: "9px" }}
+              style={{
+                marginTop: "9px",
+              }}
             >
               <span>
                 🚀 Roadmap
@@ -286,12 +494,15 @@ export default function App() {
               <span>
                 →
               </span>
+
             </button>
 
             <button
               className="login disabled"
               disabled
-              style={{ marginTop: "9px" }}
+              style={{
+                marginTop: "9px",
+              }}
             >
               <span>
                 👤 Bruger Login
@@ -300,6 +511,7 @@ export default function App() {
               <span>
                 🔒
               </span>
+
             </button>
 
             <div className="login-footer">
@@ -309,6 +521,7 @@ export default function App() {
           </div>
 
         </div>
+
       </div>
     );
   }
@@ -320,6 +533,7 @@ export default function App() {
   if (!user && page === "roadmap") {
     return (
       <div className="app">
+
         <div className="public-page">
 
           <div className="public-topbar">
@@ -331,8 +545,13 @@ export default function App() {
               </div>
 
               <div>
-                <h1>Hjælper</h1>
-                <span>Roadmap</span>
+                <h1>
+                  Hjælper
+                </h1>
+
+                <span>
+                  Roadmap
+                </span>
               </div>
 
             </div>
@@ -347,8 +566,6 @@ export default function App() {
           </div>
 
           <div className="roadmap">
-
-            {/* V2.1 */}
 
             <div className="roadmap-card active">
 
@@ -401,8 +618,6 @@ export default function App() {
 
             </div>
 
-            {/* V2.2 */}
-
             <div className="roadmap-card">
 
               <div className="roadmap-header">
@@ -452,6 +667,7 @@ export default function App() {
           </div>
 
         </div>
+
       </div>
     );
   }
@@ -460,7 +676,11 @@ export default function App() {
   // PUBLIC STATUS
   // ==========================================
 
-  if (!user && page === "public-status") {
+  if (
+    !user &&
+    page === "public-status"
+  ) {
+
     const online =
       publicStats?.status === "online" ||
       publicStats?.bot_status === "online" ||
@@ -468,6 +688,7 @@ export default function App() {
 
     return (
       <div className="app">
+
         <div className="public-page">
 
           <div className="public-topbar">
@@ -479,8 +700,15 @@ export default function App() {
               </div>
 
               <div>
-                <h1>Hjælper</h1>
-                <span>Offentlig status</span>
+
+                <h1>
+                  Hjælper
+                </h1>
+
+                <span>
+                  Offentlig status
+                </span>
+
               </div>
 
             </div>
@@ -512,7 +740,8 @@ export default function App() {
 
             </div>
 
-            {publicLoading && !publicStats ? (
+            {publicLoading &&
+            !publicStats ? (
               <div className="public-loading">
 
                 <div className="loading-spinner" />
@@ -523,10 +752,13 @@ export default function App() {
 
               </div>
             ) : publicError ? (
+
               <div className="error-box">
                 ❌ {publicError}
               </div>
+
             ) : (
+
               <>
 
                 <div className="public-status-grid">
@@ -656,16 +888,20 @@ export default function App() {
                 {lastUpdated && (
                   <div className="last-updated">
                     Sidst opdateret:{" "}
-                    {lastUpdated.toLocaleTimeString("da-DK")}
+                    {lastUpdated.toLocaleTimeString(
+                      "da-DK"
+                    )}
                   </div>
                 )}
 
               </>
+
             )}
 
           </div>
 
         </div>
+
       </div>
     );
   }
@@ -674,9 +910,14 @@ export default function App() {
   // PUBLIC STATS
   // ==========================================
 
-  if (!user && page === "public-stats") {
+  if (
+    !user &&
+    page === "public-stats"
+  ) {
+
     return (
       <div className="app">
+
         <div className="public-page">
 
           <div className="public-topbar">
@@ -688,8 +929,15 @@ export default function App() {
               </div>
 
               <div>
-                <h1>Hjælper</h1>
-                <span>Offentlig statistik</span>
+
+                <h1>
+                  Hjælper
+                </h1>
+
+                <span>
+                  Offentlig statistik
+                </span>
+
               </div>
 
             </div>
@@ -721,7 +969,9 @@ export default function App() {
 
             </div>
 
-            {publicLoading && !publicStats ? (
+            {publicLoading &&
+            !publicStats ? (
+
               <div className="public-loading">
 
                 <div className="loading-spinner" />
@@ -731,16 +981,21 @@ export default function App() {
                 </p>
 
               </div>
+
             ) : publicError ? (
+
               <div className="error-box">
                 ❌ {publicError}
               </div>
+
             ) : (
+
               <>
 
                 <div className="stats-grid">
 
                   <div className="stat-card">
+
                     <span>
                       🟢 Bot status
                     </span>
@@ -752,9 +1007,11 @@ export default function App() {
                         ? "Online"
                         : "Offline"}
                     </strong>
+
                   </div>
 
                   <div className="stat-card">
+
                     <span>
                       🖥️ Servere
                     </span>
@@ -762,9 +1019,11 @@ export default function App() {
                     <strong>
                       {publicStats?.servers ?? 0}
                     </strong>
+
                   </div>
 
                   <div className="stat-card">
+
                     <span>
                       👥 Discord-brugere
                     </span>
@@ -772,9 +1031,11 @@ export default function App() {
                     <strong>
                       {publicStats?.users ?? 0}
                     </strong>
+
                   </div>
 
                   <div className="stat-card">
+
                     <span>
                       ⚡ Commands
                     </span>
@@ -782,9 +1043,11 @@ export default function App() {
                     <strong>
                       {publicStats?.commands ?? 0}
                     </strong>
+
                   </div>
 
                   <div className="stat-card">
+
                     <span>
                       🧩 Cogs
                     </span>
@@ -792,6 +1055,7 @@ export default function App() {
                     <strong>
                       {publicStats?.cogs ?? 0}
                     </strong>
+
                   </div>
 
                 </div>
@@ -875,14 +1139,18 @@ export default function App() {
                 {lastUpdated && (
                   <div className="last-updated">
                     Sidst opdateret:{" "}
-                    {lastUpdated.toLocaleTimeString("da-DK")}
+                    {lastUpdated.toLocaleTimeString(
+                      "da-DK"
+                    )}
                   </div>
                 )}
 
                 <button
                   className="login"
                   onClick={openStatus}
-                  style={{ marginTop: "20px" }}
+                  style={{
+                    marginTop: "20px",
+                  }}
                 >
                   <span>
                     🟢 Se Status
@@ -891,14 +1159,17 @@ export default function App() {
                   <span>
                     →
                   </span>
+
                 </button>
 
               </>
+
             )}
 
           </div>
 
         </div>
+
       </div>
     );
   }
@@ -961,8 +1232,11 @@ export default function App() {
                     ? "nav-item active"
                     : "nav-item"
                 }
-                onClick={() => setPage(id)}
+                onClick={() =>
+                  setPage(id)
+                }
               >
+
                 <span>
                   {icon}
                 </span>
@@ -970,6 +1244,7 @@ export default function App() {
                 <span>
                   {label}
                 </span>
+
               </button>
             )
           )}
@@ -982,13 +1257,36 @@ export default function App() {
 
             <div className="user-avatar">
 
-              {user?.avatar ? (
+              {getAvatarUrl() ? (
+
                 <img
-                  src={user.avatar}
+                  src={getAvatarUrl()}
                   alt=""
+                  onError={(event) => {
+                    event.currentTarget.src =
+                      user?.id
+                        ? `https://cdn.discordapp.com/embed/avatars/${
+                            (() => {
+                              try {
+                                return (
+                                  Number(
+                                    BigInt(user.id) >>
+                                      22n
+                                  ) % 6
+                                );
+                              } catch {
+                                return 0;
+                              }
+                            })()
+                          }.png`
+                        : "";
+                  }}
                 />
+
               ) : (
+
                 "👤"
+
               )}
 
             </div>
@@ -996,7 +1294,8 @@ export default function App() {
             <div className="user-info">
 
               <strong>
-                {user?.username || "Bruger"}
+                {user?.username ||
+                  "Bruger"}
               </strong>
 
               <span>
@@ -1028,8 +1327,10 @@ export default function App() {
 
             <h1>
               {navigation.find(
-                ([id]) => id === page
-              )?.[2] || "Dashboard"}
+                ([id]) =>
+                  id === page
+              )?.[2] ||
+                "Dashboard"}
             </h1>
 
             <span>
@@ -1050,7 +1351,9 @@ export default function App() {
 
         <div className="content">
 
-          {/* OVERVIEW */}
+          {/* ==========================================
+              OVERVIEW
+          ========================================== */}
 
           {page === "overview" && (
             <div>
@@ -1074,36 +1377,63 @@ export default function App() {
               <div className="stats-grid">
 
                 <div className="stat-card">
-                  <span>🟢 Status</span>
-                  <strong>Online</strong>
+
+                  <span>
+                    🟢 Status
+                  </span>
+
+                  <strong>
+                    Online
+                  </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>🖥️ Servere</span>
+
+                  <span>
+                    🖥️ Servere
+                  </span>
+
                   <strong>
                     {stats?.servers ?? 0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>👥 Brugere</span>
+
+                  <span>
+                    👥 Brugere
+                  </span>
+
                   <strong>
                     {stats?.users ?? 0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>⚡ Commands</span>
+
+                  <span>
+                    ⚡ Commands
+                  </span>
+
                   <strong>
                     {stats?.commands ?? 0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>🧩 Cogs</span>
+
+                  <span>
+                    🧩 Cogs
+                  </span>
+
                   <strong>
                     {stats?.cogs ?? 0}
                   </strong>
+
                 </div>
 
               </div>
@@ -1111,7 +1441,9 @@ export default function App() {
             </div>
           )}
 
-          {/* BOT */}
+          {/* ==========================================
+              BOT
+          ========================================== */}
 
           {page === "bot" && (
             <div>
@@ -1135,27 +1467,40 @@ export default function App() {
               <div className="info-card">
 
                 <div>
-                  <span>Navn</span>
+
+                  <span>
+                    Navn
+                  </span>
 
                   <strong>
-                    {stats?.bot_name || "Hjælper"}
+                    {stats?.bot_name ||
+                      "Hjælper"}
                   </strong>
+
                 </div>
 
                 <div>
-                  <span>Status</span>
+
+                  <span>
+                    Status
+                  </span>
 
                   <strong className="status-online">
                     🟢 Online
                   </strong>
+
                 </div>
 
                 <div>
-                  <span>Servere</span>
+
+                  <span>
+                    Servere
+                  </span>
 
                   <strong>
                     {stats?.servers ?? 0}
                   </strong>
+
                 </div>
 
               </div>
@@ -1163,7 +1508,9 @@ export default function App() {
             </div>
           )}
 
-          {/* STATS */}
+          {/* ==========================================
+              STATS
+          ========================================== */}
 
           {page === "stats" && (
             <div>
@@ -1247,7 +1594,9 @@ export default function App() {
             </div>
           )}
 
-          {/* COGS */}
+          {/* ==========================================
+              COGS
+          ========================================== */}
 
           {page === "cogs" && (
             <div>
@@ -1271,34 +1620,40 @@ export default function App() {
               <div className="list-card">
 
                 {cogs.length === 0 ? (
+
                   <div className="empty">
                     Ingen cogs fundet.
                   </div>
+
                 ) : (
-                  cogs.map((cog, index) => (
-                    <div
-                      className="list-row"
-                      key={index}
-                    >
 
-                      <span>
-                        🧩
-                      </span>
+                  cogs.map(
+                    (cog, index) => (
+                      <div
+                        className="list-row"
+                        key={index}
+                      >
 
-                      <strong>
-                        {typeof cog === "string"
-                          ? cog
-                          : cog.name ||
-                            cog.cog ||
-                            "Ukendt"}
-                      </strong>
+                        <span>
+                          🧩
+                        </span>
 
-                      <span className="status-online">
-                        Loaded
-                      </span>
+                        <strong>
+                          {typeof cog === "string"
+                            ? cog
+                            : cog.name ||
+                              cog.cog ||
+                              "Ukendt"}
+                        </strong>
 
-                    </div>
-                  ))
+                        <span className="status-online">
+                          Loaded
+                        </span>
+
+                      </div>
+                    )
+                  )
+
                 )}
 
               </div>
@@ -1306,7 +1661,9 @@ export default function App() {
             </div>
           )}
 
-          {/* SERVERS */}
+          {/* ==========================================
+              SERVERS
+          ========================================== */}
 
           {page === "servers" && (
             <div>
@@ -1322,41 +1679,86 @@ export default function App() {
                 </h2>
 
                 <p>
-                  Servere hvor Hjælper er tilsluttet.
+                  Klik på en server for at se detaljer.
                 </p>
 
               </div>
 
+              {serverError && (
+                <div className="error-box">
+                  ❌ {serverError}
+                </div>
+              )}
+
+              {serverSuccess && (
+                <div
+                  className="success-box"
+                >
+                  ✅ {serverSuccess}
+                </div>
+              )}
+
               <div className="list-card">
 
                 {servers.length === 0 ? (
+
                   <div className="empty">
                     Ingen servere fundet.
                   </div>
+
                 ) : (
-                  servers.map((server, index) => (
-                    <div
-                      className="list-row"
-                      key={server.id || index}
-                    >
 
-                      <span>
-                        🖥️
-                      </span>
+                  servers.map(
+                    (server, index) => (
 
-                      <strong>
-                        {server.name || "Ukendt server"}
-                      </strong>
+                      <button
+                        className="server-row"
+                        key={
+                          server.id ||
+                          index
+                        }
+                        onClick={() =>
+                          openServer(
+                            server
+                          )
+                        }
+                      >
 
-                      <span>
-                        {server.members ??
-                          server.member_count ??
-                          0}{" "}
-                        brugere
-                      </span>
+                        <span className="server-icon">
+                          🖥️
+                        </span>
 
-                    </div>
-                  ))
+                        <span className="server-main">
+
+                          <strong>
+                            {server.name ||
+                              "Ukendt server"}
+                          </strong>
+
+                          <small>
+                            ID:{" "}
+                            {server.id ||
+                              "Ukendt"}
+                          </small>
+
+                        </span>
+
+                        <span className="server-members">
+                          {server.members ??
+                            server.member_count ??
+                            0}{" "}
+                          brugere
+                        </span>
+
+                        <span className="server-arrow">
+                          →
+                        </span>
+
+                      </button>
+
+                    )
+                  )
+
                 )}
 
               </div>
@@ -1364,7 +1766,9 @@ export default function App() {
             </div>
           )}
 
-          {/* LOGS */}
+          {/* ==========================================
+              LOGS
+          ========================================== */}
 
           {page === "logs" && (
             <div>
@@ -1404,7 +1808,9 @@ export default function App() {
             </div>
           )}
 
-          {/* SYSTEM */}
+          {/* ==========================================
+              SYSTEM
+          ========================================== */}
 
           {page === "system" && (
             <div>
@@ -1428,27 +1834,51 @@ export default function App() {
               <div className="stats-grid">
 
                 <div className="stat-card">
-                  <span>🤖 Bot</span>
-                  <strong>Online</strong>
+
+                  <span>
+                    🤖 Bot
+                  </span>
+
+                  <strong>
+                    Online
+                  </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>🌐 API</span>
-                  <strong>Online</strong>
+
+                  <span>
+                    🌐 API
+                  </span>
+
+                  <strong>
+                    Online
+                  </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>🧩 Cogs</span>
+
+                  <span>
+                    🧩 Cogs
+                  </span>
+
                   <strong>
                     {stats?.cogs ?? 0}
                   </strong>
+
                 </div>
 
                 <div className="stat-card">
-                  <span>🖥️ Servere</span>
+
+                  <span>
+                    🖥️ Servere
+                  </span>
+
                   <strong>
                     {stats?.servers ?? 0}
                   </strong>
+
                 </div>
 
               </div>
@@ -1459,6 +1889,112 @@ export default function App() {
         </div>
 
       </main>
+
+      {/* ==========================================
+          SERVER MODAL
+      ========================================== */}
+
+      {selectedServer && (
+        <div
+          className="server-modal-overlay"
+          onClick={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeServer();
+            }
+          }}
+        >
+
+          <div className="server-modal">
+
+            <button
+              className="server-modal-close"
+              onClick={closeServer}
+              disabled={removingServer}
+            >
+              ×
+            </button>
+
+            <div className="server-modal-icon">
+              🖥️
+            </div>
+
+            <span className="eyebrow">
+              DISCORD SERVER
+            </span>
+
+            <h2>
+              {selectedServer.name ||
+                "Ukendt server"}
+            </h2>
+
+            <div className="server-details">
+
+              <div>
+
+                <span>
+                  Server ID
+                </span>
+
+                <strong>
+                  {selectedServer.id ||
+                    "Ukendt"}
+                </strong>
+
+              </div>
+
+              <div>
+
+                <span>
+                  Brugere
+                </span>
+
+                <strong>
+                  {selectedServer.members ??
+                    selectedServer.member_count ??
+                    0}
+                </strong>
+
+              </div>
+
+            </div>
+
+            {serverError && (
+              <div className="error-box">
+                ❌ {serverError}
+              </div>
+            )}
+
+            <div className="server-modal-actions">
+
+              <button
+                className="back-button"
+                onClick={closeServer}
+                disabled={removingServer}
+              >
+                Annuller
+              </button>
+
+              <button
+                className="danger-button"
+                onClick={
+                  removeHelperFromServer
+                }
+                disabled={removingServer}
+              >
+                {removingServer
+                  ? "Fjerner..."
+                  : "🔴 Fjern Hjælper"}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
     </div>
   );
