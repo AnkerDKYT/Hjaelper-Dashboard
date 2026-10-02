@@ -17,6 +17,7 @@ export default function App() {
   const [publicStats, setPublicStats] = useState({});
   const [publicStatsLoading, setPublicStatsLoading] = useState(false);
   const [publicStatsError, setPublicStatsError] = useState("");
+  const [publicLastUpdated, setPublicLastUpdated] = useState(null);
 
   const [selectedServer, setSelectedServer] = useState(null);
   const [leavingServer, setLeavingServer] = useState(false);
@@ -59,9 +60,7 @@ export default function App() {
       setPublicStatsLoading(true);
       setPublicStatsError("");
 
-      const response = await fetch(
-        `${API}/api/public/stats`
-      );
+      const response = await fetch(`${API}/api/public/stats`);
 
       const data = await response.json();
 
@@ -73,6 +72,7 @@ export default function App() {
       }
 
       setPublicStats(data);
+      setPublicLastUpdated(new Date());
     } catch (err) {
       console.error(err);
 
@@ -91,6 +91,15 @@ export default function App() {
 
   function openPublicStats() {
     setPage("public-stats");
+    loadPublicStats();
+  }
+
+  // ==========================================================
+  // OPEN PUBLIC STATUS
+  // ==========================================================
+
+  function openPublicStatus() {
+    setPage("public-status");
     loadPublicStats();
   }
 
@@ -126,38 +135,29 @@ export default function App() {
       ]);
 
       if (statusRes.ok) {
-        setStatus(
-          await statusRes.json()
-        );
+        setStatus(await statusRes.json());
       }
 
       if (statsRes.ok) {
-        setStats(
-          await statsRes.json()
-        );
+        setStats(await statsRes.json());
       }
 
       if (cogsRes.ok) {
-        setCogs(
-          await cogsRes.json()
-        );
+        setCogs(await cogsRes.json());
       }
 
       if (serversRes.ok) {
-        const serverData =
-          await serversRes.json();
+        const serverData = await serversRes.json();
 
         setServers(serverData);
 
         if (selectedServer) {
-          const stillExists =
-            (
-              serverData.servers || []
-            ).some(
-              (server) =>
-                server.id ===
-                selectedServer.id
-            );
+          const stillExists = (
+            serverData.servers || []
+          ).some(
+            (server) =>
+              server.id === selectedServer.id
+          );
 
           if (!stillExists) {
             setSelectedServer(null);
@@ -192,11 +192,14 @@ export default function App() {
   }, [user]);
 
   // ==========================================================
-  // PUBLIC STATS AUTO REFRESH
+  // PUBLIC AUTO REFRESH
   // ==========================================================
 
   useEffect(() => {
-    if (page !== "public-stats") {
+    if (
+      page !== "public-stats" &&
+      page !== "public-status"
+    ) {
       return;
     }
 
@@ -388,6 +391,292 @@ export default function App() {
   }
 
   // ==========================================================
+  // PUBLIC STATUS PAGE
+  // ==========================================================
+
+  if (!user && page === "public-status") {
+    const botOnline =
+      publicStats.online === true;
+
+    const cogCount =
+      publicStats.cogs ?? 0;
+
+    const serverCount =
+      publicStats.servers ?? 0;
+
+    const commandCount =
+      publicStats.commands ?? 0;
+
+    return (
+      <div className="home">
+        <div
+          className="home-card"
+          style={{
+            maxWidth: "1100px",
+          }}
+        >
+          <div className="home-logo">
+            {botOnline ? "🟢" : "🔴"}
+          </div>
+
+          <div className="eyebrow">
+            HJÆLPER SYSTEM STATUS
+          </div>
+
+          <h1>
+            Offentlig <span>Status</span>
+          </h1>
+
+          <p>
+            Se den aktuelle status for
+            Hjælper og systemerne bag
+            dashboardet.
+          </p>
+
+          {publicStatsError && (
+            <div className="error">
+              <span>
+                {publicStatsError}
+              </span>
+
+              <button
+                onClick={() =>
+                  setPublicStatsError("")
+                }
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {publicStatsLoading &&
+          !publicStats.servers ? (
+            <div
+              style={{
+                padding: "30px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "40px",
+                  marginBottom: "10px",
+                }}
+              >
+                ⏳
+              </div>
+
+              <p>
+                Henter status...
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="cards">
+
+                <Card
+                  icon={
+                    botOnline
+                      ? "🟢"
+                      : "🔴"
+                  }
+                  title="Bot"
+                  value={
+                    botOnline
+                      ? "Online"
+                      : "Offline"
+                  }
+                />
+
+                <Card
+                  icon="🌐"
+                  title="API"
+                  value={
+                    publicStatsError
+                      ? "Fejl"
+                      : "Online"
+                  }
+                />
+
+                <Card
+                  icon="🖥️"
+                  title="Servere"
+                  value={serverCount}
+                />
+
+                <Card
+                  icon="⚡"
+                  title="Commands"
+                  value={commandCount}
+                />
+
+                <Card
+                  icon="🧩"
+                  title="Cogs"
+                  value={cogCount}
+                />
+              </div>
+
+              <div className="columns">
+
+                <Panel
+                  title="🟢 Systemstatus"
+                >
+
+                  <Info
+                    name="Discord Bot"
+                    value={
+                      botOnline
+                        ? "🟢 Online"
+                        : "🔴 Offline"
+                    }
+                  />
+
+                  <Info
+                    name="Dashboard API"
+                    value={
+                      publicStatsError
+                        ? "🔴 Fejl"
+                        : "🟢 Online"
+                    }
+                  />
+
+                  <Info
+                    name="Commands"
+                    value={
+                      `${commandCount} synced`
+                    }
+                  />
+
+                  <Info
+                    name="Cogs"
+                    value={
+                      `${cogCount} loaded`
+                    }
+                  />
+
+                </Panel>
+
+                <Panel
+                  title="📊 Aktuel drift"
+                >
+
+                  <Info
+                    name="Bot"
+                    value={
+                      publicStats.name ||
+                      "Hjælper"
+                    }
+                  />
+
+                  <Info
+                    name="Servere"
+                    value={serverCount}
+                  />
+
+                  <Info
+                    name="Discord-brugere"
+                    value={
+                      publicStats.users ?? 0
+                    }
+                  />
+
+                  <Info
+                    name="Status"
+                    value={
+                      botOnline
+                        ? "🟢 Alle systemer OK"
+                        : "🔴 Bot offline"
+                    }
+                  />
+
+                </Panel>
+
+              </div>
+
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "14px",
+                  textAlign: "center",
+                  color: "#62697b",
+                  fontSize: "10px",
+                  background: "#0c0f18",
+                  border:
+                    "1px solid rgba(255,255,255,.05)",
+                  borderRadius: "9px",
+                }}
+              >
+                Sidst opdateret:{" "}
+                {publicLastUpdated
+                  ? publicLastUpdated.toLocaleTimeString(
+                      "da-DK"
+                    )
+                  : "venter..."}
+                <br />
+                Opdateres automatisk hvert
+                10. sekund.
+              </div>
+            </>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              marginTop: "16px",
+            }}
+          >
+            <button
+              className="login"
+              onClick={() => {
+                setPage("overview");
+                setPublicStatsError("");
+              }}
+            >
+              <span>
+                ← Tilbage til login
+              </span>
+
+              <span>→</span>
+            </button>
+
+            <button
+              className="login"
+              onClick={openPublicStats}
+            >
+              <span>
+                📊 Statistik
+              </span>
+
+              <span>→</span>
+            </button>
+          </div>
+
+          <button
+            className="login"
+            onClick={adminLogin}
+            style={{
+              marginTop: "9px",
+            }}
+          >
+            <span>
+              🔐 Admin Login
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <div className="login-note">
+            Status er offentlig og kræver
+            ikke login.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================
   // PUBLIC STATS PAGE
   // ==========================================================
 
@@ -460,6 +749,7 @@ export default function App() {
           ) : (
             <>
               <div className="cards">
+
                 <Card
                   icon={
                     publicStats.online
@@ -478,8 +768,7 @@ export default function App() {
                   icon="🖥️"
                   title="Servere"
                   value={
-                    publicStats.servers ??
-                    0
+                    publicStats.servers ?? 0
                   }
                 />
 
@@ -487,8 +776,7 @@ export default function App() {
                   icon="👥"
                   title="Discord-brugere"
                   value={
-                    publicStats.users ??
-                    0
+                    publicStats.users ?? 0
                   }
                 />
 
@@ -496,8 +784,7 @@ export default function App() {
                   icon="⚡"
                   title="Commands"
                   value={
-                    publicStats.commands ??
-                    0
+                    publicStats.commands ?? 0
                   }
                 />
 
@@ -505,22 +792,23 @@ export default function App() {
                   icon="🧩"
                   title="Cogs"
                   value={
-                    publicStats.cogs ??
-                    0
+                    publicStats.cogs ?? 0
                   }
                 />
+
               </div>
 
-              <div
-                className="columns"
-              >
+              <div className="columns">
+
                 <Panel
                   title="📊 Panelbrugere"
                 >
+
                   <Info
                     name="I dag"
                     value={
                       publicPanelUsers.today ??
+                      publicStats.panel_users_today ??
                       0
                     }
                   />
@@ -529,6 +817,7 @@ export default function App() {
                     name="Denne uge"
                     value={
                       publicPanelUsers.week ??
+                      publicStats.panel_users_week ??
                       0
                     }
                   />
@@ -537,6 +826,7 @@ export default function App() {
                     name="Dette år"
                     value={
                       publicPanelUsers.year ??
+                      publicStats.panel_users_year ??
                       0
                     }
                   />
@@ -545,14 +835,17 @@ export default function App() {
                     name="I alt"
                     value={
                       publicPanelUsers.total ??
+                      publicStats.panel_users_total ??
                       0
                     }
                   />
+
                 </Panel>
 
                 <Panel
                   title="🤖 Hjælper"
                 >
+
                   <Info
                     name="Status"
                     value={
@@ -573,40 +866,62 @@ export default function App() {
                   <Info
                     name="Servere"
                     value={
-                      publicStats.servers ??
-                      0
+                      publicStats.servers ?? 0
                     }
                   />
 
                   <Info
                     name="Cogs"
                     value={
-                      publicStats.cogs ??
-                      0
+                      publicStats.cogs ?? 0
                     }
                   />
+
                 </Panel>
+
               </div>
             </>
           )}
 
-          <button
-            className="login"
-            onClick={() => {
-              setPage("overview");
-              setPublicStatsError("");
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              marginTop: "16px",
             }}
           >
-            <span>
-              ← Tilbage til login
-            </span>
+            <button
+              className="login"
+              onClick={() => {
+                setPage("overview");
+                setPublicStatsError("");
+              }}
+            >
+              <span>
+                ← Tilbage til login
+              </span>
 
-            <span>→</span>
-          </button>
+              <span>→</span>
+            </button>
+
+            <button
+              className="login"
+              onClick={openPublicStatus}
+            >
+              <span>
+                🟢 Status
+              </span>
+
+              <span>→</span>
+            </button>
+          </div>
 
           <button
             className="login"
             onClick={adminLogin}
+            style={{
+              marginTop: "9px",
+            }}
           >
             <span>
               🔐 Admin Login
@@ -631,6 +946,7 @@ export default function App() {
     return (
       <div className="home">
         <div className="home-card">
+
           <div className="home-logo">
             🤖
           </div>
@@ -651,7 +967,10 @@ export default function App() {
 
           {error && (
             <div className="error">
-              <span>{error}</span>
+
+              <span>
+                {error}
+              </span>
 
               <button
                 onClick={() =>
@@ -660,6 +979,7 @@ export default function App() {
               >
                 ×
               </button>
+
             </div>
           )}
 
@@ -686,6 +1006,17 @@ export default function App() {
           </button>
 
           <button
+            className="login"
+            onClick={openPublicStatus}
+          >
+            <span>
+              🟢 Status
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <button
             className="login disabled"
             disabled
           >
@@ -701,6 +1032,7 @@ export default function App() {
           <div className="login-note">
             Admin Login bruger Discord OAuth
           </div>
+
         </div>
       </div>
     );
@@ -782,9 +1114,11 @@ export default function App() {
 
   return (
     <div className="dashboard">
+
       <aside className="sidebar">
 
         <div className="brand">
+
           <div className="brand-logo">
             🤖
           </div>
@@ -796,9 +1130,11 @@ export default function App() {
               Admin Panel
             </span>
           </div>
+
         </div>
 
         <nav>
+
           {navigation.map(
             ([id, icon, name]) => (
               <button
@@ -820,6 +1156,7 @@ export default function App() {
               </button>
             )
           )}
+
         </nav>
 
         <div className="sidebar-bottom">
@@ -860,6 +1197,7 @@ export default function App() {
           </button>
 
         </div>
+
       </aside>
 
       <main>
@@ -867,6 +1205,7 @@ export default function App() {
         <header>
 
           <div>
+
             <h2>
               Hjælper Admin Panel
             </h2>
@@ -874,6 +1213,7 @@ export default function App() {
             <p>
               Administrer din Discord-bot
             </p>
+
           </div>
 
           <div className="header-right">
@@ -922,6 +1262,7 @@ export default function App() {
               <div className="title">
 
                 <div>
+
                   <h1>
                     🏠 Overview
                   </h1>
@@ -930,6 +1271,7 @@ export default function App() {
                     Velkommen tilbage til
                     Hjælper Admin Panel.
                   </p>
+
                 </div>
 
                 <button
