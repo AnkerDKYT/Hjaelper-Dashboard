@@ -28,9 +28,9 @@ button:focus-visible{
   outline-offset:3px;
 }
 
-/* =========================
+/* =========================================================
    LOGIN
-========================= */
+========================================================= */
 
 .home{
   min-height:100vh;
@@ -95,7 +95,9 @@ button:focus-visible{
   font-size:13px;
 }
 
-/* LOGIN BUTTONS */
+/* =========================================================
+   LOGIN BUTTONS
+========================================================= */
 
 .login{
   width:100%;
@@ -154,9 +156,9 @@ button:focus-visible{
   cursor:pointer;
 }
 
-/* =========================
+/* =========================================================
    LOADING
-========================= */
+========================================================= */
 
 .loading{
   min-height:100vh;
@@ -172,15 +174,148 @@ button:focus-visible{
   margin-bottom:12px;
 }
 
+.loading h2{
+  font-size:22px;
+}
+
 .loading p{
   margin-top:5px;
   color:#71778a;
   font-size:12px;
 }
 
-/* =========================
+/* =========================================================
+   ROADMAP
+========================================================= */
+
+.roadmap{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:14px;
+  margin-top:20px;
+  text-align:left;
+}
+
+.roadmap-card{
+  padding:20px;
+  background:#0c0f18;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:15px;
+  transition:.2s;
+}
+
+.roadmap-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(114,137,218,.2);
+  background:#0e121c;
+}
+
+.roadmap-card.active{
+  border-color:rgba(114,137,218,.28);
+  box-shadow:0 12px 35px rgba(88,101,242,.08);
+}
+
+.roadmap-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.roadmap-version{
+  display:inline-block;
+  margin-bottom:5px;
+  color:#7289da;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+}
+
+.roadmap-card h2{
+  font-size:17px;
+  letter-spacing:-.02em;
+}
+
+.roadmap-status{
+  flex-shrink:0;
+  padding:6px 8px;
+  color:#858b9d;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:7px;
+  font-size:9px;
+  font-weight:700;
+}
+
+.roadmap-status.active{
+  color:#e5c86b;
+  background:rgba(229,200,107,.07);
+  border-color:rgba(229,200,107,.12);
+}
+
+.roadmap-progress{
+  width:100%;
+  height:5px;
+  margin:16px 0;
+  overflow:hidden;
+  background:#171b27;
+  border-radius:99px;
+}
+
+.roadmap-progress-bar{
+  height:100%;
+  border-radius:99px;
+  background:#5865f2;
+  box-shadow:0 0 12px rgba(88,101,242,.35);
+}
+
+.roadmap-items{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.roadmap-items div{
+  padding:9px 10px;
+  color:#aeb4c5;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.035);
+  border-radius:8px;
+  font-size:10px;
+}
+
+.roadmap-note{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin-top:14px;
+  padding:13px 14px;
+  text-align:left;
+  background:rgba(88,101,242,.06);
+  border:1px solid rgba(88,101,242,.12);
+  border-radius:10px;
+}
+
+.roadmap-note>span{
+  font-size:18px;
+}
+
+.roadmap-note b{
+  display:block;
+  color:#dce0ec;
+  font-size:11px;
+}
+
+.roadmap-note p{
+  margin-top:3px;
+  color:#71778a;
+  font-size:10px;
+  line-height:1.5;
+}
+
+/* =========================================================
    DASHBOARD
-========================= */
+========================================================= */
 
 .dashboard{
   min-height:100vh;
@@ -270,9 +405,9 @@ button:focus-visible{
   background:rgba(88,101,242,.16);
 }
 
-/* =========================
+/* =========================================================
    PROFILE
-========================= */
+========================================================= */
 
 .sidebar-bottom{
   margin-top:auto;
@@ -344,9 +479,9 @@ button:focus-visible{
   background:rgba(255,70,70,.08);
 }
 
-/* =========================
+/* =========================================================
    HEADER
-========================= */
+========================================================= */
 
 main{
   margin-left:245px;
@@ -411,9 +546,9 @@ header p{
   background:#69d391;
 }
 
-/* =========================
+/* =========================================================
    CONTENT
-========================= */
+========================================================= */
 
 .content{
   max-width:1400px;
@@ -457,9 +592,16 @@ header p{
   transform:translateY(-1px);
 }
 
-/* =========================
+.primary:disabled,
+.refresh:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  transform:none;
+}
+
+/* =========================================================
    CARDS
-========================= */
+========================================================= */
 
 .cards{
   display:grid;
@@ -511,14 +653,15 @@ header p{
   font-size:16px;
 }
 
-/* =========================
+/* =========================================================
    PANELS
-========================= */
+========================================================= */
 
 .columns{
   display:grid;
   grid-template-columns:1.4fr 1fr;
   gap:16px;
+  margin-bottom:16px;
 }
 
 .panel{
@@ -532,6 +675,13 @@ header p{
   margin-bottom:15px;
   font-size:15px;
   font-weight:700;
+}
+
+.panel-description{
+  color:#71778a;
+  font-size:11px;
+  line-height:1.6;
+  margin-bottom:10px;
 }
 
 .actions{
@@ -584,9 +734,9 @@ header p{
   margin-bottom:12px;
 }
 
-/* =========================
+/* =========================================================
    LISTS
-========================= */
+========================================================= */
 
 .list{
   display:flex;
@@ -613,9 +763,16 @@ header p{
   font-size:10px;
 }
 
-/* =========================
+.empty{
+  padding:25px;
+  text-align:center;
+  color:#71778a;
+  font-size:11px;
+}
+
+/* =========================================================
    SERVERS
-========================= */
+========================================================= */
 
 .server-list{
   display:flex;
@@ -638,6 +795,13 @@ header p{
 .server:hover{
   border-color:rgba(114,137,218,.2);
   background:#0e121c;
+}
+
+.server-button{
+  width:100%;
+  color:#fff;
+  cursor:pointer;
+  text-align:left;
 }
 
 .server img,
@@ -685,16 +849,108 @@ header p{
   font-size:11px;
 }
 
-.empty{
-  padding:25px;
-  text-align:center;
-  color:#71778a;
-  font-size:11px;
+.server-arrow{
+  color:#62697b;
+  font-size:15px;
+  transition:.2s;
 }
 
-/* =========================
+.server:hover .server-arrow{
+  color:#7289da;
+  transform:translateX(2px);
+}
+
+/* =========================================================
+   SERVER DETAILS
+========================================================= */
+
+.server-detail-header{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-bottom:20px;
+  padding:14px;
+  background:#0c0f18;
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:10px;
+}
+
+.server-detail-header h2{
+  font-size:17px;
+}
+
+.server-detail-header p{
+  margin-top:4px;
+  color:#71778a;
+  font-size:10px;
+}
+
+.server-detail-icon{
+  width:58px;
+  height:58px;
+  flex-shrink:0;
+  border-radius:13px;
+  object-fit:cover;
+}
+
+.server-detail-info{
+  margin-bottom:20px;
+}
+
+/* =========================================================
+   DANGER ZONE
+========================================================= */
+
+.danger-zone{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  padding:15px;
+  background:rgba(255,70,70,.045);
+  border:1px solid rgba(255,70,70,.12);
+  border-radius:10px;
+}
+
+.danger-zone h3{
+  color:#ff9292;
+  font-size:12px;
+}
+
+.danger-zone p{
+  margin-top:4px;
+  color:#71778a;
+  font-size:10px;
+  line-height:1.5;
+}
+
+.danger-button{
+  flex-shrink:0;
+  padding:10px 13px;
+  color:#ffb0b0;
+  background:rgba(255,70,70,.1);
+  border:1px solid rgba(255,70,70,.15);
+  border-radius:8px;
+  cursor:pointer;
+  font-size:10px;
+  font-weight:700;
+  transition:.2s;
+}
+
+.danger-button:hover{
+  background:rgba(255,70,70,.16);
+  transform:translateY(-1px);
+}
+
+.danger-button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+  transform:none;
+}
+
+/* =========================================================
    RESPONSIVE
-========================= */
+========================================================= */
 
 @media(max-width:1100px){
 
@@ -703,6 +959,10 @@ header p{
   }
 
   .columns{
+    grid-template-columns:1fr;
+  }
+
+  .roadmap{
     grid-template-columns:1fr;
   }
 }
@@ -761,6 +1021,10 @@ header p{
 
 @media(max-width:550px){
 
+  .home{
+    padding:15px;
+  }
+
   .home-card{
     padding:26px 18px;
   }
@@ -790,5 +1054,34 @@ header p{
   .login{
     min-height:44px;
     padding:10px 13px;
+  }
+
+  .roadmap{
+    grid-template-columns:1fr;
+  }
+
+  .roadmap-header{
+    flex-direction:column;
+  }
+
+  .roadmap-status{
+    align-self:flex-start;
+  }
+
+  .danger-zone{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .danger-button{
+    width:100%;
+  }
+
+  .server{
+    gap:8px;
+  }
+
+  .members{
+    display:none;
   }
 }
