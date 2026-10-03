@@ -5,89 +5,21 @@ const API = "/backend";
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [page, setPage] = useState("login");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState("login");
 
   const [stats, setStats] = useState(null);
   const [cogs, setCogs] = useState([]);
   const [servers, setServers] = useState([]);
 
-  const [selectedServer, setSelectedServer] = useState(null);
-  const [removingServer, setRemovingServer] = useState(false);
-  const [serverError, setServerError] = useState("");
-  const [serverSuccess, setServerSuccess] = useState("");
-
   const [publicStats, setPublicStats] = useState(null);
-  const [publicLoading, setPublicLoading] = useState(false);
-  const [publicError, setPublicError] = useState("");
+  const [publicStatus, setPublicStatus] = useState(null);
+
+  const [selectedServer, setSelectedServer] = useState(null);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
+
   const [lastUpdated, setLastUpdated] = useState(null);
-
-  // ==========================================================
-  // AUTH
-  // ==========================================================
-
-  async function loadUser() {
-    try {
-      const response = await fetch(`${API}/auth/me`, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.authenticated && data.user) {
-        setUser(data.user);
-
-        if (data.user.role === "user") {
-          setPage("user-dashboard");
-        } else {
-          setPage("overview");
-        }
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Auth error:", error);
-      setUser(null);
-    }
-
-    setLoading(false);
-  }
-
-  function adminLogin() {
-    window.location.href =
-      `${API}/auth/discord?login_type=admin`;
-  }
-
-  function userLogin() {
-    window.location.href =
-      `${API}/auth/discord?login_type=user`;
-  }
-
-  async function logout() {
-    try {
-      await fetch(`${API}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch {}
-
-    setUser(null);
-    setPage("login");
-    setStats(null);
-    setCogs([]);
-    setServers([]);
-    setSelectedServer(null);
-  }
-
-  // ==========================================================
-  // ROLE HELPERS
-  // ==========================================================
 
   const isOwner =
     user?.role === "owner" ||
@@ -104,148 +36,237 @@ export default function App() {
     isManager ||
     isAdmin;
 
-  function getRoleText() {
-    if (isOwner) return "👑 Ejer";
-    if (isManager) return "💼 Manager";
-    if (isAdmin) return "🛡️ Admin";
-    return "👤 Bruger";
-  }
+  const roleLabel =
+    user?.role === "owner"
+      ? "👑 Ejer"
+      : user?.role === "manager"
+        ? "💼 Manager"
+        : user?.role === "admin"
+          ? "🛡️ Admin"
+          : "👤 Bruger";
 
-  // ==========================================================
-  // DISCORD AVATAR
-  // ==========================================================
+  useEffect(() => {
+    loadUser();
+  }, []);
 
-  function getAvatarUrl() {
-    if (!user) return null;
+  useEffect(() => {
+    if (!user) return;
 
-    if (
-      typeof user.avatar === "string" &&
-      user.avatar.startsWith("http")
-    ) {
-      return user.avatar;
+    if (user.role === "user") {
+      if (
+        page === "login" ||
+        page === "overview" ||
+        page === "bot" ||
+        page === "stats" ||
+        page === "cogs" ||
+        page === "servers" ||
+        page === "logs" ||
+        page === "system"
+      ) {
+        setPage("user-dashboard");
+      }
+    } else if (isStaff && page === "login") {
+      setPage("overview");
     }
+  }, [user]);
 
-    if (user.avatar && user.id) {
-      const extension = user.avatar.startsWith("a_")
-        ? "gif"
-        : "png";
-
-      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=128`;
-    }
-
-    if (user.id) {
-      try {
-        const avatarIndex =
-          Number(BigInt(user.id) >> 22n) % 6;
-
-        return `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
-      } catch {}
-    }
-
-    return null;
-  }
-
-  // ==========================================================
-  // SERVER ICON
-  // ==========================================================
-
-  function getServerIcon(server) {
-    if (!server) return null;
-
-    if (
-      typeof server.icon === "string" &&
-      server.icon.startsWith("http")
-    ) {
-      return server.icon;
-    }
-
-    return null;
-  }
-
-  // ==========================================================
-  // ADMIN DATA
-  // ==========================================================
-
-  async function loadDashboardData() {
+  useEffect(() => {
     if (!isStaff) return;
 
+    loadAdminData();
+  }, [user, isStaff]);
+
+  useEffect(() => {
+    loadPublicStats();
+    loadPublicStatus();
+
+    const interval = setInterval(() => {
+      loadPublicStats();
+      loadPublicStatus();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  async function loadUser() {
     try {
-      const [
-        statsResponse,
-        cogsResponse,
-        serversResponse,
-      ] = await Promise.all([
-        fetch(`${API}/api/stats`, {
-          credentials: "include",
-        }),
+      const response = await fetch(`${API}/auth/me`, {
+        credentials: "include",
+      });
 
-        fetch(`${API}/api/cogs`, {
-          credentials: "include",
-        }),
+      if (!response.ok) {
+        setUser(null);
+        setPage("login");
+        return;
+      }
 
-        fetch(`${API}/api/servers`, {
-          credentials: "include",
-        }),
-      ]);
+      const data = await response.json();
+
+      if (!data.authenticated) {
+        setUser(null);
+        setPage("login");
+        return;
+      }
+
+      setUser(data.user);
+
+      if (data.user?.role === "user") {
+        setPage("user-dashboard");
+      } else {
+        setPage("overview");
+      }
+    } catch (error) {
+      console.error("Kunne ikke hente bruger:", error);
+      setUser(null);
+      setPage("login");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadAdminData() {
+    try {
+      const [statsResponse, cogsResponse, serversResponse] =
+        await Promise.all([
+          fetch(`${API}/api/stats`, {
+            credentials: "include",
+          }),
+          fetch(`${API}/api/cogs`, {
+            credentials: "include",
+          }),
+          fetch(`${API}/api/servers`, {
+            credentials: "include",
+          }),
+        ]);
 
       if (statsResponse.ok) {
-        setStats(await statsResponse.json());
+        const statsData = await statsResponse.json();
+        setStats(statsData);
       }
 
       if (cogsResponse.ok) {
-        const data = await cogsResponse.json();
-
-        setCogs(
-          Array.isArray(data.cogs)
-            ? data.cogs
-            : []
-        );
+        const cogsData = await cogsResponse.json();
+        setCogs(cogsData.cogs || []);
       }
 
       if (serversResponse.ok) {
-        const data = await serversResponse.json();
-
-        setServers(
-          Array.isArray(data.servers)
-            ? data.servers
-            : []
-        );
+        const serversData = await serversResponse.json();
+        setServers(serversData.servers || []);
       }
     } catch (error) {
-      console.error(
-        "Dashboard error:",
-        error
-      );
+      console.error("Fejl ved hentning af admin-data:", error);
     }
   }
 
-  // ==========================================================
-  // SERVER DETAILS
-  // ==========================================================
+  async function loadPublicStats() {
+    try {
+      const response = await fetch(`${API}/api/public/stats`);
 
-  function openServer(server) {
-    setServerError("");
-    setServerSuccess("");
-    setSelectedServer(server);
-    setPage("server-details");
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      setPublicStats(data);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Fejl ved public stats:", error);
+    }
   }
 
-  function closeServer() {
-    if (removingServer) return;
+  async function loadPublicStatus() {
+    try {
+      const response = await fetch(`${API}/api/public/stats`);
 
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      setPublicStatus(data);
+    } catch (error) {
+      console.error("Fejl ved public status:", error);
+    }
+  }
+
+  function adminLogin() {
+    window.location.href = `${API}/auth/discord?login_type=admin`;
+  }
+
+  function userLogin() {
+    window.location.href = `${API}/auth/discord?login_type=user`;
+  }
+
+  async function logout() {
+    try {
+      await fetch(`${API}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout fejl:", error);
+    }
+
+    setUser(null);
     setSelectedServer(null);
-    setServerError("");
-    setServerSuccess("");
-    setPage("servers");
+    setPage("login");
   }
 
-  // ==========================================================
-  // REMOVE BOT
-  // ==========================================================
+  function getAvatarUrl() {
+    if (!user?.id) return null;
 
-  async function removeHelperFromServer() {
-    if (!selectedServer?.id) return;
+    if (user?.avatar) {
+      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
+    }
 
+    return `https://cdn.discordapp.com/embed/avatars/0.png`;
+  }
+
+  function getServerIcon(server) {
+    if (!server?.id || !server?.icon) {
+      return null;
+    }
+
+    if (server.icon.startsWith("http")) {
+      return server.icon;
+    }
+
+    return `https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png?size=128`;
+  }
+
+  async function openServer(server) {
+    setServerLoading(true);
+    setServerError("");
+
+    try {
+      const response = await fetch(
+        `${API}/api/servers`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        setServerError("Kunne ikke hente serveren.");
+        return;
+      }
+
+      const data = await response.json();
+
+      const updatedServer =
+        (data.servers || []).find(
+          (item) => String(item.id) === String(server.id)
+        ) || server;
+
+      setSelectedServer(updatedServer);
+      setPage("server-details");
+    } catch (error) {
+      console.error(error);
+      setServerError("Der opstod en fejl.");
+    } finally {
+      setServerLoading(false);
+    }
+  }
+
+  async function removeServer(guildId) {
     if (
       user?.role !== "owner" &&
       user?.role !== "manager"
@@ -256,1068 +277,639 @@ export default function App() {
       return;
     }
 
-    const serverName =
-      selectedServer.name ||
-      "denne server";
+    if (!window.confirm("Er du sikker på, at du vil fjerne Hjælper fra denne server?")) {
+      return;
+    }
 
-    const confirmed = window.confirm(
-      `Er du sikker på, at Hjælper skal fjernes fra "${serverName}"?`
-    );
-
-    if (!confirmed) return;
+    setServerError("");
 
     try {
-      setRemovingServer(true);
-      setServerError("");
-      setServerSuccess("");
-
-      let response = await fetch(
-        `${API}/api/servers/${selectedServer.id}/leave`,
+      const response = await fetch(
+        `${API}/api/servers/${guildId}/leave`,
         {
           method: "POST",
           credentials: "include",
         }
       );
 
-      if (response.status === 405) {
-        response = await fetch(
-          `${API}/api/servers/${selectedServer.id}/leave`,
-          {
-            method: "DELETE",
-            credentials: "include",
-          }
-        );
-      }
+      const data = await response.json();
 
       if (!response.ok) {
-        let message =
-          "Kunne ikke fjerne Hjælper fra serveren.";
-
-        try {
-          const data = await response.json();
-
-          if (data.detail) {
-            message = data.detail;
-          }
-        } catch {}
-
-        throw new Error(message);
+        setServerError(
+          data.detail ||
+          "Kunne ikke fjerne Hjælper fra serveren."
+        );
+        return;
       }
-
-      setServerSuccess(
-        `Hjælper blev fjernet fra ${serverName}.`
-      );
 
       setServers((current) =>
         current.filter(
           (server) =>
-            String(server.id) !==
-            String(selectedServer.id)
+            String(server.id) !== String(guildId)
         )
       );
 
-      setTimeout(() => {
-        setSelectedServer(null);
-        setServerSuccess("");
-        setPage("servers");
-      }, 1200);
+      setSelectedServer(null);
+      setPage("servers");
     } catch (error) {
-      console.error(
-        "Remove server error:",
-        error
-      );
-
-      setServerError(
-        error.message ||
-          "Der opstod en fejl."
-      );
-    } finally {
-      setRemovingServer(false);
+      console.error(error);
+      setServerError("Der opstod en fejl.");
     }
   }
 
-  // ==========================================================
-  // PUBLIC DATA
-  // ==========================================================
-
-  async function loadPublicStats() {
-    try {
-      setPublicLoading(true);
-      setPublicError("");
-
-      const response = await fetch(
-        `${API}/api/public/stats`
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          "Kunne ikke hente statistik."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setPublicStats(data);
-      setLastUpdated(new Date());
-    } catch (error) {
-      setPublicError(
-        error.message
-      );
-    } finally {
-      setPublicLoading(false);
-    }
-  }
-
-  // ==========================================================
-  // NAVIGATION
-  // ==========================================================
-
-  function openStats() {
-    setPage("public-stats");
-    loadPublicStats();
-  }
-
-  function openStatus() {
-    setPage("public-status");
-    loadPublicStats();
-  }
-
-  function openRoadmap() {
-    setPage("roadmap");
-  }
-
-  function backToLogin() {
-    setPage("login");
-  }
-
-  // ==========================================================
-  // EFFECTS
-  // ==========================================================
-
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    if (!isStaff) return;
-
-    loadDashboardData();
-
-    const interval = setInterval(() => {
-      loadDashboardData();
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [user]);
-
-  useEffect(() => {
-    if (
-      page !== "public-stats" &&
-      page !== "public-status"
-    ) {
-      return;
+  function formatNumber(value) {
+    if (value === undefined || value === null) {
+      return "0";
     }
 
-    loadPublicStats();
+    return Number(value).toLocaleString("da-DK");
+  }
 
-    const interval = setInterval(() => {
-      loadPublicStats();
-    }, 10000);
+  function formatTime(date) {
+    if (!date) return "Ikke opdateret";
 
-    return () => clearInterval(interval);
-  }, [page]);
-
-  // ==========================================================
-  // LOADING
-  // ==========================================================
+    return date.toLocaleTimeString("da-DK", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-box">
-
-          <div className="loading-spinner" />
-
-          <h2>
-            Hjælper
-          </h2>
-
-          <p>
-            Indlæser dashboard...
-          </p>
-
+      <div className="app-loading">
+        <div className="loading-card">
+          <div className="loading-icon">✨</div>
+          <h2>Hjælper</h2>
+          <p>Indlæser...</p>
         </div>
       </div>
     );
   }
 
-  // ==========================================================
-  // LOGIN
-  // ==========================================================
+  /*
+   * =========================================================
+   * PUBLIC LOGIN
+   * =========================================================
+   */
 
-  if (!user && page === "login") {
+  if (page === "login" && !user) {
     return (
-      <div className="app">
+      <div className="login-page">
+        <div className="login-card">
 
-        <div className="login-page">
-
-          <div className="login-box">
-
-            <div className="login-logo">
-              H
+          <div className="login-logo">
+            <div className="logo-icon">
+              ✨
             </div>
 
-            <h1>
-              Hjælper
-            </h1>
+            <h1>Hjælper</h1>
 
             <p>
               Discord bot & dashboard
             </p>
+          </div>
+
+          <div className="login-options">
 
             <button
-              className="login"
+              className="login-option primary"
               onClick={adminLogin}
             >
-              <span>
-                <span className="discord-icon">
-                  ◉
-                </span>
-
-                Admin Login
+              <span className="login-option-icon">
+                🔐
               </span>
 
               <span>
-                →
+                <strong>Admin Login</strong>
+                <small>
+                  Log ind som Ejer, Manager eller Admin
+                </small>
               </span>
             </button>
 
             <button
-              className="login"
+              className="login-option"
               onClick={userLogin}
-              style={{
-                marginTop: "9px",
-              }}
             >
-              <span>
-                👤 Bruger Login
+              <span className="login-option-icon">
+                👤
               </span>
 
               <span>
-                →
+                <strong>Bruger Login</strong>
+                <small>
+                  Log ind som almindelig bruger
+                </small>
               </span>
             </button>
 
             <button
-              className="login"
-              onClick={openStats}
-              style={{
-                marginTop: "9px",
-              }}
+              className="login-option"
+              onClick={() => setPage("public-stats")}
             >
-              <span>
-                📊 Se Statistik
+              <span className="login-option-icon">
+                📊
               </span>
 
               <span>
-                →
+                <strong>Se Statistik</strong>
+                <small>
+                  Se offentlig statistik
+                </small>
               </span>
             </button>
 
             <button
-              className="login"
-              onClick={openStatus}
-              style={{
-                marginTop: "9px",
-              }}
+              className="login-option"
+              onClick={() => setPage("public-status")}
             >
-              <span>
-                🟢 Status
+              <span className="login-option-icon">
+                🟢
               </span>
 
               <span>
-                →
+                <strong>Status</strong>
+                <small>
+                  Se Hjælpers aktuelle status
+                </small>
               </span>
             </button>
 
             <button
-              className="login"
-              onClick={openRoadmap}
-              style={{
-                marginTop: "9px",
-              }}
+              className="login-option"
+              onClick={() => setPage("roadmap")}
             >
-              <span>
-                🚀 Roadmap
+              <span className="login-option-icon">
+                🚀
               </span>
 
               <span>
-                →
+                <strong>Roadmap</strong>
+                <small>
+                  Se hvad der kommer senere
+                </small>
               </span>
             </button>
 
-            <div className="login-footer">
-              Hjælper • 2026
+          </div>
+
+          <div className="login-footer">
+            Hjælper • 2026
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * =========================================================
+   * PUBLIC STATS
+   * =========================================================
+   */
+
+  if (page === "public-stats") {
+    return (
+      <div className="public-page">
+
+        <div className="public-header">
+          <button
+            className="back-button"
+            onClick={() => setPage("login")}
+          >
+            ← Tilbage
+          </button>
+
+          <div>
+            <h1>📊 Statistik</h1>
+            <p>Offentlig statistik for Hjælper</p>
+          </div>
+        </div>
+
+        <div className="public-grid">
+
+          <div className="public-stat-card">
+            <span>🟢</span>
+            <small>Bot status</small>
+            <strong>
+              {publicStats?.online
+                ? "Online"
+                : "Offline"}
+            </strong>
+          </div>
+
+          <div className="public-stat-card">
+            <span>🖥️</span>
+            <small>Servere</small>
+            <strong>
+              {formatNumber(publicStats?.servers)}
+            </strong>
+          </div>
+
+          <div className="public-stat-card">
+            <span>👥</span>
+            <small>Discord-brugere</small>
+            <strong>
+              {formatNumber(publicStats?.users)}
+            </strong>
+          </div>
+
+          <div className="public-stat-card">
+            <span>⚡</span>
+            <small>Commands</small>
+            <strong>
+              {formatNumber(publicStats?.commands)}
+            </strong>
+          </div>
+
+          <div className="public-stat-card">
+            <span>🧩</span>
+            <small>Cogs</small>
+            <strong>
+              {formatNumber(publicStats?.cogs)}
+            </strong>
+          </div>
+
+        </div>
+
+        <div className="public-info-box">
+
+          <h2>👤 Panelbrugere</h2>
+
+          <div className="public-grid">
+
+            <div className="public-stat-card">
+              <span>📅</span>
+              <small>I dag</small>
+              <strong>
+                {formatNumber(
+                  publicStats?.dashboard_users?.today ??
+                  publicStats?.panel_users_today
+                )}
+              </strong>
+            </div>
+
+            <div className="public-stat-card">
+              <span>📆</span>
+              <small>Denne uge</small>
+              <strong>
+                {formatNumber(
+                  publicStats?.dashboard_users?.week ??
+                  publicStats?.panel_users_week
+                )}
+              </strong>
+            </div>
+
+            <div className="public-stat-card">
+              <span>🗓️</span>
+              <small>Dette år</small>
+              <strong>
+                {formatNumber(
+                  publicStats?.dashboard_users?.year ??
+                  publicStats?.panel_users_year
+                )}
+              </strong>
+            </div>
+
+            <div className="public-stat-card">
+              <span>👤</span>
+              <small>I alt</small>
+              <strong>
+                {formatNumber(
+                  publicStats?.dashboard_users?.total ??
+                  publicStats?.panel_users_total
+                )}
+              </strong>
             </div>
 
           </div>
 
         </div>
 
-      </div>
-    );
-  }
-
-  // ==========================================================
-  // ROADMAP
-  // ==========================================================
-
-  if (!user && page === "roadmap") {
-    return (
-      <div className="app">
-
-        <div className="public-page">
-
-          <div className="public-topbar">
-
-            <div className="brand">
-
-              <div className="brand-icon">
-                H
-              </div>
-
-              <div>
-                <h1>
-                  Hjælper
-                </h1>
-
-                <span>
-                  Roadmap
-                </span>
-              </div>
-
-            </div>
-
-            <button
-              className="back-button"
-              onClick={backToLogin}
-            >
-              ← Tilbage
-            </button>
-
-          </div>
-
-          <div className="roadmap">
-
-            <div className="roadmap-card active">
-
-              <div className="roadmap-header">
-
-                <div>
-
-                  <span className="roadmap-version">
-                    V2.1
-                  </span>
-
-                  <h2>
-                    Privacy Policy
-                  </h2>
-
-                </div>
-
-                <span className="roadmap-status active">
-                  🟡 Næste update
-                </span>
-
-              </div>
-
-              <div className="roadmap-progress">
-
-                <div
-                  className="roadmap-progress-bar"
-                  style={{
-                    width: "35%",
-                  }}
-                />
-
-              </div>
-
-              <div className="roadmap-items">
-
-                <div>
-                  🔒 Privacy Policy
-                </div>
-
-                <div>
-                  📄 Tydelig information om data og privatliv
-                </div>
-
-                <div>
-                  🛡️ Mere gennemsigtighed omkring Hjælper
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="roadmap-card">
-
-              <div className="roadmap-header">
-
-                <div>
-
-                  <span className="roadmap-version">
-                    V2.2
-                  </span>
-
-                  <h2>
-                    Coming Soon
-                  </h2>
-
-                </div>
-
-                <span className="roadmap-status">
-                  🔒 Hemmelig
-                </span>
-
-              </div>
-
-              <div className="roadmap-items">
-
-                <div>
-                  ✨ Nye features
-                </div>
-
-                <div>
-                  ⚡ Flere muligheder
-                </div>
-
-                <div>
-                  👀 Mere bliver afsløret senere
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="roadmap-note">
-              👀 Ikke alt bliver afsløret på forhånd.
-              Nogle features bliver først vist,
-              når de er klar.
-            </div>
-
-          </div>
-
+        <div className="public-updated">
+          Sidst opdateret: {formatTime(lastUpdated)}
         </div>
 
       </div>
     );
   }
 
-  // ==========================================================
-  // PUBLIC STATUS
-  // ==========================================================
+  /*
+   * =========================================================
+   * PUBLIC STATUS
+   * =========================================================
+   */
 
-  if (
-    !user &&
-    page === "public-status"
-  ) {
-
-    const online =
-      publicStats?.status === "online" ||
-      publicStats?.bot_status === "online" ||
-      publicStats?.bot_online === true;
+  if (page === "public-status") {
+    const online = publicStatus?.online === true;
 
     return (
-      <div className="app">
+      <div className="public-page">
 
-        <div className="public-page">
+        <div className="public-header">
+          <button
+            className="back-button"
+            onClick={() => setPage("login")}
+          >
+            ← Tilbage
+          </button>
 
-          <div className="public-topbar">
+          <div>
+            <h1>🟢 Status</h1>
+            <p>Aktuel status for Hjælper</p>
+          </div>
+        </div>
 
-            <div className="brand">
+        <div className="status-list">
 
-              <div className="brand-icon">
-                H
-              </div>
-
-              <div>
-
-                <h1>
-                  Hjælper
-                </h1>
-
-                <span>
-                  Offentlig status
-                </span>
-
-              </div>
-
+          <div className="status-row">
+            <div>
+              <strong>🤖 Bot</strong>
+              <span>
+                Discord-botten
+              </span>
             </div>
 
-            <button
-              className="back-button"
-              onClick={backToLogin}
-            >
-              ← Login
-            </button>
-
+            <b className={online ? "status-online" : "status-offline"}>
+              {online ? "🟢 Online" : "🔴 Offline"}
+            </b>
           </div>
 
-          <div className="public-content">
-
-            <div className="public-title">
-
-              <span className="eyebrow">
-                SYSTEM STATUS
+          <div className="status-row">
+            <div>
+              <strong>🌐 API</strong>
+              <span>
+                Hjælper API
               </span>
+            </div>
 
-              <h2>
-                Aktuel drift
-              </h2>
+            <b className="status-online">
+              🟢 Online
+            </b>
+          </div>
+
+          <div className="status-row">
+            <div>
+              <strong>🖥️ Servere</strong>
+              <span>
+                Tilsluttede Discord-servere
+              </span>
+            </div>
+
+            <b>
+              {formatNumber(publicStatus?.servers)}
+            </b>
+          </div>
+
+          <div className="status-row">
+            <div>
+              <strong>⚡ Commands</strong>
+              <span>
+                Registrerede commands
+              </span>
+            </div>
+
+            <b>
+              {formatNumber(publicStatus?.commands)}
+            </b>
+          </div>
+
+          <div className="status-row">
+            <div>
+              <strong>🧩 Cogs</strong>
+              <span>
+                Aktive bot-moduler
+              </span>
+            </div>
+
+            <b>
+              {formatNumber(publicStatus?.cogs)}
+            </b>
+          </div>
+
+        </div>
+
+        <div className="public-info-box">
+          <h2>🛡️ Systemstatus</h2>
+
+          <p>
+            Hjælper overvåges løbende. Statussen opdateres
+            automatisk hvert 10. sekund.
+          </p>
+        </div>
+
+        <div className="public-updated">
+          Sidst opdateret: {formatTime(lastUpdated)}
+        </div>
+
+      </div>
+    );
+  }
+
+  /*
+   * =========================================================
+   * ROADMAP
+   * =========================================================
+   */
+
+  if (page === "roadmap") {
+    return (
+      <div className="public-page">
+
+        <div className="public-header">
+          <button
+            className="back-button"
+            onClick={() => setPage("login")}
+          >
+            ← Tilbage
+          </button>
+
+          <div>
+            <h1>🚀 Roadmap</h1>
+            <p>Hvad der kommer til Hjælper</p>
+          </div>
+        </div>
+
+        <div className="roadmap-list">
+
+          <div className="roadmap-card">
+            <div className="roadmap-version">
+              V2.1
+            </div>
+
+            <div>
+              <h2>🔒 Privacy Policy</h2>
 
               <p>
-                Her kan du se den aktuelle status for Hjælper.
+                Tydelig information om data og privatliv.
               </p>
-
-            </div>
-
-            {publicLoading &&
-            !publicStats ? (
-
-              <div className="public-loading">
-
-                <div className="loading-spinner" />
-
-                <p>
-                  Henter status...
-                </p>
-
-              </div>
-
-            ) : publicError ? (
-
-              <div className="error-box">
-                ❌ {publicError}
-              </div>
-
-            ) : (
-
-              <>
-
-                <div className="public-status-grid">
-
-                  <div className="public-status-card">
-
-                    <div className="status-icon">
-                      🤖
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Bot
-                      </span>
-
-                      <strong
-                        className={
-                          online
-                            ? "status-online"
-                            : "status-offline"
-                        }
-                      >
-                        {online
-                          ? "Online"
-                          : "Offline"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="public-status-card">
-
-                    <div className="status-icon">
-                      🌐
-                    </div>
-
-                    <div>
-
-                      <span>
-                        API
-                      </span>
-
-                      <strong className="status-online">
-                        Online
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="public-status-card">
-
-                    <div className="status-icon">
-                      🖥️
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Servere
-                      </span>
-
-                      <strong>
-                        {publicStats?.servers ?? 0}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="public-status-card">
-
-                    <div className="status-icon">
-                      ⚡
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Commands
-                      </span>
-
-                      <strong>
-                        {publicStats?.commands ?? 0}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="public-status-card">
-
-                    <div className="status-icon">
-                      🧩
-                    </div>
-
-                    <div>
-
-                      <span>
-                        Cogs
-                      </span>
-
-                      <strong>
-                        {publicStats?.cogs ?? 0}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="public-info-box">
-
-                  <h3>
-                    🟢 Systemstatus
-                  </h3>
-
-                  <p>
-                    Hjælper dashboard og API overvåges løbende.
-                  </p>
-
-                </div>
-
-                {lastUpdated && (
-
-                  <div className="last-updated">
-
-                    Sidst opdateret:{" "}
-
-                    {lastUpdated.toLocaleTimeString(
-                      "da-DK"
-                    )}
-
-                  </div>
-
-                )}
-
-              </>
-
-            )}
-
-          </div>
-
-        </div>
-
-      </div>
-    );
-  }
-
-  // ==========================================================
-  // PUBLIC STATS
-  // ==========================================================
-
-  if (
-    !user &&
-    page === "public-stats"
-  ) {
-
-    return (
-      <div className="app">
-
-        <div className="public-page">
-
-          <div className="public-topbar">
-
-            <div className="brand">
-
-              <div className="brand-icon">
-                H
-              </div>
-
-              <div>
-
-                <h1>
-                  Hjælper
-                </h1>
-
-                <span>
-                  Offentlig statistik
-                </span>
-
-              </div>
-
-            </div>
-
-            <button
-              className="back-button"
-              onClick={backToLogin}
-            >
-              ← Login
-            </button>
-
-          </div>
-
-          <div className="public-content">
-
-            <div className="public-title">
-
-              <span className="eyebrow">
-                STATISTIK
-              </span>
-
-              <h2>
-                Hjælper Statistik
-              </h2>
 
               <p>
-                Offentlig statistik for Hjælper.
+                🛡️ Mere gennemsigtighed omkring Hjælper.
               </p>
-
             </div>
-
-            {publicLoading &&
-            !publicStats ? (
-
-              <div className="public-loading">
-
-                <div className="loading-spinner" />
-
-                <p>
-                  Henter statistik...
-                </p>
-
-              </div>
-
-            ) : publicError ? (
-
-              <div className="error-box">
-                ❌ {publicError}
-              </div>
-
-            ) : (
-
-              <>
-
-                <div className="stats-grid">
-
-                  <div className="stat-card">
-
-                    <span>
-                      🟢 Bot status
-                    </span>
-
-                    <strong>
-                      {publicStats?.status === "online" ||
-                      publicStats?.bot_status === "online" ||
-                      publicStats?.bot_online === true
-                        ? "Online"
-                        : "Offline"}
-                    </strong>
-
-                  </div>
-
-                  <div className="stat-card">
-
-                    <span>
-                      🖥️ Servere
-                    </span>
-
-                    <strong>
-                      {publicStats?.servers ?? 0}
-                    </strong>
-
-                  </div>
-
-                  <div className="stat-card">
-
-                    <span>
-                      👥 Discord-brugere
-                    </span>
-
-                    <strong>
-                      {publicStats?.users ?? 0}
-                    </strong>
-
-                  </div>
-
-                  <div className="stat-card">
-
-                    <span>
-                      ⚡ Commands
-                    </span>
-
-                    <strong>
-                      {publicStats?.commands ?? 0}
-                    </strong>
-
-                  </div>
-
-                  <div className="stat-card">
-
-                    <span>
-                      🧩 Cogs
-                    </span>
-
-                    <strong>
-                      {publicStats?.cogs ?? 0}
-                    </strong>
-
-                  </div>
-
-                </div>
-
-                <div className="public-panel-users">
-
-                  <div className="public-section-title">
-
-                    <span className="eyebrow">
-                      PANEL
-                    </span>
-
-                    <h3>
-                      Panelbrugere
-                    </h3>
-
-                  </div>
-
-                  <div className="stats-grid">
-
-                    <div className="stat-card">
-
-                      <span>
-                        📅 I dag
-                      </span>
-
-                      <strong>
-                        {publicStats?.panel_users_today ??
-                          publicStats?.dashboard_users?.today ??
-                          0}
-                      </strong>
-
-                    </div>
-
-                    <div className="stat-card">
-
-                      <span>
-                        📆 Denne uge
-                      </span>
-
-                      <strong>
-                        {publicStats?.panel_users_week ??
-                          publicStats?.dashboard_users?.week ??
-                          0}
-                      </strong>
-
-                    </div>
-
-                    <div className="stat-card">
-
-                      <span>
-                        🗓️ Dette år
-                      </span>
-
-                      <strong>
-                        {publicStats?.panel_users_year ??
-                          publicStats?.dashboard_users?.year ??
-                          0}
-                      </strong>
-
-                    </div>
-
-                    <div className="stat-card">
-
-                      <span>
-                        👤 I alt
-                      </span>
-
-                      <strong>
-                        {publicStats?.panel_users_total ??
-                          publicStats?.dashboard_users?.total ??
-                          0}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                {lastUpdated && (
-
-                  <div className="last-updated">
-
-                    Sidst opdateret:{" "}
-
-                    {lastUpdated.toLocaleTimeString(
-                      "da-DK"
-                    )}
-
-                  </div>
-
-                )}
-
-                <button
-                  className="login"
-                  onClick={openStatus}
-                  style={{
-                    marginTop: "20px",
-                  }}
-                >
-                  <span>
-                    🟢 Se Status
-                  </span>
-
-                  <span>
-                    →
-                  </span>
-                </button>
-
-              </>
-
-            )}
-
           </div>
 
+          <div className="roadmap-card">
+            <div className="roadmap-version">
+              V2.2
+            </div>
+
+            <div>
+              <h2>✨ Coming Soon</h2>
+
+              <p>
+                ✨ Nye features
+              </p>
+
+              <p>
+                ⚡ Flere muligheder
+              </p>
+
+              <p>
+                👀 Mere bliver afsløret senere
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="public-info-box">
+          <p>
+            Ikke alt bliver afsløret på forhånd. 👀
+          </p>
         </div>
 
       </div>
     );
   }
 
-  // ==========================================================
-  // USER DASHBOARD
-  // ==========================================================
+  /*
+   * =========================================================
+   * USER DASHBOARD
+   * =========================================================
+   */
 
   if (
     user &&
-    user.role === "user"
+    user.role === "user" &&
+    (
+      page === "user-dashboard" ||
+      page === "user-privacy" ||
+      page === "user-terms" ||
+      page === "user-cookies"
+    )
   ) {
 
+    const userPageTitle =
+      page === "user-privacy"
+        ? "🔒 Privacy Policy"
+        : page === "user-terms"
+          ? "📜 Terms of Service"
+          : page === "user-cookies"
+            ? "🍪 Cookie Policy"
+            : "🏠 Dashboard";
+
     return (
-      <div className="app dashboard">
+      <div className="dashboard-layout">
 
         <aside className="sidebar">
 
           <div className="sidebar-brand">
-
             <div className="brand-icon">
-              H
+              ✨
             </div>
 
             <div>
-
-              <h2>
-                Hjælper
-              </h2>
-
-              <span>
-                Bruger Dashboard
-              </span>
-
+              <strong>Hjælper</strong>
+              <span>Bruger Dashboard</span>
             </div>
-
           </div>
 
-          <nav>
+          <nav className="sidebar-nav">
 
             <button
               className={
-                page === "user-dashboard"
-                  ? "nav-item active"
-                  : "nav-item"
+                `nav-item ${
+                  page === "user-dashboard"
+                    ? "active"
+                    : ""
+                }`
               }
               onClick={() =>
                 setPage("user-dashboard")
               }
             >
-
-              <span>
-                🏠
-              </span>
-
-              <span>
-                Dashboard
-              </span>
-
+              <span>🏠</span>
+              <span>Dashboard</span>
             </button>
 
           </nav>
 
           <div className="sidebar-bottom">
 
+            {/* KUN NYT: juridiske sider inde i Bruger Login */}
+
+            <button
+              className={
+                `nav-item ${
+                  page === "user-privacy"
+                    ? "active"
+                    : ""
+                }`
+              }
+              onClick={() =>
+                setPage("user-privacy")
+              }
+            >
+              <span>🔒</span>
+              <span>Privacy Policy</span>
+            </button>
+
+            <button
+              className={
+                `nav-item ${
+                  page === "user-terms"
+                    ? "active"
+                    : ""
+                }`
+              }
+              onClick={() =>
+                setPage("user-terms")
+              }
+            >
+              <span>📜</span>
+              <span>Terms of Service</span>
+            </button>
+
+            <button
+              className={
+                `nav-item ${
+                  page === "user-cookies"
+                    ? "active"
+                    : ""
+                }`
+              }
+              onClick={() =>
+                setPage("user-cookies")
+              }
+            >
+              <span>🍪</span>
+              <span>Cookie Policy</span>
+            </button>
+
             <div className="user-mini">
 
               <div className="user-avatar">
-
                 {getAvatarUrl() ? (
-
                   <img
                     src={getAvatarUrl()}
                     alt=""
-                    onError={(event) => {
-                      try {
-                        const avatarIndex =
-                          Number(
-                            BigInt(user.id) >> 22n
-                          ) % 6;
-
-                        event.currentTarget.src =
-                          `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
-                      } catch {
-                        event.currentTarget.style.display =
-                          "none";
-                      }
-                    }}
                   />
-
                 ) : (
                   "👤"
                 )}
-
               </div>
 
               <div className="user-info">
@@ -1345,140 +937,427 @@ export default function App() {
 
         </aside>
 
-        <main className="main">
+        <main className="main-content">
 
           <header className="topbar">
 
             <div>
+              <h1>{userPageTitle}</h1>
 
-              <h1>
-                Bruger Dashboard
-              </h1>
-
-              <span>
-                Hjælper V2
-              </span>
-
+              <p>
+                Velkommen til Hjælper.
+              </p>
             </div>
 
             <div className="topbar-user">
-              👤 Bruger
+
+              <div className="user-avatar">
+                {getAvatarUrl() ? (
+                  <img
+                    src={getAvatarUrl()}
+                    alt=""
+                  />
+                ) : (
+                  "👤"
+                )}
+              </div>
+
+              <div>
+                <strong>
+                  {user?.username}
+                </strong>
+
+                <span>
+                  👤 Bruger
+                </span>
+              </div>
+
             </div>
 
           </header>
 
-          <div className="content">
+          <section className="content">
 
-            <div className="page-heading">
+            {page === "user-dashboard" && (
+              <>
+                <div className="page-heading">
 
-              <span className="eyebrow">
-                BRUGER DASHBOARD
-              </span>
+                  <span className="eyebrow">
+                    BRUGER
+                  </span>
 
-              <h2>
-                Velkommen, {user?.username || "Bruger"} 👋
-              </h2>
+                  <h2>
+                    Velkommen, {user?.username}! 👋
+                  </h2>
 
-              <p>
-                Du er logget ind på Hjælper som bruger.
-              </p>
+                  <p>
+                    Dette er dit Hjælper-dashboard.
+                  </p>
 
-            </div>
+                </div>
 
-            <div className="stats-grid">
+                <div className="dashboard-grid">
 
-              <div className="stat-card">
+                  <div className="info-card">
 
-                <span>
-                  👤 Konto
-                </span>
+                    <h3>👤 Din konto</h3>
 
-                <strong>
-                  Bruger
-                </strong>
+                    <div className="list-card">
 
-              </div>
+                      <div className="list-row">
+                        <span>Brugernavn</span>
+                        <strong>
+                          {user?.username || "Ukendt"}
+                        </strong>
+                      </div>
 
-              <div className="stat-card">
+                      <div className="list-row">
+                        <span>Discord ID</span>
+                        <strong>
+                          {user?.id || "Ukendt"}
+                        </strong>
+                      </div>
 
-                <span>
-                  🟢 Login
-                </span>
+                      <div className="list-row">
+                        <span>Rolle</span>
+                        <strong>
+                          {roleLabel}
+                        </strong>
+                      </div>
 
-                <strong>
-                  Aktiv
-                </strong>
+                    </div>
 
-              </div>
+                  </div>
 
-              <div className="stat-card">
+                  <div className="info-card">
 
-                <span>
-                  💬 Discord
-                </span>
+                    <h3>🔐 Login</h3>
 
-                <strong>
-                  Forbundet
-                </strong>
+                    <p>
+                      Du er logget ind via Discord OAuth.
+                    </p>
 
-              </div>
+                    <p>
+                      Din konto er forbundet med din Discord-konto.
+                    </p>
 
-            </div>
+                  </div>
 
-            <div className="info-card">
+                </div>
 
-              <div>
+                <div className="public-info-box">
 
-                <span>
-                  Discord-brugernavn
-                </span>
+                  <h2>✨ Hjælper</h2>
 
-                <strong>
-                  {user?.username || "Ukendt"}
-                </strong>
+                  <p>
+                    Du er logget ind som almindelig bruger.
+                    Admin-funktioner er kun tilgængelige for
+                    autoriserede staff-medlemmer.
+                  </p>
 
-              </div>
+                </div>
+              </>
+            )}
 
-              <div>
+            {page === "user-privacy" && (
+              <>
+                <div className="page-heading">
 
-                <span>
-                  Konto-ID
-                </span>
+                  <span className="eyebrow">
+                    PRIVACY
+                  </span>
 
-                <strong>
-                  {user?.id || "Ukendt"}
-                </strong>
+                  <h2>
+                    🔒 Privacy Policy
+                  </h2>
 
-              </div>
+                  <p>
+                    Information om hvordan Hjælper håndterer data.
+                  </p>
 
-              <div>
+                </div>
 
-                <span>
-                  Rolle
-                </span>
+                <div className="info-card">
 
-                <strong>
-                  👤 Bruger
-                </strong>
+                  <div>
+                    <h3>
+                      Hvilke personoplysninger vi indsamler
+                    </h3>
 
-              </div>
+                    <p>
+                      Hjælper kan modtage oplysninger, der er
+                      nødvendige for at identificere din Discord-konto
+                      og give dig adgang til dashboardet.
+                    </p>
+                  </div>
 
-            </div>
+                  <div>
+                    <h3>
+                      Discord-data vi modtager
+                    </h3>
 
-            <div className="public-info-box">
+                    <p>
+                      Dette kan blandt andet være dit Discord-ID,
+                      brugernavn og avatar.
+                    </p>
+                  </div>
 
-              <h3>
-                👋 Velkommen til Hjælper
-              </h3>
+                  <div>
+                    <h3>
+                      Hvad data bruges til
+                    </h3>
 
-              <p>
-                Dit bruger-dashboard er klar.
-                Flere brugerfunktioner kommer senere.
-              </p>
+                    <p>
+                      Data bruges til login, sessionshåndtering
+                      og funktioner i Hjælper-dashboardet.
+                    </p>
+                  </div>
 
-            </div>
+                  <div>
+                    <h3>
+                      Hvor længe data gemmes
+                    </h3>
 
-          </div>
+                    <p>
+                      Oplysninger gemmes kun så længe, de er
+                      nødvendige for de funktioner, de bruges til.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Tredjepartstjenester
+                    </h3>
+
+                    <p>
+                      Hjælper bruger blandt andet Discord til login
+                      og Discord-relaterede funktioner.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Cookies
+                    </h3>
+
+                    <p>
+                      Hjælper kan bruge nødvendige cookies til
+                      blandt andet login og sessionshåndtering.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Dine GDPR-rettigheder
+                    </h3>
+
+                    <p>
+                      Du kan have rettigheder til blandt andet
+                      indsigt, rettelse og sletning af dine
+                      personoplysninger.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Kontakt
+                    </h3>
+
+                    <p>
+                      Kontakt Hjælper-teamet via den officielle
+                      supportkanal, hvis du har spørgsmål om dine data.
+                    </p>
+                  </div>
+
+                </div>
+              </>
+            )}
+
+            {page === "user-terms" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    VILKÅR
+                  </span>
+
+                  <h2>
+                    📜 Terms of Service
+                  </h2>
+
+                  <p>
+                    Regler for brug af Hjælper.
+                  </p>
+
+                </div>
+
+                <div className="info-card">
+
+                  <div>
+                    <h3>
+                      Regler for brug af Hjælper
+                    </h3>
+
+                    <p>
+                      Hjælper skal bruges på en ansvarlig og
+                      lovlig måde.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Forbud mod misbrug
+                    </h3>
+
+                    <p>
+                      Forsøg på at omgå sikkerhed, misbruge systemer
+                      eller forstyrre tjenesten er ikke tilladt.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      API-regler og rate limits
+                    </h3>
+
+                    <p>
+                      API'et må ikke bruges til overdreven trafik
+                      eller automatisering, der belaster tjenesten
+                      unødvendigt.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Discord-regler
+                    </h3>
+
+                    <p>
+                      Brug af Hjælper skal også følge Discords
+                      gældende regler og vilkår.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Suspension eller afslutning af konto
+                    </h3>
+
+                    <p>
+                      Adgang kan begrænses eller afsluttes ved
+                      misbrug eller brud på disse vilkår.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Ansvarsbegrænsning
+                    </h3>
+
+                    <p>
+                      Hjælper leveres som en tjeneste, og funktioner
+                      kan ændres, være midlertidigt utilgængelige
+                      eller blive fjernet.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Ændringer af vilkårene
+                    </h3>
+
+                    <p>
+                      Vilkårene kan blive opdateret, når Hjælper
+                      udvikles.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Kontakt
+                    </h3>
+
+                    <p>
+                      Kontakt Hjælper-teamet via den officielle
+                      supportkanal ved spørgsmål.
+                    </p>
+                  </div>
+
+                </div>
+              </>
+            )}
+
+            {page === "user-cookies" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    COOKIES
+                  </span>
+
+                  <h2>
+                    🍪 Cookie Policy
+                  </h2>
+
+                  <p>
+                    Information om cookies i Hjælper.
+                  </p>
+
+                </div>
+
+                <div className="info-card">
+
+                  <div>
+                    <h3>
+                      Hvilke cookies der bruges
+                    </h3>
+
+                    <p>
+                      Hjælper kan bruge cookies, der er nødvendige
+                      for login og sessionshåndtering.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Nødvendige cookies
+                    </h3>
+
+                    <p>
+                      Nødvendige cookies bruges til at holde din
+                      login-session aktiv og sikre, at dashboardet
+                      fungerer.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Analytics og andre cookies
+                    </h3>
+
+                    <p>
+                      Hvis Hjælper senere anvender analytics eller
+                      andre ikke-nødvendige cookies, vil dette blive
+                      oplyst her.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3>
+                      Sådan styrer du cookies
+                    </h3>
+
+                    <p>
+                      Du kan normalt styre eller slette cookies
+                      gennem indstillingerne i din browser.
+                    </p>
+                  </div>
+
+                </div>
+              </>
+            )}
+
+          </section>
 
         </main>
 
@@ -1486,850 +1365,730 @@ export default function App() {
     );
   }
 
-  // ==========================================================
-  // ADMIN NAVIGATION
-  // ==========================================================
+  /*
+   * =========================================================
+   * ADMIN PANEL
+   * =========================================================
+   */
 
-  const navigation = [
-    ["overview", "🏠", "Overview"],
-    ["bot", "🤖", "Bot"],
-    ["stats", "📊", "Stats"],
-    ["cogs", "🧩", "Cogs"],
-    ["servers", "🖥️", "Servere"],
-    ["logs", "📜", "Logs"],
-    ["system", "⚙️", "System"],
-  ];
+  if (user && isStaff) {
 
-  const visibleNavigation =
-    navigation.filter(([id]) => {
+    return (
+      <div className="dashboard-layout">
 
-      if (id === "system") {
-        return isOwner || isManager;
-      }
+        <aside className="sidebar">
 
-      return true;
-    });
+          <div className="sidebar-brand">
 
-  // ==========================================================
-  // ADMIN PANEL
-  // ==========================================================
+            <div className="brand-icon">
+              ✨
+            </div>
 
-  return (
-    <div className="app dashboard">
-
-      <aside className="sidebar">
-
-        <div className="sidebar-brand">
-
-          <div className="brand-icon">
-            H
-          </div>
-
-          <div>
-
-            <h2>
-              Hjælper
-            </h2>
-
-            <span>
-              Dashboard
-            </span>
+            <div>
+              <strong>Hjælper</strong>
+              <span>Admin Dashboard</span>
+            </div>
 
           </div>
 
-        </div>
+          <nav className="sidebar-nav">
 
-        <nav>
+            <button
+              className={`nav-item ${
+                page === "overview"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setPage("overview")}
+            >
+              <span>🏠</span>
+              <span>Dashboard</span>
+            </button>
 
-          {visibleNavigation.map(
-            ([id, icon, label]) => (
+            <button
+              className={`nav-item ${
+                page === "bot"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setPage("bot")}
+            >
+              <span>🤖</span>
+              <span>Bot</span>
+            </button>
 
+            <button
+              className={`nav-item ${
+                page === "stats"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setPage("stats")}
+            >
+              <span>📊</span>
+              <span>Stats</span>
+            </button>
+
+            <button
+              className={`nav-item ${
+                page === "cogs"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setPage("cogs")}
+            >
+              <span>🧩</span>
+              <span>Cogs</span>
+            </button>
+
+            <button
+              className={`nav-item ${
+                page === "servers"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setPage("servers")}
+            >
+              <span>🖥️</span>
+              <span>Servere</span>
+            </button>
+
+            <button
+              className={`nav-item ${
+                page === "logs"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setPage("logs")}
+            >
+              <span>📜</span>
+              <span>Logs</span>
+            </button>
+
+            {(isOwner || isManager) && (
               <button
-                key={id}
-                className={
-                  page === id
-                    ? "nav-item active"
-                    : "nav-item"
-                }
-                onClick={() => {
-                  setSelectedServer(null);
-                  setServerError("");
-                  setServerSuccess("");
-                  setPage(id);
-                }}
+                className={`nav-item ${
+                  page === "system"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => setPage("system")}
               >
-
-                <span>
-                  {icon}
-                </span>
-
-                <span>
-                  {label}
-                </span>
-
+                <span>⚙️</span>
+                <span>System</span>
               </button>
+            )}
 
-            )
-          )}
+          </nav>
 
-        </nav>
+          <div className="sidebar-bottom">
 
-        <div className="sidebar-bottom">
+            <div className="user-mini">
 
-          <div className="user-mini">
-
-            <div className="user-avatar">
-
-              {getAvatarUrl() ? (
-
-                <img
-                  src={getAvatarUrl()}
-                  alt=""
-                  onError={(event) => {
-
-                    try {
-
-                      const avatarIndex =
-                        Number(
-                          BigInt(user.id) >> 22n
-                        ) % 6;
-
-                      event.currentTarget.src =
-                        `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
-
-                    } catch {
-
-                      event.currentTarget.style.display =
-                        "none";
-
-                    }
-
-                  }}
-                />
-
-              ) : (
-                "👤"
-              )}
-
-            </div>
-
-            <div className="user-info">
-
-              <strong>
-                {user?.username || "Bruger"}
-              </strong>
-
-              <span>
-                {getRoleText()}
-              </span>
-
-            </div>
-
-          </div>
-
-          <button
-            className="logout-button"
-            onClick={logout}
-          >
-            🚪 Log ud
-          </button>
-
-        </div>
-
-      </aside>
-
-      <main className="main">
-
-        <header className="topbar">
-
-          <div>
-
-            <h1>
-              {page === "server-details"
-                ? selectedServer?.name || "Server"
-                : visibleNavigation.find(
-                    ([id]) => id === page
-                  )?.[2] || "Dashboard"}
-            </h1>
-
-            <span>
-              {page === "server-details"
-                ? "Server detaljer"
-                : "Hjælper V2"}
-            </span>
-
-          </div>
-
-          <div className="topbar-user">
-            {getRoleText()}
-          </div>
-
-        </header>
-
-        <div className="content">
-
-          {/* ==================================================
-              OVERVIEW
-          ================================================== */}
-
-          {page === "overview" && (
-
-            <div>
-
-              <div className="page-heading">
-
-                <span className="eyebrow">
-                  OVERVIEW
-                </span>
-
-                <h2>
-                  Velkommen tilbage 👋
-                </h2>
-
-                <p>
-                  Her får du et hurtigt overblik over Hjælper.
-                </p>
-
-              </div>
-
-              <div className="stats-grid">
-
-                <div className="stat-card">
-
-                  <span>
-                    🟢 Status
-                  </span>
-
-                  <strong>
-                    Online
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    🖥️ Servere
-                  </span>
-
-                  <strong>
-                    {stats?.servers ?? 0}
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    👥 Brugere
-                  </span>
-
-                  <strong>
-                    {stats?.users ?? 0}
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    ⚡ Commands
-                  </span>
-
-                  <strong>
-                    {stats?.commands ?? 0}
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    🧩 Cogs
-                  </span>
-
-                  <strong>
-                    {stats?.cogs ?? 0}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          )}
-
-          {/* ==================================================
-              BOT
-          ================================================== */}
-
-          {page === "bot" && (
-
-            <div>
-
-              <div className="page-heading">
-
-                <span className="eyebrow">
-                  BOT
-                </span>
-
-                <h2>
-                  Hjælper Bot
-                </h2>
-
-                <p>
-                  Information om Discord-botten.
-                </p>
-
-              </div>
-
-              <div className="info-card">
-
-                <div>
-
-                  <span>
-                    Navn
-                  </span>
-
-                  <strong>
-                    {stats?.bot_name || "Hjælper"}
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <span>
-                    Status
-                  </span>
-
-                  <strong className="status-online">
-                    🟢 Online
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <span>
-                    Servere
-                  </span>
-
-                  <strong>
-                    {stats?.servers ?? 0}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          )}
-
-          {/* ==================================================
-              STATS
-          ================================================== */}
-
-          {page === "stats" && (
-
-            <div>
-
-              <div className="page-heading">
-
-                <span className="eyebrow">
-                  STATISTIK
-                </span>
-
-                <h2>
-                  Dashboard Statistik
-                </h2>
-
-                <p>
-                  Statistik for brugen af Hjælper-panelet.
-                </p>
-
-              </div>
-
-              <div className="stats-grid">
-
-                <div className="stat-card">
-
-                  <span>
-                    📅 Panelbrugere i dag
-                  </span>
-
-                  <strong>
-                    {stats?.panel_users_today ??
-                      stats?.dashboard_users?.today ??
-                      0}
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    📆 Panelbrugere denne uge
-                  </span>
-
-                  <strong>
-                    {stats?.panel_users_week ??
-                      stats?.dashboard_users?.week ??
-                      0}
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    🗓️ Panelbrugere dette år
-                  </span>
-
-                  <strong>
-                    {stats?.panel_users_year ??
-                      stats?.dashboard_users?.year ??
-                      0}
-                  </strong>
-
-                </div>
-
-                <div className="stat-card">
-
-                  <span>
-                    👤 Panelbrugere i alt
-                  </span>
-
-                  <strong>
-                    {stats?.panel_users_total ??
-                      stats?.dashboard_users?.total ??
-                      0}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          )}
-
-          {/* ==================================================
-              COGS
-          ================================================== */}
-
-          {page === "cogs" && (
-
-            <div>
-
-              <div className="page-heading">
-
-                <span className="eyebrow">
-                  COGS
-                </span>
-
-                <h2>
-                  Cogs
-                </h2>
-
-                <p>
-                  Loaded extensions i Hjælper.
-                </p>
-
-              </div>
-
-              <div className="list-card">
-
-                {cogs.length === 0 ? (
-
-                  <div className="empty">
-                    Ingen cogs fundet.
-                  </div>
-
+              <div className="user-avatar">
+                {getAvatarUrl() ? (
+                  <img
+                    src={getAvatarUrl()}
+                    alt=""
+                  />
                 ) : (
+                  "👤"
+                )}
+              </div>
 
-                  cogs.map(
-                    (cog, index) => (
+              <div className="user-info">
 
-                      <div
-                        className="list-row"
-                        key={index}
-                      >
+                <strong>
+                  {user?.username || "Bruger"}
+                </strong>
 
-                        <span>
-                          🧩
-                        </span>
+                <span>
+                  {roleLabel}
+                </span>
 
-                        <strong>
-                          {typeof cog === "string"
-                            ? cog
-                            : cog.name ||
-                              cog.cog ||
-                              "Ukendt"}
-                        </strong>
+              </div>
 
-                        <span className="status-online">
-                          Loaded
-                        </span>
+            </div>
 
-                      </div>
+            <button
+              className="logout-button"
+              onClick={logout}
+            >
+              🚪 Log ud
+            </button>
 
-                    )
-                  )
+          </div>
 
+        </aside>
+
+        <main className="main-content">
+
+          <header className="topbar">
+
+            <div>
+
+              <h1>
+                {page === "overview"
+                  ? "🏠 Dashboard"
+                  : page === "bot"
+                    ? "🤖 Bot"
+                    : page === "stats"
+                      ? "📊 Stats"
+                      : page === "cogs"
+                        ? "🧩 Cogs"
+                        : page === "servers"
+                          ? "🖥️ Servere"
+                          : page === "server-details"
+                            ? "🖥️ Server"
+                            : page === "logs"
+                              ? "📜 Logs"
+                              : "⚙️ System"}
+              </h1>
+
+              <p>
+                Hjælper V2
+              </p>
+
+            </div>
+
+            <div className="topbar-user">
+
+              <div className="user-avatar">
+
+                {getAvatarUrl() ? (
+                  <img
+                    src={getAvatarUrl()}
+                    alt=""
+                  />
+                ) : (
+                  "👤"
                 )}
 
               </div>
 
-            </div>
+              <div>
 
-          )}
+                <strong>
+                  {user?.username}
+                </strong>
 
-          {/* ==================================================
-              SERVERS
-          ================================================== */}
-
-          {page === "servers" && (
-
-            <div>
-
-              <div className="page-heading">
-
-                <span className="eyebrow">
-                  SERVERE
+                <span>
+                  {roleLabel}
                 </span>
-
-                <h2>
-                  Discord Servere
-                </h2>
-
-                <p>
-                  Klik på en server for at åbne serverens side.
-                </p>
 
               </div>
 
-              {serverError && (
-                <div className="error-box">
-                  ❌ {serverError}
+            </div>
+
+          </header>
+
+          <section className="content">
+
+            {page === "overview" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    OVERVIEW
+                  </span>
+
+                  <h2>
+                    Velkommen tilbage, {user?.username}! 👋
+                  </h2>
+
+                  <p>
+                    Her kan du se en hurtig oversigt over Hjælper.
+                  </p>
+
                 </div>
-              )}
 
-              {serverSuccess && (
-                <div className="success-box">
-                  ✅ {serverSuccess}
-                </div>
-              )}
+                <div className="dashboard-grid">
 
-              <div className="list-card">
-
-                {servers.length === 0 ? (
-
-                  <div className="empty">
-                    Ingen servere fundet.
+                  <div className="stat-card">
+                    <span>🟢</span>
+                    <small>Status</small>
+                    <strong>
+                      {stats?.online
+                        ? "Online"
+                        : "Offline"}
+                    </strong>
                   </div>
 
-                ) : (
+                  <div className="stat-card">
+                    <span>🖥️</span>
+                    <small>Servere</small>
+                    <strong>
+                      {formatNumber(stats?.servers)}
+                    </strong>
+                  </div>
 
-                  servers.map(
-                    (server, index) => (
+                  <div className="stat-card">
+                    <span>👥</span>
+                    <small>Discord-brugere</small>
+                    <strong>
+                      {formatNumber(stats?.users)}
+                    </strong>
+                  </div>
 
-                      <button
-                        className="server-row"
-                        key={
-                          server.id ||
-                          index
-                        }
-                        onClick={() =>
-                          openServer(server)
-                        }
-                      >
+                  <div className="stat-card">
+                    <span>⚡</span>
+                    <small>Commands</small>
+                    <strong>
+                      {formatNumber(stats?.commands)}
+                    </strong>
+                  </div>
 
-                        <span className="server-icon">
+                </div>
 
-                          {getServerIcon(server) ? (
+                <div className="info-card">
 
-                            <img
-                              src={getServerIcon(server)}
-                              alt=""
-                              onError={(event) => {
-                                event.currentTarget.style.display =
-                                  "none";
-                              }}
-                            />
+                  <h3>
+                    🛡️ Din rolle
+                  </h3>
 
-                          ) : (
-                            "🖥️"
-                          )}
+                  <p>
+                    {roleLabel}
+                  </p>
 
-                        </span>
+                </div>
+              </>
+            )}
 
-                        <span className="server-main">
+            {page === "bot" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    BOT
+                  </span>
+
+                  <h2>
+                    🤖 Hjælper Bot
+                  </h2>
+
+                  <p>
+                    Information om Discord-botten.
+                  </p>
+
+                </div>
+
+                <div className="dashboard-grid">
+
+                  <div className="info-card">
+                    <h3>Bot</h3>
+                    <p>
+                      {stats?.name || "Hjælper"}
+                    </p>
+                  </div>
+
+                  <div className="info-card">
+                    <h3>Status</h3>
+                    <p>
+                      {stats?.online
+                        ? "🟢 Online"
+                        : "🔴 Offline"}
+                    </p>
+                  </div>
+
+                  <div className="info-card">
+                    <h3>Commands</h3>
+                    <p>
+                      {formatNumber(stats?.commands)}
+                    </p>
+                  </div>
+
+                  <div className="info-card">
+                    <h3>Cogs</h3>
+                    <p>
+                      {formatNumber(stats?.cogs)}
+                    </p>
+                  </div>
+
+                </div>
+              </>
+            )}
+
+            {page === "stats" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    STATISTIK
+                  </span>
+
+                  <h2>
+                    📊 Statistik
+                  </h2>
+
+                  <p>
+                    Statistik for Hjælper og dashboardet.
+                  </p>
+
+                </div>
+
+                <div className="dashboard-grid">
+
+                  <div className="stat-card">
+                    <span>🖥️</span>
+                    <small>Servere</small>
+                    <strong>
+                      {formatNumber(stats?.servers)}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card">
+                    <span>👥</span>
+                    <small>Discord-brugere</small>
+                    <strong>
+                      {formatNumber(stats?.users)}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card">
+                    <span>⚡</span>
+                    <small>Commands</small>
+                    <strong>
+                      {formatNumber(stats?.commands)}
+                    </strong>
+                  </div>
+
+                  <div className="stat-card">
+                    <span>🧩</span>
+                    <small>Cogs</small>
+                    <strong>
+                      {formatNumber(stats?.cogs)}
+                    </strong>
+                  </div>
+
+                </div>
+
+                <div className="info-card">
+
+                  <h3>
+                    👤 Panelbrugere
+                  </h3>
+
+                  <div className="list-card">
+
+                    <div className="list-row">
+                      <span>I dag</span>
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.today ??
+                          stats?.panel_users_today
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="list-row">
+                      <span>Denne uge</span>
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.week ??
+                          stats?.panel_users_week
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="list-row">
+                      <span>Dette år</span>
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.year ??
+                          stats?.panel_users_year
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="list-row">
+                      <span>I alt</span>
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.total ??
+                          stats?.panel_users_total
+                        )}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                </div>
+              </>
+            )}
+
+            {page === "cogs" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    MODULES
+                  </span>
+
+                  <h2>
+                    🧩 Cogs
+                  </h2>
+
+                  <p>
+                    Aktive moduler i Hjælper.
+                  </p>
+
+                </div>
+
+                <div className="list-card">
+
+                  {cogs.length === 0 ? (
+                    <div className="empty-state">
+                      Ingen cogs fundet.
+                    </div>
+                  ) : (
+                    cogs.map((cog, index) => {
+
+                      const name =
+                        typeof cog === "string"
+                          ? cog
+                          : cog.name ||
+                            cog.cog ||
+                            `Cog ${index + 1}`;
+
+                      return (
+                        <div
+                          className="list-row"
+                          key={index}
+                        >
+                          <span>
+                            🧩 {name}
+                          </span>
 
                           <strong>
-                            {server.name ||
-                              "Ukendt server"}
+                            🟢 Loaded
                           </strong>
-
-                          <small>
-                            ID:{" "}
-                            {server.id ||
-                              "Ukendt"}
-                          </small>
-
-                        </span>
-
-                        <span className="server-members">
-
-                          {server.members ??
-                            server.member_count ??
-                            0}{" "}
-                          brugere
-
-                        </span>
-
-                        <span className="server-arrow">
-                          →
-                        </span>
-
-                      </button>
-
-                    )
-                  )
-
-                )}
-
-              </div>
-
-            </div>
-
-          )}
-
-          {/* ==================================================
-              SERVER DETAILS
-          ================================================== */}
-
-          {page === "server-details" &&
-            selectedServer && (
-
-              <div className="server-details-page">
-
-                <button
-                  className="back-button"
-                  onClick={closeServer}
-                  disabled={removingServer}
-                >
-                  ← Tilbage til servere
-                </button>
-
-                <div className="server-hero">
-
-                  <div className="server-hero-icon">
-
-                    {getServerIcon(selectedServer) ? (
-
-                      <img
-                        src={getServerIcon(selectedServer)}
-                        alt=""
-                        onError={(event) => {
-                          event.currentTarget.style.display =
-                            "none";
-                        }}
-                      />
-
-                    ) : (
-
-                      <span>
-                        🖥️
-                      </span>
-
-                    )}
-
-                  </div>
-
-                  <div className="server-hero-info">
-
-                    <span className="eyebrow">
-                      DISCORD SERVER
-                    </span>
-
-                    <h2>
-                      {selectedServer.name ||
-                        "Ukendt server"}
-                    </h2>
-
-                    <p>
-                      Hjælper er tilføjet til denne server.
-                    </p>
-
-                  </div>
+                        </div>
+                      );
+                    })
+                  )}
 
                 </div>
 
-                {serverSuccess && (
-                  <div className="success-box">
-                    ✅ {serverSuccess}
-                  </div>
-                )}
+              </>
+            )}
+
+            {page === "servers" && (
+              <>
+                <div className="page-heading">
+
+                  <span className="eyebrow">
+                    SERVERE
+                  </span>
+
+                  <h2>
+                    🖥️ Servere
+                  </h2>
+
+                  <p>
+                    Discord-servere hvor Hjælper er installeret.
+                  </p>
+
+                </div>
 
                 {serverError && (
                   <div className="error-box">
-                    ❌ {serverError}
+                    {serverError}
                   </div>
                 )}
 
-                <div className="server-detail-grid">
+                <div className="server-grid">
 
-                  <div className="server-detail-card">
+                  {servers.length === 0 ? (
+                    <div className="empty-state">
+                      Ingen servere fundet.
+                    </div>
+                  ) : (
+                    servers.map((server) => {
 
-                    <span>
-                      👥 Medlemmer
-                    </span>
+                      const icon =
+                        getServerIcon(server);
 
-                    <strong>
-                      {selectedServer.members ??
-                        selectedServer.member_count ??
-                        0}
-                    </strong>
+                      return (
+                        <button
+                          className="server-card"
+                          key={server.id}
+                          onClick={() =>
+                            openServer(server)
+                          }
+                        >
 
-                    <small>
-                      Discord-brugere på serveren
-                    </small>
+                          <div className="server-icon">
 
+                            {icon ? (
+                              <img
+                                src={icon}
+                                alt=""
+                              />
+                            ) : (
+                              "🖥️"
+                            )}
+
+                          </div>
+
+                          <div className="server-info">
+
+                            <strong>
+                              {server.name ||
+                                "Ukendt server"}
+                            </strong>
+
+                            <span>
+                              {formatNumber(
+                                server.member_count
+                              )} medlemmer
+                            </span>
+
+                          </div>
+
+                          <span>
+                            →
+                          </span>
+
+                        </button>
+                      );
+                    })
+                  )}
+
+                </div>
+
+              </>
+            )}
+
+            {page === "server-details" && selectedServer && (
+              <>
+                <div className="page-heading">
+
+                  <button
+                    className="back-button"
+                    onClick={() =>
+                      setPage("servers")
+                    }
+                  >
+                    ← Tilbage til servere
+                  </button>
+
+                  <h2>
+                    {getServerIcon(selectedServer) ? (
+                      <img
+                        src={getServerIcon(selectedServer)}
+                        alt=""
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          verticalAlign: "middle",
+                          marginRight: 10,
+                        }}
+                      />
+                    ) : (
+                      "🖥️"
+                    )}
+
+                    {selectedServer.name}
+                  </h2>
+
+                  <p>
+                    Serverinformation
+                  </p>
+
+                </div>
+
+                {serverError && (
+                  <div className="error-box">
+                    {serverError}
+                  </div>
+                )}
+
+                <div className="dashboard-grid">
+
+                  <div className="info-card">
+                    <h3>🆔 Server ID</h3>
+                    <p>
+                      {selectedServer.id}
+                    </p>
                   </div>
 
-                  <div className="server-detail-card">
-
-                    <span>
-                      🆔 Server ID
-                    </span>
-
-                    <strong className="server-id">
-                      {selectedServer.id ||
-                        "Ukendt"}
-                    </strong>
-
-                    <small>
-                      Discord Guild ID
-                    </small>
-
-                  </div>
-
-                  <div className="server-detail-card">
-
-                    <span>
-                      🤖 Hjælper
-                    </span>
-
-                    <strong className="status-online">
-                      🟢 Tilsluttet
-                    </strong>
-
-                    <small>
-                      Botten er medlem af serveren
-                    </small>
-
+                  <div className="info-card">
+                    <h3>👥 Medlemmer</h3>
+                    <p>
+                      {formatNumber(
+                        selectedServer.member_count
+                      )}
+                    </p>
                   </div>
 
                 </div>
 
                 {(isOwner || isManager) && (
+                  <div className="info-card">
 
-                  <div className="server-danger-card">
+                    <h3>
+                      ⚠️ Server handlinger
+                    </h3>
 
-                    <div>
-
-                      <span className="eyebrow">
-                        SERVER HANDLING
-                      </span>
-
-                      <h3>
-                        Fjern Hjælper
-                      </h3>
-
-                      <p>
-                        Dette får Hjælper til at forlade
-                        serveren. Handlingen kan ikke
-                        fortrydes fra dashboardet.
-                      </p>
-
-                    </div>
+                    <p>
+                      Kun Ejer og Manager kan fjerne
+                      Hjælper fra en server.
+                    </p>
 
                     <button
                       className="danger-button"
-                      onClick={
-                        removeHelperFromServer
+                      onClick={() =>
+                        removeServer(
+                          selectedServer.id
+                        )
                       }
-                      disabled={removingServer}
                     >
-                      {removingServer
-                        ? "⏳ Fjerner..."
-                        : "🔴 Fjern Hjælper"}
+                      🚪 Fjern Hjælper
                     </button>
 
                   </div>
-
                 )}
 
-              </div>
-
+              </>
             )}
 
-          {/* ==================================================
-              LOGS
-          ================================================== */}
+            {page === "logs" && (
+              <>
+                <div className="page-heading">
 
-          {page === "logs" && (
+                  <span className="eyebrow">
+                    LOGS
+                  </span>
 
-            <div>
+                  <h2>
+                    📜 Logs
+                  </h2>
 
-              <div className="page-heading">
+                  <p>
+                    System- og botaktivitet.
+                  </p>
 
-                <span className="eyebrow">
-                  LOGS
-                </span>
-
-                <h2>
-                  Logs
-                </h2>
-
-                <p>
-                  System- og botlogs.
-                </p>
-
-              </div>
-
-              <div className="info-card">
-
-                <div>
-                  🟢 Hjælper er online
                 </div>
 
-                <div>
-                  🧩 Cogs er indlæst
+                <div className="info-card">
+
+                  <h3>
+                    📡 System
+                  </h3>
+
+                  <p>
+                    Live logs kan administreres fra Wispbyte
+                    console.
+                  </p>
+
                 </div>
 
-                <div>
-                  🌐 API er online
-                </div>
+              </>
+            )}
 
-              </div>
-
-            </div>
-
-          )}
-
-          {/* ==================================================
-              SYSTEM
-          ================================================== */}
-
-          {page === "system" &&
-            (isOwner || isManager) && (
-
-              <div>
-
+            {page === "system" && (
+              <>
                 <div className="page-heading">
 
                   <span className="eyebrow">
@@ -2337,75 +2096,65 @@ export default function App() {
                   </span>
 
                   <h2>
-                    System
+                    ⚙️ System
                   </h2>
 
                   <p>
-                    Information om Hjælper-systemet.
+                    Systeminformation og administration.
                   </p>
 
                 </div>
 
-                <div className="stats-grid">
+                <div className="dashboard-grid">
 
-                  <div className="stat-card">
-
-                    <span>
-                      🤖 Bot
-                    </span>
-
-                    <strong>
-                      Online
-                    </strong>
-
+                  <div className="info-card">
+                    <h3>🐍 Python</h3>
+                    <p>
+                      Python 3.14.7
+                    </p>
                   </div>
 
-                  <div className="stat-card">
-
-                    <span>
-                      🌐 API
-                    </span>
-
-                    <strong>
-                      Online
-                    </strong>
-
+                  <div className="info-card">
+                    <h3>🌐 API</h3>
+                    <p>
+                      FastAPI
+                    </p>
                   </div>
 
-                  <div className="stat-card">
-
-                    <span>
-                      🧩 Cogs
-                    </span>
-
-                    <strong>
-                      {stats?.cogs ?? 0}
-                    </strong>
-
+                  <div className="info-card">
+                    <h3>🤖 Discord</h3>
+                    <p>
+                      discord.py
+                    </p>
                   </div>
 
-                  <div className="stat-card">
-
-                    <span>
-                      🖥️ Servere
-                    </span>
-
-                    <strong>
-                      {stats?.servers ?? 0}
-                    </strong>
-
+                  <div className="info-card">
+                    <h3>✨ Hjælper</h3>
+                    <p>
+                      V2
+                    </p>
                   </div>
 
                 </div>
 
-              </div>
-
+              </>
             )}
 
-        </div>
+          </section>
 
-      </main>
+        </main>
 
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-loading">
+      <div className="loading-card">
+        <div className="loading-icon">✨</div>
+        <h2>Hjælper</h2>
+        <p>Indlæser...</p>
+      </div>
     </div>
   );
 }
