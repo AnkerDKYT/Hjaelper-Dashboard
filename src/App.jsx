@@ -40,13 +40,19 @@ export default function App() {
 
       const data = await response.json();
 
-      if (data.authenticated) {
+      if (data.authenticated && data.user) {
         setUser(data.user);
-        setPage("overview");
+
+        if (data.user.role === "user") {
+          setPage("user-dashboard");
+        } else {
+          setPage("overview");
+        }
       } else {
         setUser(null);
       }
-    } catch {
+    } catch (error) {
+      console.error("Auth error:", error);
       setUser(null);
     }
 
@@ -54,7 +60,13 @@ export default function App() {
   }
 
   function login() {
-    window.location.href = `${API}/auth/discord`;
+    window.location.href =
+      `${API}/auth/discord?login_type=admin`;
+  }
+
+  function userLogin() {
+    window.location.href =
+      `${API}/auth/discord?login_type=user`;
   }
 
   async function logout() {
@@ -130,6 +142,13 @@ export default function App() {
 
   async function loadDashboardData() {
     if (!user) return;
+
+    if (
+      user.role !== "owner" &&
+      user.role !== "admin"
+    ) {
+      return;
+    }
 
     try {
       const [
@@ -354,6 +373,13 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
+    if (
+      user.role !== "owner" &&
+      user.role !== "admin"
+    ) {
+      return;
+    }
+
     loadDashboardData();
 
     const interval = setInterval(() => {
@@ -445,6 +471,22 @@ export default function App() {
 
             <button
               className="login"
+              onClick={userLogin}
+              style={{
+                marginTop: "9px",
+              }}
+            >
+              <span>
+                👤 Bruger Login
+              </span>
+
+              <span>
+                →
+              </span>
+            </button>
+
+            <button
+              className="login"
               onClick={openStats}
               style={{
                 marginTop: "9px",
@@ -488,22 +530,6 @@ export default function App() {
 
               <span>
                 →
-              </span>
-            </button>
-
-            <button
-              className="login disabled"
-              disabled
-              style={{
-                marginTop: "9px",
-              }}
-            >
-              <span>
-                👤 Bruger Login
-              </span>
-
-              <span>
-                🔒
               </span>
             </button>
 
@@ -1126,6 +1152,269 @@ export default function App() {
 
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // USER DASHBOARD
+  // ==========================================
+
+  if (
+    user &&
+    user.role === "user"
+  ) {
+    return (
+      <div className="app dashboard">
+
+        <aside className="sidebar">
+
+          <div className="sidebar-brand">
+
+            <div className="brand-icon">
+              H
+            </div>
+
+            <div>
+
+              <h2>
+                Hjælper
+              </h2>
+
+              <span>
+                Bruger Dashboard
+              </span>
+
+            </div>
+
+          </div>
+
+          <nav>
+
+            <button
+              className={
+                page === "user-dashboard"
+                  ? "nav-item active"
+                  : "nav-item"
+              }
+              onClick={() =>
+                setPage("user-dashboard")
+              }
+            >
+
+              <span>
+                🏠
+              </span>
+
+              <span>
+                Dashboard
+              </span>
+
+            </button>
+
+          </nav>
+
+          <div className="sidebar-bottom">
+
+            <div className="user-mini">
+
+              <div className="user-avatar">
+
+                {getAvatarUrl() ? (
+
+                  <img
+                    src={getAvatarUrl()}
+                    alt=""
+                    onError={(event) => {
+                      try {
+                        const avatarIndex =
+                          Number(
+                            BigInt(user.id) >>
+                              22n
+                          ) % 6;
+
+                        event.currentTarget.src =
+                          `https://cdn.discordapp.com/embed/avatars/${avatarIndex}.png`;
+                      } catch {
+                        event.currentTarget.style.display =
+                          "none";
+                      }
+                    }}
+                  />
+
+                ) : (
+
+                  "👤"
+
+                )}
+
+              </div>
+
+              <div className="user-info">
+
+                <strong>
+                  {user?.username ||
+                    "Bruger"}
+                </strong>
+
+                <span>
+                  👤 Bruger
+                </span>
+
+              </div>
+
+            </div>
+
+            <button
+              className="logout-button"
+              onClick={logout}
+            >
+              🚪 Log ud
+            </button>
+
+          </div>
+
+        </aside>
+
+        <main className="main">
+
+          <header className="topbar">
+
+            <div>
+
+              <h1>
+                Bruger Dashboard
+              </h1>
+
+              <span>
+                Hjælper V2
+              </span>
+
+            </div>
+
+            <div className="topbar-user">
+              👤 Bruger
+            </div>
+
+          </header>
+
+          <div className="content">
+
+            <div className="page-heading">
+
+              <span className="eyebrow">
+                BRUGER DASHBOARD
+              </span>
+
+              <h2>
+                Velkommen, {user?.username || "Bruger"} 👋
+              </h2>
+
+              <p>
+                Du er logget ind på Hjælper som bruger.
+              </p>
+
+            </div>
+
+            <div className="stats-grid">
+
+              <div className="stat-card">
+
+                <span>
+                  👤 Konto
+                </span>
+
+                <strong>
+                  Bruger
+                </strong>
+
+              </div>
+
+              <div className="stat-card">
+
+                <span>
+                  🟢 Login
+                </span>
+
+                <strong>
+                  Aktiv
+                </strong>
+
+              </div>
+
+              <div className="stat-card">
+
+                <span>
+                  💬 Discord
+                </span>
+
+                <strong>
+                  Forbundet
+                </strong>
+
+              </div>
+
+            </div>
+
+            <div className="info-card">
+
+              <div>
+
+                <span>
+                  Discord-brugernavn
+                </span>
+
+                <strong>
+                  {user?.username ||
+                    "Ukendt"}
+                </strong>
+
+              </div>
+
+              <div>
+
+                <span>
+                  Konto-ID
+                </span>
+
+                <strong>
+                  {user?.id ||
+                    "Ukendt"}
+                </strong>
+
+              </div>
+
+              <div>
+
+                <span>
+                  Rolle
+                </span>
+
+                <strong>
+                  👤 Bruger
+                </strong>
+
+              </div>
+
+            </div>
+
+            <div className="public-info-box">
+
+              <h3>
+                👋 Velkommen til Hjælper
+              </h3>
+
+              <p>
+                Dit bruger-dashboard er klar.
+                Flere brugerfunktioner kommer senere.
+              </p>
+
+            </div>
+
+          </div>
+
+        </main>
+
       </div>
     );
   }
