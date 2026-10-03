@@ -188,11 +188,13 @@ export default function App() {
   }
 
   function adminLogin() {
-    window.location.href = `${API}/auth/discord?login_type=admin`;
+    window.location.href =
+      `${API}/auth/discord?login_type=admin`;
   }
 
   function userLogin() {
-    window.location.href = `${API}/auth/discord?login_type=user`;
+    window.location.href =
+      `${API}/auth/discord?login_type=user`;
   }
 
   async function logout() {
@@ -217,7 +219,7 @@ export default function App() {
       return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
     }
 
-    return `https://cdn.discordapp.com/embed/avatars/0.png`;
+    return "https://cdn.discordapp.com/embed/avatars/0.png";
   }
 
   function getServerIcon(server) {
@@ -253,7 +255,8 @@ export default function App() {
 
       const updatedServer =
         (data.servers || []).find(
-          (item) => String(item.id) === String(server.id)
+          (item) =>
+            String(item.id) === String(server.id)
         ) || server;
 
       setSelectedServer(updatedServer);
@@ -277,7 +280,11 @@ export default function App() {
       return;
     }
 
-    if (!window.confirm("Er du sikker på, at du vil fjerne Hjælper fra denne server?")) {
+    if (
+      !window.confirm(
+        "Er du sikker på, at du vil fjerne Hjælper fra denne server?"
+      )
+    ) {
       return;
     }
 
@@ -349,25 +356,30 @@ export default function App() {
 
   /*
    * =========================================================
-   * PUBLIC LOGIN
+   * LOGIN
    * =========================================================
    */
 
   if (page === "login" && !user) {
     return (
       <div className="login-page">
+
         <div className="login-card">
 
           <div className="login-logo">
+
             <div className="logo-icon">
               ✨
             </div>
 
-            <h1>Hjælper</h1>
+            <h1>
+              Hjælper
+            </h1>
 
             <p>
               Discord bot & dashboard
             </p>
+
           </div>
 
           <div className="login-options">
@@ -381,11 +393,15 @@ export default function App() {
               </span>
 
               <span>
-                <strong>Admin Login</strong>
+                <strong>
+                  Admin Login
+                </strong>
+
                 <small>
                   Log ind som Ejer, Manager eller Admin
                 </small>
               </span>
+
             </button>
 
             <button
@@ -397,59 +413,81 @@ export default function App() {
               </span>
 
               <span>
-                <strong>Bruger Login</strong>
+                <strong>
+                  Bruger Login
+                </strong>
+
                 <small>
                   Log ind som almindelig bruger
                 </small>
               </span>
+
             </button>
 
             <button
               className="login-option"
-              onClick={() => setPage("public-stats")}
+              onClick={() =>
+                setPage("public-stats")
+              }
             >
               <span className="login-option-icon">
                 📊
               </span>
 
               <span>
-                <strong>Se Statistik</strong>
+                <strong>
+                  Se Statistik
+                </strong>
+
                 <small>
                   Se offentlig statistik
                 </small>
               </span>
+
             </button>
 
             <button
               className="login-option"
-              onClick={() => setPage("public-status")}
+              onClick={() =>
+                setPage("public-status")
+              }
             >
               <span className="login-option-icon">
                 🟢
               </span>
 
               <span>
-                <strong>Status</strong>
+                <strong>
+                  Status
+                </strong>
+
                 <small>
                   Se Hjælpers aktuelle status
                 </small>
               </span>
+
             </button>
 
             <button
               className="login-option"
-              onClick={() => setPage("roadmap")}
+              onClick={() =>
+                setPage("roadmap")
+              }
             >
               <span className="login-option-icon">
                 🚀
               </span>
 
               <span>
-                <strong>Roadmap</strong>
+                <strong>
+                  Roadmap
+                </strong>
+
                 <small>
                   Se hvad der kommer senere
                 </small>
               </span>
+
             </button>
 
           </div>
@@ -459,6 +497,7 @@ export default function App() {
           </div>
 
         </div>
+
       </div>
     );
   }
@@ -474,6 +513,7 @@ export default function App() {
       <div className="public-page">
 
         <div className="public-header">
+
           <button
             className="back-button"
             onClick={() => setPage("login")}
@@ -482,9 +522,15 @@ export default function App() {
           </button>
 
           <div>
-            <h1>📊 Statistik</h1>
-            <p>Offentlig statistik for Hjælper</p>
+            <h1>
+              📊 Statistik
+            </h1>
+
+            <p>
+              Offentlig statistik for Hjælper
+            </p>
           </div>
+
         </div>
 
         <div className="public-grid">
@@ -535,7 +581,9 @@ export default function App() {
 
         <div className="public-info-box">
 
-          <h2>👤 Panelbrugere</h2>
+          <h2>
+            👤 Panelbrugere
+          </h2>
 
           <div className="public-grid">
 
@@ -602,12 +650,14 @@ export default function App() {
    */
 
   if (page === "public-status") {
-    const online = publicStatus?.online === true;
+    const online =
+      publicStatus?.online === true;
 
     return (
       <div className="public-page">
 
         <div className="public-header">
+
           <button
             className="back-button"
             onClick={() => setPage("login")}
@@ -616,29 +666,52 @@ export default function App() {
           </button>
 
           <div>
-            <h1>🟢 Status</h1>
-            <p>Aktuel status for Hjælper</p>
+            <h1>
+              🟢 Status
+            </h1>
+
+            <p>
+              Aktuel status for Hjælper
+            </p>
           </div>
+
         </div>
 
         <div className="status-list">
 
           <div className="status-row">
+
             <div>
-              <strong>🤖 Bot</strong>
+              <strong>
+                🤖 Bot
+              </strong>
+
               <span>
                 Discord-botten
               </span>
             </div>
 
-            <b className={online ? "status-online" : "status-offline"}>
-              {online ? "🟢 Online" : "🔴 Offline"}
+            <b
+              className={
+                online
+                  ? "status-online"
+                  : "status-offline"
+              }
+            >
+              {online
+                ? "🟢 Online"
+                : "🔴 Offline"}
             </b>
+
           </div>
 
           <div className="status-row">
+
             <div>
-              <strong>🌐 API</strong>
+              <strong>
+                🌐 API
+              </strong>
+
               <span>
                 Hjælper API
               </span>
@@ -647,56 +720,83 @@ export default function App() {
             <b className="status-online">
               🟢 Online
             </b>
+
           </div>
 
           <div className="status-row">
+
             <div>
-              <strong>🖥️ Servere</strong>
+              <strong>
+                🖥️ Servere
+              </strong>
+
               <span>
                 Tilsluttede Discord-servere
               </span>
             </div>
 
             <b>
-              {formatNumber(publicStatus?.servers)}
+              {formatNumber(
+                publicStatus?.servers
+              )}
             </b>
+
           </div>
 
           <div className="status-row">
+
             <div>
-              <strong>⚡ Commands</strong>
+              <strong>
+                ⚡ Commands
+              </strong>
+
               <span>
                 Registrerede commands
               </span>
             </div>
 
             <b>
-              {formatNumber(publicStatus?.commands)}
+              {formatNumber(
+                publicStatus?.commands
+              )}
             </b>
+
           </div>
 
           <div className="status-row">
+
             <div>
-              <strong>🧩 Cogs</strong>
+              <strong>
+                🧩 Cogs
+              </strong>
+
               <span>
                 Aktive bot-moduler
               </span>
             </div>
 
             <b>
-              {formatNumber(publicStatus?.cogs)}
+              {formatNumber(
+                publicStatus?.cogs
+              )}
             </b>
+
           </div>
 
         </div>
 
         <div className="public-info-box">
-          <h2>🛡️ Systemstatus</h2>
+
+          <h2>
+            🛡️ Systemstatus
+          </h2>
 
           <p>
-            Hjælper overvåges løbende. Statussen opdateres
-            automatisk hvert 10. sekund.
+            Hjælper overvåges løbende.
+            Statussen opdateres automatisk hvert
+            10. sekund.
           </p>
+
         </div>
 
         <div className="public-updated">
@@ -718,6 +818,7 @@ export default function App() {
       <div className="public-page">
 
         <div className="public-header">
+
           <button
             className="back-button"
             onClick={() => setPage("login")}
@@ -726,20 +827,29 @@ export default function App() {
           </button>
 
           <div>
-            <h1>🚀 Roadmap</h1>
-            <p>Hvad der kommer til Hjælper</p>
+            <h1>
+              🚀 Roadmap
+            </h1>
+
+            <p>
+              Hvad der kommer til Hjælper
+            </p>
           </div>
+
         </div>
 
         <div className="roadmap-list">
 
           <div className="roadmap-card">
+
             <div className="roadmap-version">
               V2.1
             </div>
 
             <div>
-              <h2>🔒 Privacy Policy</h2>
+              <h2>
+                🔒 Privacy Policy
+              </h2>
 
               <p>
                 Tydelig information om data og privatliv.
@@ -749,15 +859,20 @@ export default function App() {
                 🛡️ Mere gennemsigtighed omkring Hjælper.
               </p>
             </div>
+
           </div>
 
           <div className="roadmap-card">
+
             <div className="roadmap-version">
               V2.2
             </div>
 
             <div>
-              <h2>✨ Coming Soon</h2>
+
+              <h2>
+                ✨ Coming Soon
+              </h2>
 
               <p>
                 ✨ Nye features
@@ -770,15 +885,19 @@ export default function App() {
               <p>
                 👀 Mere bliver afsløret senere
               </p>
+
             </div>
+
           </div>
 
         </div>
 
         <div className="public-info-box">
+
           <p>
             Ikke alt bliver afsløret på forhånd. 👀
           </p>
+
         </div>
 
       </div>
@@ -817,14 +936,21 @@ export default function App() {
         <aside className="sidebar">
 
           <div className="sidebar-brand">
+
             <div className="brand-icon">
               ✨
             </div>
 
             <div>
-              <strong>Hjælper</strong>
-              <span>Bruger Dashboard</span>
+              <strong>
+                Hjælper
+              </strong>
+
+              <span>
+                Bruger Dashboard
+              </span>
             </div>
+
           </div>
 
           <nav className="sidebar-nav">
@@ -841,15 +967,18 @@ export default function App() {
                 setPage("user-dashboard")
               }
             >
-              <span>🏠</span>
-              <span>Dashboard</span>
+              <span>
+                🏠
+              </span>
+
+              <span>
+                Dashboard
+              </span>
             </button>
 
           </nav>
 
           <div className="sidebar-bottom">
-
-            {/* KUN NYT: juridiske sider inde i Bruger Login */}
 
             <button
               className={
@@ -863,8 +992,13 @@ export default function App() {
                 setPage("user-privacy")
               }
             >
-              <span>🔒</span>
-              <span>Privacy Policy</span>
+              <span>
+                🔒
+              </span>
+
+              <span>
+                Privacy Policy
+              </span>
             </button>
 
             <button
@@ -879,8 +1013,13 @@ export default function App() {
                 setPage("user-terms")
               }
             >
-              <span>📜</span>
-              <span>Terms of Service</span>
+              <span>
+                📜
+              </span>
+
+              <span>
+                Terms of Service
+              </span>
             </button>
 
             <button
@@ -895,13 +1034,19 @@ export default function App() {
                 setPage("user-cookies")
               }
             >
-              <span>🍪</span>
-              <span>Cookie Policy</span>
+              <span>
+                🍪
+              </span>
+
+              <span>
+                Cookie Policy
+              </span>
             </button>
 
             <div className="user-mini">
 
               <div className="user-avatar">
+
                 {getAvatarUrl() ? (
                   <img
                     src={getAvatarUrl()}
@@ -910,6 +1055,7 @@ export default function App() {
                 ) : (
                   "👤"
                 )}
+
               </div>
 
               <div className="user-info">
@@ -942,16 +1088,21 @@ export default function App() {
           <header className="topbar">
 
             <div>
-              <h1>{userPageTitle}</h1>
+
+              <h1>
+                {userPageTitle}
+              </h1>
 
               <p>
                 Velkommen til Hjælper.
               </p>
+
             </div>
 
             <div className="topbar-user">
 
               <div className="user-avatar">
+
                 {getAvatarUrl() ? (
                   <img
                     src={getAvatarUrl()}
@@ -960,9 +1111,11 @@ export default function App() {
                 ) : (
                   "👤"
                 )}
+
               </div>
 
               <div>
+
                 <strong>
                   {user?.username}
                 </strong>
@@ -970,6 +1123,7 @@ export default function App() {
                 <span>
                   👤 Bruger
                 </span>
+
               </div>
 
             </div>
@@ -1000,29 +1154,46 @@ export default function App() {
 
                   <div className="info-card">
 
-                    <h3>👤 Din konto</h3>
+                    <h3>
+                      👤 Din konto
+                    </h3>
 
                     <div className="list-card">
 
                       <div className="list-row">
-                        <span>Brugernavn</span>
+
+                        <span>
+                          Brugernavn
+                        </span>
+
                         <strong>
                           {user?.username || "Ukendt"}
                         </strong>
+
                       </div>
 
                       <div className="list-row">
-                        <span>Discord ID</span>
+
+                        <span>
+                          Discord ID
+                        </span>
+
                         <strong>
                           {user?.id || "Ukendt"}
                         </strong>
+
                       </div>
 
                       <div className="list-row">
-                        <span>Rolle</span>
+
+                        <span>
+                          Rolle
+                        </span>
+
                         <strong>
                           {roleLabel}
                         </strong>
+
                       </div>
 
                     </div>
@@ -1031,7 +1202,9 @@ export default function App() {
 
                   <div className="info-card">
 
-                    <h3>🔐 Login</h3>
+                    <h3>
+                      🔐 Login
+                    </h3>
 
                     <p>
                       Du er logget ind via Discord OAuth.
@@ -1047,7 +1220,9 @@ export default function App() {
 
                 <div className="public-info-box">
 
-                  <h2>✨ Hjælper</h2>
+                  <h2>
+                    ✨ Hjælper
+                  </h2>
 
                   <p>
                     Du er logget ind som almindelig bruger.
@@ -1372,7 +1547,6 @@ export default function App() {
    */
 
   if (user && isStaff) {
-
     return (
       <div className="dashboard-layout">
 
@@ -1385,8 +1559,13 @@ export default function App() {
             </div>
 
             <div>
-              <strong>Hjælper</strong>
-              <span>Admin Dashboard</span>
+              <strong>
+                Hjælper
+              </strong>
+
+              <span>
+                Admin Dashboard
+              </span>
             </div>
 
           </div>
@@ -1399,10 +1578,17 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={() => setPage("overview")}
+              onClick={() =>
+                setPage("overview")
+              }
             >
-              <span>🏠</span>
-              <span>Dashboard</span>
+              <span>
+                🏠
+              </span>
+
+              <span>
+                Dashboard
+              </span>
             </button>
 
             <button
@@ -1411,10 +1597,17 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={() => setPage("bot")}
+              onClick={() =>
+                setPage("bot")
+              }
             >
-              <span>🤖</span>
-              <span>Bot</span>
+              <span>
+                🤖
+              </span>
+
+              <span>
+                Bot
+              </span>
             </button>
 
             <button
@@ -1423,10 +1616,17 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={() => setPage("stats")}
+              onClick={() =>
+                setPage("stats")
+              }
             >
-              <span>📊</span>
-              <span>Stats</span>
+              <span>
+                📊
+              </span>
+
+              <span>
+                Stats
+              </span>
             </button>
 
             <button
@@ -1435,10 +1635,17 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={() => setPage("cogs")}
+              onClick={() =>
+                setPage("cogs")
+              }
             >
-              <span>🧩</span>
-              <span>Cogs</span>
+              <span>
+                🧩
+              </span>
+
+              <span>
+                Cogs
+              </span>
             </button>
 
             <button
@@ -1447,10 +1654,17 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={() => setPage("servers")}
+              onClick={() =>
+                setPage("servers")
+              }
             >
-              <span>🖥️</span>
-              <span>Servere</span>
+              <span>
+                🖥️
+              </span>
+
+              <span>
+                Servere
+              </span>
             </button>
 
             <button
@@ -1459,10 +1673,17 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={() => setPage("logs")}
+              onClick={() =>
+                setPage("logs")
+              }
             >
-              <span>📜</span>
-              <span>Logs</span>
+              <span>
+                📜
+              </span>
+
+              <span>
+                Logs
+              </span>
             </button>
 
             {(isOwner || isManager) && (
@@ -1472,10 +1693,17 @@ export default function App() {
                     ? "active"
                     : ""
                 }`}
-                onClick={() => setPage("system")}
+                onClick={() =>
+                  setPage("system")
+                }
               >
-                <span>⚙️</span>
-                <span>System</span>
+                <span>
+                  ⚙️
+                </span>
+
+                <span>
+                  System
+                </span>
               </button>
             )}
 
@@ -1486,6 +1714,7 @@ export default function App() {
             <div className="user-mini">
 
               <div className="user-avatar">
+
                 {getAvatarUrl() ? (
                   <img
                     src={getAvatarUrl()}
@@ -1494,6 +1723,7 @@ export default function App() {
                 ) : (
                   "👤"
                 )}
+
               </div>
 
               <div className="user-info">
@@ -1618,7 +1848,9 @@ export default function App() {
                     <span>🖥️</span>
                     <small>Servere</small>
                     <strong>
-                      {formatNumber(stats?.servers)}
+                      {formatNumber(
+                        stats?.servers
+                      )}
                     </strong>
                   </div>
 
@@ -1626,7 +1858,9 @@ export default function App() {
                     <span>👥</span>
                     <small>Discord-brugere</small>
                     <strong>
-                      {formatNumber(stats?.users)}
+                      {formatNumber(
+                        stats?.users
+                      )}
                     </strong>
                   </div>
 
@@ -1634,7 +1868,9 @@ export default function App() {
                     <span>⚡</span>
                     <small>Commands</small>
                     <strong>
-                      {formatNumber(stats?.commands)}
+                      {formatNumber(
+                        stats?.commands
+                      )}
                     </strong>
                   </div>
 
@@ -1693,14 +1929,18 @@ export default function App() {
                   <div className="info-card">
                     <h3>Commands</h3>
                     <p>
-                      {formatNumber(stats?.commands)}
+                      {formatNumber(
+                        stats?.commands
+                      )}
                     </p>
                   </div>
 
                   <div className="info-card">
                     <h3>Cogs</h3>
                     <p>
-                      {formatNumber(stats?.cogs)}
+                      {formatNumber(
+                        stats?.cogs
+                      )}
                     </p>
                   </div>
 
@@ -1732,7 +1972,9 @@ export default function App() {
                     <span>🖥️</span>
                     <small>Servere</small>
                     <strong>
-                      {formatNumber(stats?.servers)}
+                      {formatNumber(
+                        stats?.servers
+                      )}
                     </strong>
                   </div>
 
@@ -1740,7 +1982,9 @@ export default function App() {
                     <span>👥</span>
                     <small>Discord-brugere</small>
                     <strong>
-                      {formatNumber(stats?.users)}
+                      {formatNumber(
+                        stats?.users
+                      )}
                     </strong>
                   </div>
 
@@ -1748,7 +1992,9 @@ export default function App() {
                     <span>⚡</span>
                     <small>Commands</small>
                     <strong>
-                      {formatNumber(stats?.commands)}
+                      {formatNumber(
+                        stats?.commands
+                      )}
                     </strong>
                   </div>
 
@@ -1756,7 +2002,9 @@ export default function App() {
                     <span>🧩</span>
                     <small>Cogs</small>
                     <strong>
-                      {formatNumber(stats?.cogs)}
+                      {formatNumber(
+                        stats?.cogs
+                      )}
                     </strong>
                   </div>
 
@@ -1771,7 +2019,10 @@ export default function App() {
                   <div className="list-card">
 
                     <div className="list-row">
-                      <span>I dag</span>
+                      <span>
+                        I dag
+                      </span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.today ??
@@ -1781,7 +2032,10 @@ export default function App() {
                     </div>
 
                     <div className="list-row">
-                      <span>Denne uge</span>
+                      <span>
+                        Denne uge
+                      </span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.week ??
@@ -1791,7 +2045,10 @@ export default function App() {
                     </div>
 
                     <div className="list-row">
-                      <span>Dette år</span>
+                      <span>
+                        Dette år
+                      </span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.year ??
@@ -1801,7 +2058,10 @@ export default function App() {
                     </div>
 
                     <div className="list-row">
-                      <span>I alt</span>
+                      <span>
+                        I alt
+                      </span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.total ??
@@ -1868,7 +2128,6 @@ export default function App() {
                   )}
 
                 </div>
-
               </>
             )}
 
@@ -1955,103 +2214,120 @@ export default function App() {
                   )}
 
                 </div>
-
               </>
             )}
 
-            {page === "server-details" && selectedServer && (
-              <>
-                <div className="page-heading">
-
-                  <button
-                    className="back-button"
-                    onClick={() =>
-                      setPage("servers")
-                    }
-                  >
-                    ← Tilbage til servere
-                  </button>
-
-                  <h2>
-                    {getServerIcon(selectedServer) ? (
-                      <img
-                        src={getServerIcon(selectedServer)}
-                        alt=""
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 12,
-                          verticalAlign: "middle",
-                          marginRight: 10,
-                        }}
-                      />
-                    ) : (
-                      "🖥️"
-                    )}
-
-                    {selectedServer.name}
-                  </h2>
-
-                  <p>
-                    Serverinformation
-                  </p>
-
-                </div>
-
-                {serverError && (
-                  <div className="error-box">
-                    {serverError}
-                  </div>
-                )}
-
-                <div className="dashboard-grid">
-
-                  <div className="info-card">
-                    <h3>🆔 Server ID</h3>
-                    <p>
-                      {selectedServer.id}
-                    </p>
-                  </div>
-
-                  <div className="info-card">
-                    <h3>👥 Medlemmer</h3>
-                    <p>
-                      {formatNumber(
-                        selectedServer.member_count
-                      )}
-                    </p>
-                  </div>
-
-                </div>
-
-                {(isOwner || isManager) && (
-                  <div className="info-card">
-
-                    <h3>
-                      ⚠️ Server handlinger
-                    </h3>
-
-                    <p>
-                      Kun Ejer og Manager kan fjerne
-                      Hjælper fra en server.
-                    </p>
+            {page === "server-details" &&
+              selectedServer && (
+                <>
+                  <div className="page-heading">
 
                     <button
-                      className="danger-button"
+                      className="back-button"
                       onClick={() =>
-                        removeServer(
-                          selectedServer.id
-                        )
+                        setPage("servers")
                       }
                     >
-                      🚪 Fjern Hjælper
+                      ← Tilbage til servere
                     </button>
 
-                  </div>
-                )}
+                    <h2>
 
-              </>
-            )}
+                      {getServerIcon(
+                        selectedServer
+                      ) ? (
+                        <img
+                          src={getServerIcon(
+                            selectedServer
+                          )}
+                          alt=""
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 12,
+                            verticalAlign:
+                              "middle",
+                            marginRight: 10,
+                          }}
+                        />
+                      ) : (
+                        "🖥️"
+                      )}
+
+                      {selectedServer.name}
+
+                    </h2>
+
+                    <p>
+                      Serverinformation
+                    </p>
+
+                  </div>
+
+                  {serverError && (
+                    <div className="error-box">
+                      {serverError}
+                    </div>
+                  )}
+
+                  <div className="dashboard-grid">
+
+                    <div className="info-card">
+
+                      <h3>
+                        🆔 Server ID
+                      </h3>
+
+                      <p>
+                        {selectedServer.id}
+                      </p>
+
+                    </div>
+
+                    <div className="info-card">
+
+                      <h3>
+                        👥 Medlemmer
+                      </h3>
+
+                      <p>
+                        {formatNumber(
+                          selectedServer.member_count
+                        )}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {(isOwner || isManager) && (
+                    <div className="info-card">
+
+                      <h3>
+                        ⚠️ Server handlinger
+                      </h3>
+
+                      <p>
+                        Kun Ejer og Manager kan fjerne
+                        Hjælper fra en server.
+                      </p>
+
+                      <button
+                        className="danger-button"
+                        onClick={() =>
+                          removeServer(
+                            selectedServer.id
+                          )
+                        }
+                      >
+                        🚪 Fjern Hjælper
+                      </button>
+
+                    </div>
+                  )}
+
+                </>
+              )}
 
             {page === "logs" && (
               <>
@@ -2078,12 +2354,11 @@ export default function App() {
                   </h3>
 
                   <p>
-                    Live logs kan administreres fra Wispbyte
-                    console.
+                    Live logs kan administreres fra
+                    Wispbyte console.
                   </p>
 
                 </div>
-
               </>
             )}
 
@@ -2136,7 +2411,6 @@ export default function App() {
                   </div>
 
                 </div>
-
               </>
             )}
 
@@ -2150,11 +2424,23 @@ export default function App() {
 
   return (
     <div className="app-loading">
+
       <div className="loading-card">
-        <div className="loading-icon">✨</div>
-        <h2>Hjælper</h2>
-        <p>Indlæser...</p>
+
+        <div className="loading-icon">
+          ✨
+        </div>
+
+        <h2>
+          Hjælper
+        </h2>
+
+        <p>
+          Indlæser...
+        </p>
+
       </div>
+
     </div>
   );
 }
