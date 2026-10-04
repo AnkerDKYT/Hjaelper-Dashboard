@@ -3,3153 +3,3181 @@ import "./style.css";
 
 const API = "/backend";
 
-async function apiFetch(path, options = {}) {
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState("login");
+
+  const [publicStats, setPublicStats] = useState(null);
+  const [publicStatus, setPublicStatus] = useState(null);
+
+  const [stats, setStats] = useState(null);
+  const [cogs, setCogs] = useState([]);
+  const [servers, setServers] = useState([]);
+
+  const [account, setAccount] = useState(null);
+  const [security, setSecurity] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [loginHistory, setLoginHistory] = useState([]);
+  const [connected, setConnected] = useState(null);
+
+  const [tickets, setTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+
+  const [selectedServer, setSelectedServer] = useState(null);
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketMessage, setTicketMessage] = useState("");
+  const [replyMessage, setReplyMessage] = useState("");
+
+  const [profileUsername, setProfileUsername] = useState("");
+
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const isOwner =
+    user?.role === "owner" ||
+    user?.is_owner === true;
+
+  const isManager = user?.role === "manager";
+  const isAdmin = user?.role === "admin";
+
+  const isStaff =
+    isOwner ||
+    isManager ||
+    isAdmin;
+
+  const roleLabel =
+    user?.role === "owner"
+      ? "👑 Ejer"
+      : user?.role === "manager"
+        ? "💼 Manager"
+        : user?.role === "admin"
+          ? "🛡️ Admin"
+          : "👤 Bruger";
+
+  useEffect(() => {
+    loadUser();
+    loadPublicStats();
+    loadPublicStatus();
+
+    const interval = setInterval(() => {
+      loadPublicStats();
+      loadPublicStatus();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (isStaff) {
+      loadStaffData();
+    } else {
+      loadUserData();
+    }
+  }, [user]);
+
+  async function apiFetch(path, options = {}) {
     const response = await fetch(`${API}${path}`, {
-        credentials: "include",
-        ...options,
-        headers: {
-            "Content-Type": "application/json",
-            ...(options.headers || {}),
-        },
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      ...options,
     });
 
-    const text = await response.text();
-
-    let data = {};
+    let data = null;
 
     try {
-        data = text ? JSON.parse(text) : {};
+      data = await response.json();
     } catch {
-        data = {
-            raw: text,
-        };
+      data = null;
     }
 
     if (!response.ok) {
-        const error = new Error(
-            data?.detail ||
-            data?.error ||
-            `HTTP ${response.status}`
-        );
-
-        error.status = response.status;
-        error.data = data;
-
-        throw error;
+      throw new Error(
+        data?.detail ||
+        data?.message ||
+        `HTTP ${response.status}`
+      );
     }
 
     return data;
-}
+  }
 
-function formatDate(value) {
-    if (!value) return "Ukendt";
+  async function loadUser() {
+    try {
+      const data = await apiFetch("/auth/me");
+
+      if (data?.authenticated && data?.user) {
+        setUser(data.user);
+
+        if (
+          data.user.role === "owner" ||
+          data.user.role === "manager" ||
+          data.user.role === "admin"
+        ) {
+          setPage("admin");
+        } else {
+          setPage("dashboard");
+        }
+      }
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadPublicStats() {
+    try {
+      const data = await apiFetch("/api/public/stats");
+      setPublicStats(data);
+      setLastUpdated(new Date());
+    } catch {
+      setPublicStats(null);
+    }
+  }
+
+  async function loadPublicStatus() {
+    try {
+      const data = await apiFetch("/api/public/stats");
+      setPublicStatus(data);
+    } catch {
+      setPublicStatus(null);
+    }
+  }
+
+  async function loadStaffData() {
+    await Promise.all([
+      loadStats(),
+      loadCogs(),
+      loadServers(),
+      loadTickets(),
+    ]);
+  }
+
+  async function loadUserData() {
+    await Promise.all([
+      loadAccount(),
+      loadTickets(),
+    ]);
+  }
+
+  async function loadStats() {
+    try {
+      const data = await apiFetch("/api/stats");
+      setStats(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function loadCogs() {
+    try {
+      const data = await apiFetch("/api/cogs");
+      setCogs(
+        Array.isArray(data)
+          ? data
+          : data?.cogs || []
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function loadServers() {
+    try {
+      const data = await apiFetch("/api/servers");
+
+      setServers(
+        Array.isArray(data)
+          ? data
+          : data?.servers || []
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function loadTickets() {
+    try {
+      const data = await apiFetch(
+        isStaff
+          ? "/api/support/admin/tickets"
+          : "/api/support/tickets"
+      );
+
+      setTickets(
+        Array.isArray(data)
+          ? data
+          : data?.tickets || []
+      );
+    } catch {
+      setTickets([]);
+    }
+  }
+
+  async function loadAccount() {
+    try {
+      const [
+        accountData,
+        securityData,
+        sessionsData,
+        historyData,
+        connectedData,
+      ] = await Promise.all([
+        apiFetch("/api/account"),
+        apiFetch("/api/account/security"),
+        apiFetch("/api/account/sessions"),
+        apiFetch("/api/account/login-history"),
+        apiFetch("/api/account/connected"),
+      ]);
+
+      setAccount(accountData);
+      setSecurity(securityData);
+
+      setSessions(
+        Array.isArray(sessionsData)
+          ? sessionsData
+          : sessionsData?.sessions || []
+      );
+
+      setLoginHistory(
+        Array.isArray(historyData)
+          ? historyData
+          : historyData?.history || []
+      );
+
+      setConnected(connectedData);
+
+      const username =
+        accountData?.username ||
+        accountData?.user?.username ||
+        user?.username ||
+        "";
+
+      setProfileUsername(username);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function adminLogin() {
+    window.location.href =
+      `${API}/auth/discord?login_type=admin`;
+  }
+
+  function userLogin() {
+    window.location.href =
+      `${API}/auth/discord?login_type=user`;
+  }
+
+  async function logout() {
+    try {
+      await apiFetch("/auth/logout", {
+        method: "POST",
+      });
+    } catch {
+      // Continue with local logout even if backend request fails.
+    }
+
+    setUser(null);
+    setPage("login");
+    setSelectedTicket(null);
+    setSelectedServer(null);
+  }
+
+  function goPublic(target) {
+    setPage(target);
+    setError("");
+    setSuccess("");
+  }
+
+  function goDashboard() {
+    setError("");
+    setSuccess("");
+
+    if (isStaff) {
+      setPage("admin");
+    } else {
+      setPage("dashboard");
+    }
+  }
+
+  async function createTicket(event) {
+    event.preventDefault();
+
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      setError("Udfyld både emne og besked.");
+      return;
+    }
 
     try {
-        return new Date(value).toLocaleString("da-DK", {
-            dateStyle: "short",
-            timeStyle: "short",
+      setError("");
+
+      await apiFetch("/api/support/tickets", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: ticketSubject.trim(),
+          message: ticketMessage.trim(),
+        }),
+      });
+
+      setTicketSubject("");
+      setTicketMessage("");
+
+      await loadTickets();
+
+      setSuccess("Din ticket er blevet oprettet.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function replyToTicket(ticketId) {
+    if (!replyMessage.trim()) {
+      setError("Skriv en besked først.");
+      return;
+    }
+
+    try {
+      setError("");
+
+      const endpoint = isStaff
+        ? `/api/support/admin/tickets/${ticketId}/reply`
+        : `/api/support/${ticketId}/reply`;
+
+      await apiFetch(endpoint, {
+        method: "POST",
+        body: JSON.stringify({
+          message: replyMessage.trim(),
+        }),
+      });
+
+      setReplyMessage("");
+
+      await loadTickets();
+
+      const updated = await apiFetch(
+        isStaff
+          ? `/api/support/admin/tickets/${ticketId}`
+          : `/api/support/tickets`
+      );
+
+      if (isStaff) {
+        setSelectedTicket(updated);
+      } else {
+        const list =
+          Array.isArray(updated)
+            ? updated
+            : updated?.tickets || [];
+
+        setSelectedTicket(
+          list.find(
+            (ticket) =>
+              String(ticket.id) === String(ticketId)
+          ) || null
+        );
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function closeTicket(ticketId) {
+    try {
+      setError("");
+
+      const endpoint = isStaff
+        ? `/api/support/admin/tickets/${ticketId}/close`
+        : `/api/support/tickets/${ticketId}/close`;
+
+      await apiFetch(endpoint, {
+        method: "POST",
+      });
+
+      await loadTickets();
+
+      setSuccess("Ticketen er blevet lukket.");
+
+      if (selectedTicket) {
+        setSelectedTicket({
+          ...selectedTicket,
+          status: "closed",
         });
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function openTicket(ticket) {
+    try {
+      setError("");
+
+      if (isStaff) {
+        const data = await apiFetch(
+          `/api/support/admin/tickets/${ticket.id}`
+        );
+
+        setSelectedTicket(data);
+      } else {
+        const data = await apiFetch(
+          "/api/support/tickets"
+        );
+
+        const list =
+          Array.isArray(data)
+            ? data
+            : data?.tickets || [];
+
+        setSelectedTicket(
+          list.find(
+            (item) =>
+              String(item.id) === String(ticket.id)
+          ) || ticket
+        );
+      }
     } catch {
-        return value;
+      setSelectedTicket(ticket);
     }
-}
+  }
 
-function roleLabel(role) {
-    switch (role) {
-        case "owner":
-            return "Ejer";
-        case "manager":
-            return "Manager";
-        case "admin":
-            return "Admin";
-        default:
-            return "Bruger";
+  async function saveProfile(event) {
+    event.preventDefault();
+
+    if (!profileUsername.trim()) {
+      setError("Brugernavn må ikke være tomt.");
+      return;
     }
-}
 
-function roleClass(role) {
-    switch (role) {
-        case "owner":
-            return "role-owner";
-        case "manager":
-            return "role-manager";
-        case "admin":
-            return "role-admin";
-        default:
-            return "role-user";
+    try {
+      setError("");
+
+      await apiFetch("/api/account/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          username: profileUsername.trim(),
+        }),
+      });
+
+      await loadAccount();
+
+      setSuccess("Profilen er blevet opdateret.");
+    } catch (err) {
+      setError(err.message);
     }
-}
+  }
 
-function statusLabel(status) {
-    switch (status) {
-        case "open":
-            return "Åben";
-        case "answered":
-            return "Besvaret";
-        case "closed":
-            return "Lukket";
-        default:
-            return status || "Ukendt";
-    }
-}
+  async function logoutAllSessions() {
+    try {
+      setError("");
 
-function statusClass(status) {
-    switch (status) {
-        case "open":
-            return "status-open";
-        case "answered":
-            return "status-answered";
-        case "closed":
-            return "status-closed";
-        default:
-            return "";
-    }
-}
-
-export default function App() {
-    const [user, setUser] = useState(null);
-    const [authLoading, setAuthLoading] = useState(true);
-
-    const [page, setPage] = useState("dashboard");
-
-    const [publicStats, setPublicStats] = useState(null);
-    const [botStatus, setBotStatus] = useState(null);
-    const [stats, setStats] = useState(null);
-    const [cogs, setCogs] = useState([]);
-    const [servers, setServers] = useState([]);
-    const [logs, setLogs] = useState([]);
-
-    const [account, setAccount] = useState(null);
-    const [security, setSecurity] = useState(null);
-    const [connected, setConnected] = useState(null);
-
-    // ========================================================
-    // USER SUPPORT
-    // ========================================================
-
-    const [userTickets, setUserTickets] = useState([]);
-    const [selectedUserTicket, setSelectedUserTicket] = useState(null);
-
-    const [supportSubject, setSupportSubject] = useState("");
-    const [supportMessage, setSupportMessage] = useState("");
-    const [userTicketReply, setUserTicketReply] = useState("");
-
-    const [supportLoading, setSupportLoading] = useState(false);
-    const [supportError, setSupportError] = useState("");
-    const [supportSuccess, setSupportSuccess] = useState("");
-
-    // ========================================================
-    // ADMIN TICKETS
-    // ========================================================
-
-    const [adminTickets, setAdminTickets] = useState([]);
-    const [selectedAdminTicket, setSelectedAdminTicket] = useState(null);
-
-    const [adminTicketReply, setAdminTicketReply] = useState("");
-
-    const [adminTicketLoading, setAdminTicketLoading] = useState(false);
-    const [adminTicketError, setAdminTicketError] = useState("");
-    const [adminTicketSuccess, setAdminTicketSuccess] = useState("");
-
-    // ========================================================
-    // GENERAL
-    // ========================================================
-
-    const [error, setError] = useState("");
-
-    const isOwner =
-        user?.role === "owner" ||
-        user?.is_owner === true;
-
-    const isManager = user?.role === "manager";
-    const isAdmin = user?.role === "admin";
-
-    const isStaff =
-        isOwner ||
-        isManager ||
-        isAdmin;
-
-    // ========================================================
-    // AUTH
-    // ========================================================
-
-    useEffect(() => {
-        checkAuth();
-    }, []);
-
-    async function checkAuth() {
-        try {
-            const data = await apiFetch("/auth/me");
-
-            if (data?.authenticated && data?.user) {
-                setUser(data.user);
-
-                if (
-                    data.user.role === "owner" ||
-                    data.user.role === "manager" ||
-                    data.user.role === "admin" ||
-                    data.user.is_owner === true
-                ) {
-                    setPage("admin");
-                } else {
-                    setPage("dashboard");
-                }
-            } else {
-                setUser(null);
-            }
-        } catch {
-            setUser(null);
-        } finally {
-            setAuthLoading(false);
+      await apiFetch(
+        "/api/account/security/logout-all",
+        {
+          method: "POST",
         }
+      );
+
+      setSuccess(
+        "Alle andre aktive sessioner er blevet logget ud."
+      );
+
+      await loadAccount();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function deleteSession(sessionId) {
+    try {
+      await apiFetch(
+        `/api/account/sessions/${sessionId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      await loadAccount();
+
+      setSuccess("Sessionen er blevet fjernet.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function deleteAccount() {
+    const confirmed = window.confirm(
+      "Er du sikker på, at du vil slette din konto permanent?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await apiFetch("/api/account", {
+        method: "DELETE",
+      });
+
+      setUser(null);
+      setPage("login");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function leaveServer(guildId) {
+    const confirmed = window.confirm(
+      "Er du sikker på, at botten skal forlade denne server?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await apiFetch(
+        `/api/servers/${guildId}/leave`,
+        {
+          method: "POST",
+        }
+      );
+
+      setSelectedServer(null);
+
+      await loadServers();
+
+      setSuccess("Botten har forladt serveren.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function reloadCogs() {
+    try {
+      setError("");
+
+      await apiFetch("/api/reload-cogs", {
+        method: "POST",
+      });
+
+      await loadCogs();
+
+      setSuccess("Cogs er blevet genindlæst.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-box">
+          <div className="loading-spinner" />
+          <h2>Hjælper</h2>
+          <p>Indlæser dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * ======================================================
+   * PUBLIC PAGES
+   * ======================================================
+   */
+
+  if (!user) {
+    if (page === "stats") {
+      return (
+        <PublicLayout
+          title="Statistik"
+          onBack={() => goPublic("login")}
+        >
+          <PublicStats
+            stats={publicStats}
+            lastUpdated={lastUpdated}
+          />
+        </PublicLayout>
+      );
     }
 
-    function login(type = "user") {
-        window.location.href =
-            `${API}/auth/discord?login_type=${type}`;
+    if (page === "status") {
+      return (
+        <PublicLayout
+          title="Status"
+          onBack={() => goPublic("login")}
+        >
+          <PublicStatus status={publicStatus} />
+        </PublicLayout>
+      );
     }
 
-    async function logout() {
-        try {
-            await apiFetch("/auth/logout", {
-                method: "POST",
-            });
-        } catch {
-            // Ignore
-        }
-
-        setUser(null);
-        setPage("dashboard");
+    if (page === "roadmap") {
+      return (
+        <PublicLayout
+          title="Roadmap"
+          onBack={() => goPublic("login")}
+        >
+          <Roadmap />
+        </PublicLayout>
+      );
     }
-
-    // ========================================================
-    // DATA
-    // ========================================================
-
-    useEffect(() => {
-        if (!user) return;
-
-        loadPublicStats();
-
-        if (isStaff) {
-            loadAdminData();
-        } else {
-            loadUserTickets();
-        }
-    }, [user]);
-
-    async function loadPublicStats() {
-        try {
-            const data = await apiFetch(
-                "/api/public/stats"
-            );
-
-            setPublicStats(data);
-        } catch {
-            // Public stats are optional
-        }
-    }
-
-    async function loadAdminData() {
-        try {
-            const [
-                statusData,
-                statsData,
-                cogsData,
-                serversData,
-            ] = await Promise.all([
-                apiFetch("/api/status"),
-                apiFetch("/api/stats"),
-                apiFetch("/api/cogs"),
-                apiFetch("/api/servers"),
-            ]);
-
-            setBotStatus(statusData);
-            setStats(statsData);
-            setCogs(cogsData?.cogs || []);
-            setServers(serversData?.servers || []);
-
-        } catch (err) {
-            setError(
-                err.message ||
-                "Kunne ikke hente admin-data."
-            );
-        }
-    }
-
-    // ========================================================
-    // USER TICKETS
-    // ========================================================
-
-    async function loadUserTickets() {
-        try {
-            setSupportLoading(true);
-            setSupportError("");
-
-            const data = await apiFetch(
-                "/api/support/tickets"
-            );
-
-            setUserTickets(
-                Array.isArray(data?.tickets)
-                    ? data.tickets
-                    : []
-            );
-        } catch (err) {
-            setSupportError(
-                err.message ||
-                "Kunne ikke hente dine tickets."
-            );
-        } finally {
-            setSupportLoading(false);
-        }
-    }
-
-    async function openUserTicket(ticket) {
-        setSupportError("");
-        setSupportSuccess("");
-
-        try {
-            setSupportLoading(true);
-
-            const data = await apiFetch(
-                "/api/support/tickets"
-            );
-
-            const tickets = Array.isArray(data?.tickets)
-                ? data.tickets
-                : [];
-
-            const found = tickets.find(
-                item =>
-                    String(item.id) ===
-                    String(ticket.id)
-            );
-
-            setUserTickets(tickets);
-
-            setSelectedUserTicket(
-                found || ticket
-            );
-        } catch (err) {
-            setSelectedUserTicket(ticket);
-
-            setSupportError(
-                err.message ||
-                "Kunne ikke åbne ticketen."
-            );
-        } finally {
-            setSupportLoading(false);
-        }
-    }
-
-    function backToUserTickets() {
-        setSelectedUserTicket(null);
-        setUserTicketReply("");
-        setSupportError("");
-        setSupportSuccess("");
-
-        loadUserTickets();
-    }
-
-    async function createUserTicket(event) {
-        event.preventDefault();
-
-        setSupportError("");
-        setSupportSuccess("");
-
-        if (!supportSubject.trim()) {
-            setSupportError("Skriv et emne.");
-            return;
-        }
-
-        if (!supportMessage.trim()) {
-            setSupportError("Skriv en besked.");
-            return;
-        }
-
-        try {
-            setSupportLoading(true);
-
-            const data = await apiFetch(
-                "/api/support/tickets",
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        subject:
-                            supportSubject.trim(),
-                        message:
-                            supportMessage.trim(),
-                    }),
-                }
-            );
-
-            setSupportSubject("");
-            setSupportMessage("");
-
-            setSupportSuccess(
-                "Din ticket blev oprettet."
-            );
-
-            const ticket = data?.ticket;
-
-            await loadUserTickets();
-
-            if (ticket) {
-                setSelectedUserTicket(ticket);
-            }
-        } catch (err) {
-            setSupportError(
-                err.message ||
-                "Kunne ikke oprette ticketen."
-            );
-        } finally {
-            setSupportLoading(false);
-        }
-    }
-
-    async function replyToUserTicket() {
-        if (!selectedUserTicket) return;
-
-        if (!userTicketReply.trim()) {
-            setSupportError(
-                "Skriv en besked først."
-            );
-            return;
-        }
-
-        setSupportError("");
-        setSupportSuccess("");
-
-        try {
-            setSupportLoading(true);
-
-            const data = await apiFetch(
-                `/api/support/${selectedUserTicket.id}/reply`,
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        message:
-                            userTicketReply.trim(),
-                    }),
-                }
-            );
-
-            setSelectedUserTicket(
-                data?.ticket ||
-                selectedUserTicket
-            );
-
-            setUserTicketReply("");
-
-            await loadUserTickets();
-
-            setSupportSuccess(
-                "Dit svar blev sendt."
-            );
-        } catch (err) {
-            setSupportError(
-                err.message ||
-                "Kunne ikke sende svaret."
-            );
-        } finally {
-            setSupportLoading(false);
-        }
-    }
-
-    async function closeUserTicket() {
-        if (!selectedUserTicket) return;
-
-        try {
-            setSupportLoading(true);
-            setSupportError("");
-
-            const data = await apiFetch(
-                `/api/support/tickets/${selectedUserTicket.id}/close`,
-                {
-                    method: "POST",
-                }
-            );
-
-            setSelectedUserTicket(
-                data?.ticket ||
-                {
-                    ...selectedUserTicket,
-                    status: "closed",
-                }
-            );
-
-            await loadUserTickets();
-
-            setSupportSuccess(
-                "Ticketen blev lukket."
-            );
-        } catch (err) {
-            setSupportError(
-                err.message ||
-                "Kunne ikke lukke ticketen."
-            );
-        } finally {
-            setSupportLoading(false);
-        }
-    }
-
-    // ========================================================
-    // ADMIN TICKETS
-    // ========================================================
-
-    async function loadAdminTickets() {
-        try {
-            setAdminTicketLoading(true);
-            setAdminTicketError("");
-
-            const data = await apiFetch(
-                "/api/support/admin/tickets"
-            );
-
-            setAdminTickets(
-                Array.isArray(data?.tickets)
-                    ? data.tickets
-                    : []
-            );
-        } catch (err) {
-            setAdminTicketError(
-                err.message ||
-                "Kunne ikke hente tickets."
-            );
-        } finally {
-            setAdminTicketLoading(false);
-        }
-    }
-
-    async function openAdminTicket(ticket) {
-        setAdminTicketError("");
-        setAdminTicketSuccess("");
-
-        try {
-            setAdminTicketLoading(true);
-
-            const data = await apiFetch(
-                `/api/support/admin/tickets/${ticket.id}`
-            );
-
-            setSelectedAdminTicket(
-                data?.ticket ||
-                ticket
-            );
-        } catch (err) {
-            setAdminTicketError(
-                err.message ||
-                "Kunne ikke åbne ticketen."
-            );
-        } finally {
-            setAdminTicketLoading(false);
-        }
-    }
-
-    function backToAdminTickets() {
-        setSelectedAdminTicket(null);
-        setAdminTicketReply("");
-        setAdminTicketError("");
-        setAdminTicketSuccess("");
-
-        loadAdminTickets();
-    }
-
-    async function replyToAdminTicket() {
-        if (!selectedAdminTicket) return;
-
-        if (!adminTicketReply.trim()) {
-            setAdminTicketError(
-                "Skriv en besked først."
-            );
-            return;
-        }
-
-        setAdminTicketError("");
-        setAdminTicketSuccess("");
-
-        try {
-            setAdminTicketLoading(true);
-
-            const data = await apiFetch(
-                `/api/support/admin/tickets/${selectedAdminTicket.id}/reply`,
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        message:
-                            adminTicketReply.trim(),
-                    }),
-                }
-            );
-
-            setSelectedAdminTicket(
-                data?.ticket ||
-                selectedAdminTicket
-            );
-
-            setAdminTicketReply("");
-
-            await loadAdminTickets();
-
-            setAdminTicketSuccess(
-                "Svar sendt."
-            );
-        } catch (err) {
-            setAdminTicketError(
-                err.message ||
-                "Kunne ikke sende svaret."
-            );
-        } finally {
-            setAdminTicketLoading(false);
-        }
-    }
-
-    async function closeAdminTicket() {
-        if (!selectedAdminTicket) return;
-
-        try {
-            setAdminTicketLoading(true);
-            setAdminTicketError("");
-
-            const data = await apiFetch(
-                `/api/support/admin/tickets/${selectedAdminTicket.id}/close`,
-                {
-                    method: "POST",
-                }
-            );
-
-            setSelectedAdminTicket(
-                data?.ticket ||
-                {
-                    ...selectedAdminTicket,
-                    status: "closed",
-                }
-            );
-
-            await loadAdminTickets();
-
-            setAdminTicketSuccess(
-                "Ticketen blev lukket."
-            );
-        } catch (err) {
-            setAdminTicketError(
-                err.message ||
-                "Kunne ikke lukke ticketen."
-            );
-        } finally {
-            setAdminTicketLoading(false);
-        }
-    }
-
-    // ========================================================
-    // ACCOUNT
-    // ========================================================
-
-    async function loadAccount() {
-        try {
-            const [
-                accountData,
-                securityData,
-                connectedData,
-            ] = await Promise.all([
-                apiFetch("/api/account"),
-                apiFetch("/api/account/security"),
-                apiFetch("/api/account/connected"),
-            ]);
-
-            setAccount(accountData);
-            setSecurity(securityData);
-            setConnected(connectedData);
-        } catch (err) {
-            setError(
-                err.message ||
-                "Kunne ikke hente konto."
-            );
-        }
-    }
-
-    useEffect(() => {
-        if (
-            user &&
-            page === "account"
-        ) {
-            loadAccount();
-        }
-    }, [page, user]);
-
-    // ========================================================
-    // NAVIGATION
-    // ========================================================
-
-    function navigate(nextPage) {
-        setPage(nextPage);
-
-        setSelectedAdminTicket(null);
-        setSelectedUserTicket(null);
-
-        setAdminTicketError("");
-        setAdminTicketSuccess("");
-
-        setSupportError("");
-        setSupportSuccess("");
-        setError("");
-
-        if (nextPage === "tickets" && isStaff) {
-            loadAdminTickets();
-        }
-
-        if (nextPage === "support" && !isStaff) {
-            loadUserTickets();
-        }
-
-        if (nextPage === "status") {
-            loadPublicStats();
-
-            if (isStaff) {
-                loadAdminData();
-            }
-        }
-
-        if (nextPage === "stats" && isStaff) {
-            loadAdminData();
-        }
-
-        if (nextPage === "admin" && isStaff) {
-            loadAdminData();
-            loadAdminTickets();
-        }
-    }
-
-    // ========================================================
-    // TICKET MESSAGE LIST
-    // ========================================================
-
-    function renderTicketMessages(ticket) {
-        if (!ticket) return null;
-
-        const replies = Array.isArray(ticket.replies)
-            ? ticket.replies
-            : [];
-
-        return (
-            <div className="ticket-messages">
-
-                <div className="ticket-message user-message">
-                    <div className="ticket-message-header">
-                        <strong>
-                            {ticket.username || "Bruger"}
-                        </strong>
-
-                        <span>
-                            {formatDate(
-                                ticket.created_at
-                            )}
-                        </span>
-                    </div>
-
-                    <div className="ticket-message-content">
-                        {ticket.message}
-                    </div>
-                </div>
-
-                {replies.map((reply) => (
-                    <div
-                        key={
-                            reply.id ||
-                            `${reply.created_at}-${reply.username}`
-                        }
-                        className={
-                            `ticket-message ${
-                                reply.role === "user"
-                                    ? "user-message"
-                                    : "staff-message"
-                            }`
-                        }
-                    >
-                        <div className="ticket-message-header">
-                            <strong>
-                                {reply.username ||
-                                    "Bruger"}
-                            </strong>
-
-                            <span>
-                                {reply.role_name ||
-                                    roleLabel(reply.role)}
-                            </span>
-
-                            <span>
-                                {formatDate(
-                                    reply.created_at
-                                )}
-                            </span>
-                        </div>
-
-                        <div className="ticket-message-content">
-                            {reply.message}
-                        </div>
-                    </div>
-                ))}
-
-            </div>
-        );
-    }
-
-    // ========================================================
-    // LOADING
-    // ========================================================
-
-    if (authLoading) {
-        return (
-            <div className="app-loading">
-                <div className="card">
-                    <h2>Hjælper</h2>
-                    <p>Indlæser...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // ========================================================
-    // LOGIN
-    // ========================================================
-
-    if (!user) {
-        return (
-            <div className="login-page">
-                <div className="login-card">
-                    <h1>Hjælper</h1>
-
-                    <p>
-                        Log ind med Discord for at
-                        fortsætte.
-                    </p>
-
-                    <button
-                        className="btn btn-primary"
-                        onClick={() =>
-                            login("user")
-                        }
-                    >
-                        💜 Log ind med Discord
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    // ========================================================
-    // SIDEBAR
-    // ========================================================
-
-    const staffNavigation = [
-        ["admin", "🛡️", "Admin Panel"],
-        ["stats", "📊", "Statistik"],
-        ["status", "🟢", "Status"],
-        ["bot", "🤖", "Bot"],
-        ["cogs", "🧩", "Cogs"],
-        ["servers", "🌐", "Servere"],
-        ["tickets", "🎫", "Tickets"],
-        ["roadmap", "🗺️", "Roadmap"],
-        ["logs", "📜", "Logs"],
-    ];
-
-    if (isOwner || isManager) {
-        staffNavigation.push(
-            ["system", "⚙️", "System"]
-        );
-    }
-
-    const userNavigation = [
-        ["dashboard", "🏠", "Dashboard"],
-        ["stats", "📊", "Statistik"],
-        ["status", "🟢", "Status"],
-        ["roadmap", "🗺️", "Roadmap"],
-        ["support", "🛟", "Support"],
-    ];
 
     return (
-        <div className="app-shell">
-
-            <aside className="sidebar">
-
-                <div className="sidebar-brand">
-                    <div className="brand-logo">
-                        H
-                    </div>
-
-                    <div>
-                        <strong>
-                            Hjælper
-                        </strong>
-
-                        <small>
-                            Dashboard
-                        </small>
-                    </div>
-                </div>
-
-                <nav className="sidebar-nav">
-
-                    {(isStaff
-                        ? staffNavigation
-                        : userNavigation
-                    ).map(
-                        ([key, icon, label]) => (
-                            <button
-                                key={key}
-                                className={
-                                    page === key
-                                        ? "nav-item active"
-                                        : "nav-item"
-                                }
-                                onClick={() =>
-                                    navigate(key)
-                                }
-                            >
-                                <span>
-                                    {icon}
-                                </span>
-
-                                {label}
-                            </button>
-                        )
-                    )}
-
-                    <div className="nav-divider" />
-
-                    <button
-                        className={
-                            page === "account"
-                                ? "nav-item active"
-                                : "nav-item"
-                        }
-                        onClick={() =>
-                            navigate("account")
-                        }
-                    >
-                        👤 Konto
-                    </button>
-
-                </nav>
-
-                <div className="sidebar-bottom">
-
-                    <div className="sidebar-user">
-
-                        {user.avatar ? (
-                            <img
-                                src={
-                                    `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`
-                                }
-                                alt=""
-                            />
-                        ) : (
-                            <div className="avatar-placeholder">
-                                {(
-                                    user.username ||
-                                    "U"
-                                )
-                                    .charAt(0)
-                                    .toUpperCase()}
-                            </div>
-                        )}
-
-                        <div>
-                            <strong>
-                                {user.username}
-                            </strong>
-
-                            <small
-                                className={roleClass(
-                                    user.role
-                                )}
-                            >
-                                {roleLabel(
-                                    user.role
-                                )}
-                            </small>
-                        </div>
-                    </div>
-
-                    <button
-                        className="btn btn-secondary logout-button"
-                        onClick={logout}
-                    >
-                        🚪 Log ud
-                    </button>
-
-                </div>
-
-            </aside>
-
-            <main className="main-content">
-
-                <header className="topbar">
-
-                    <div>
-                        <h1>
-
-                            {page === "dashboard" &&
-                                "Dashboard"}
-
-                            {page === "admin" &&
-                                "Admin Panel"}
-
-                            {page === "bot" &&
-                                "Bot"}
-
-                            {page === "stats" &&
-                                "Statistik"}
-
-                            {page === "status" &&
-                                "Status"}
-
-                            {page === "roadmap" &&
-                                "Roadmap"}
-
-                            {page === "cogs" &&
-                                "Cogs"}
-
-                            {page === "servers" &&
-                                "Servere"}
-
-                            {page === "tickets" &&
-                                "Tickets"}
-
-                            {page === "support" &&
-                                "Support"}
-
-                            {page === "logs" &&
-                                "Logs"}
-
-                            {page === "system" &&
-                                "System"}
-
-                            {page === "account" &&
-                                "Konto"}
-
-                        </h1>
-
-                        <p>
-                            Velkommen tilbage,{" "}
-                            <strong>
-                                {user.username}
-                            </strong>
-                        </p>
-                    </div>
-
-                    <div className="topbar-user">
-                        <span
-                            className={roleClass(
-                                user.role
-                            )}
-                        >
-                            {roleLabel(
-                                user.role
-                            )}
-                        </span>
-                    </div>
-
-                </header>
-
-                <div className="content">
-
-                    {error && (
-                        <div className="alert alert-error">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* ====================================================
-                        USER DASHBOARD
-                    ==================================================== */}
-
-                    {page === "dashboard" && (
-                        <section>
-
-                            <div className="page-intro">
-                                <h2>
-                                    Hej {user.username} 👋
-                                </h2>
-
-                                <p>
-                                    Velkommen til Hjælper
-                                    Dashboard.
-                                </p>
-                            </div>
-
-                            <div className="stats-grid">
-
-                                <div className="card stat-card">
-                                    <span>🤖</span>
-                                    <div>
-                                        <small>
-                                            Bot status
-                                        </small>
-
-                                        <strong>
-                                            {publicStats?.online
-                                                ? "Online"
-                                                : "Offline"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🌐</span>
-                                    <div>
-                                        <small>
-                                            Servere
-                                        </small>
-
-                                        <strong>
-                                            {publicStats?.servers ??
-                                                "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>⚡</span>
-                                    <div>
-                                        <small>
-                                            Commands
-                                        </small>
-
-                                        <strong>
-                                            {publicStats?.commands ??
-                                                "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>👥</span>
-                                    <div>
-                                        <small>
-                                            Panelbrugere
-                                        </small>
-
-                                        <strong>
-                                            {publicStats?.panel_users_total ??
-                                                "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    🟢 Hurtig status
-                                </h3>
-
-                                <div className="list">
-
-                                    <div className="list-item">
-                                        <strong>
-                                            Hjælper Bot
-                                        </strong>
-
-                                        <span className="status-open">
-                                            ●{" "}
-                                            {publicStats?.online
-                                                ? "Online"
-                                                : "Offline"}
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <strong>
-                                            Dashboard
-                                        </strong>
-
-                                        <span className="status-open">
-                                            ● Online
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <strong>
-                                            Support
-                                        </strong>
-
-                                        <button
-                                            className="btn btn-secondary"
-                                            onClick={() =>
-                                                navigate(
-                                                    "support"
-                                                )
-                                            }
-                                        >
-                                            🛟 Åbn Support
-                                        </button>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    🗺️ Roadmap
-                                </h3>
-
-                                <p>
-                                    Se hvad der er
-                                    færdigt, i gang og
-                                    planlagt for Hjælper.
-                                </p>
-
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={() =>
-                                        navigate(
-                                            "roadmap"
-                                        )
-                                    }
-                                >
-                                    Se Roadmap →
-                                </button>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        ADMIN PANEL
-                    ==================================================== */}
-
-                    {page === "admin" && isStaff && (
-                        <section>
-
-                            <div className="page-intro">
-                                <h2>
-                                    🛡️ Admin Panel
-                                </h2>
-
-                                <p>
-                                    Velkommen til
-                                    administrationspanelet,
-                                    { " " }
-                                    <strong>
-                                        {user.username}
-                                    </strong>.
-                                </p>
-                            </div>
-
-                            <div className="stats-grid">
-
-                                <div className="card stat-card">
-                                    <span>🤖</span>
-
-                                    <div>
-                                        <small>
-                                            Bot
-                                        </small>
-
-                                        <strong>
-                                            {botStatus?.online
-                                                ? "Online"
-                                                : "Offline"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🌐</span>
-
-                                    <div>
-                                        <small>
-                                            Servere
-                                        </small>
-
-                                        <strong>
-                                            {stats?.servers ??
-                                                servers.length ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🎫</span>
-
-                                    <div>
-                                        <small>
-                                            Åbne tickets
-                                        </small>
-
-                                        <strong>
-                                            {
-                                                adminTickets.filter(
-                                                    ticket =>
-                                                        ticket.status !==
-                                                        "closed"
-                                                ).length
-                                            }
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>👥</span>
-
-                                    <div>
-                                        <small>
-                                            Panelbrugere
-                                        </small>
-
-                                        <strong>
-                                            {stats?.panel_users_total ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    ⚡ Hurtige handlinger
-                                </h3>
-
-                                <div className="ticket-actions">
-
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={() =>
-                                            navigate(
-                                                "tickets"
-                                            )
-                                        }
-                                    >
-                                        🎫 Se Tickets
-                                    </button>
-
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={() =>
-                                            navigate(
-                                                "stats"
-                                            )
-                                        }
-                                    >
-                                        📊 Statistik
-                                    </button>
-
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={() =>
-                                            navigate(
-                                                "status"
-                                            )
-                                        }
-                                    >
-                                        🟢 Status
-                                    </button>
-
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={() =>
-                                            navigate(
-                                                "servers"
-                                            )
-                                        }
-                                    >
-                                        🌐 Servere
-                                    </button>
-
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={() =>
-                                            navigate(
-                                                "cogs"
-                                            )
-                                        }
-                                    >
-                                        🧩 Cogs
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    👤 Din administratorprofil
-                                </h3>
-
-                                <div className="list">
-
-                                    <div className="list-item">
-                                        <strong>
-                                            Bruger
-                                        </strong>
-
-                                        <span>
-                                            {user.username}
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <strong>
-                                            Rolle
-                                        </strong>
-
-                                        <span
-                                            className={roleClass(
-                                                user.role
-                                            )}
-                                        >
-                                            {roleLabel(
-                                                user.role
-                                            )}
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <strong>
-                                            Discord ID
-                                        </strong>
-
-                                        <span>
-                                            {user.id}
-                                        </span>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        STATS
-                    ==================================================== */}
-
-                    {page === "stats" && (
-                        <section>
-
-                            <div className="page-intro">
-                                <h2>
-                                    📊 Statistik
-                                </h2>
-
-                                <p>
-                                    Statistik for
-                                    Hjælper og
-                                    dashboardet.
-                                </p>
-                            </div>
-
-                            <div className="stats-grid">
-
-                                <div className="card stat-card">
-                                    <span>🌐</span>
-
-                                    <div>
-                                        <small>
-                                            Servere
-                                        </small>
-
-                                        <strong>
-                                            {isStaff
-                                                ? stats?.servers ?? 0
-                                                : publicStats?.servers ?? "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>👥</span>
-
-                                    <div>
-                                        <small>
-                                            Discord brugere
-                                        </small>
-
-                                        <strong>
-                                            {isStaff
-                                                ? stats?.users ?? 0
-                                                : "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>⚡</span>
-
-                                    <div>
-                                        <small>
-                                            Commands
-                                        </small>
-
-                                        <strong>
-                                            {isStaff
-                                                ? stats?.commands ??
-                                                  publicStats?.commands ??
-                                                  0
-                                                : publicStats?.commands ??
-                                                  "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🧩</span>
-
-                                    <div>
-                                        <small>
-                                            Cogs
-                                        </small>
-
-                                        <strong>
-                                            {isStaff
-                                                ? stats?.cogs ?? 0
-                                                : "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            {isStaff && (
-                                <div className="card">
-
-                                    <h3>
-                                        Panelbrugere
-                                    </h3>
-
-                                    <div className="stats-grid">
-
-                                        <div>
-                                            <small>
-                                                I dag
-                                            </small>
-
-                                            <h2>
-                                                {stats?.panel_users_today ??
-                                                    0}
-                                            </h2>
-                                        </div>
-
-                                        <div>
-                                            <small>
-                                                Denne uge
-                                            </small>
-
-                                            <h2>
-                                                {stats?.panel_users_week ??
-                                                    0}
-                                            </h2>
-                                        </div>
-
-                                        <div>
-                                            <small>
-                                                Dette år
-                                            </small>
-
-                                            <h2>
-                                                {stats?.panel_users_year ??
-                                                    0}
-                                            </h2>
-                                        </div>
-
-                                        <div>
-                                            <small>
-                                                Total
-                                            </small>
-
-                                            <h2>
-                                                {stats?.panel_users_total ??
-                                                    0}
-                                            </h2>
-                                        </div>
-
-                                    </div>
-
-                                </div>
-                            )}
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        STATUS
-                    ==================================================== */}
-
-                    {page === "status" && (
-                        <section>
-
-                            <div className="page-intro">
-                                <h2>
-                                    🟢 Status
-                                </h2>
-
-                                <p>
-                                    Aktuel status for
-                                    Hjælper-systemet.
-                                </p>
-                            </div>
-
-                            <div className="card">
-
-                                <div className="list">
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                🤖 Discord Bot
-                                            </strong>
-
-                                            <small>
-                                                Hjælper Discord
-                                                bot
-                                            </small>
-                                        </div>
-
-                                        <span
-                                            className={
-                                                (
-                                                    isStaff
-                                                        ? botStatus?.online
-                                                        : publicStats?.online
-                                                )
-                                                    ? "status-open"
-                                                    : "status-closed"
-                                            }
-                                        >
-                                            ●{" "}
-                                            {(
-                                                isStaff
-                                                    ? botStatus?.online
-                                                    : publicStats?.online
-                                            )
-                                                ? "Online"
-                                                : "Offline"}
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                🌐 Dashboard API
-                                            </strong>
-
-                                            <small>
-                                                Hjælper V2 API
-                                            </small>
-                                        </div>
-
-                                        <span className="status-open">
-                                            ● Online
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                🔐 Login
-                                            </strong>
-
-                                            <small>
-                                                Discord OAuth
-                                            </small>
-                                        </div>
-
-                                        <span className="status-open">
-                                            ● Online
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                🎫 Support
-                                            </strong>
-
-                                            <small>
-                                                Ticket-system
-                                            </small>
-                                        </div>
-
-                                        <span className="status-open">
-                                            ● Online
-                                        </span>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            <div className="stats-grid">
-
-                                <div className="card stat-card">
-                                    <span>🌐</span>
-
-                                    <div>
-                                        <small>
-                                            Servere
-                                        </small>
-
-                                        <strong>
-                                            {isStaff
-                                                ? stats?.servers ?? 0
-                                                : publicStats?.servers ?? "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>⚡</span>
-
-                                    <div>
-                                        <small>
-                                            Commands
-                                        </small>
-
-                                        <strong>
-                                            {publicStats?.commands ??
-                                                stats?.commands ??
-                                                "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>👥</span>
-
-                                    <div>
-                                        <small>
-                                            Panelbrugere
-                                        </small>
-
-                                        <strong>
-                                            {publicStats?.panel_users_total ??
-                                                stats?.panel_users_total ??
-                                                "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        ROADMAP
-                    ==================================================== */}
-
-                    {page === "roadmap" && (
-                        <section>
-
-                            <div className="page-intro">
-                                <h2>
-                                    🗺️ Roadmap
-                                </h2>
-
-                                <p>
-                                    Planerne for Hjælper
-                                    dashboardet og
-                                    botten.
-                                </p>
-                            </div>
-
-                            <div className="card">
-
-                                <div className="list">
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                ✅ Dashboard
-                                            </strong>
-
-                                            <small>
-                                                Grundlæggende
-                                                dashboard og
-                                                login.
-                                            </small>
-                                        </div>
-
-                                        <span className="status-open">
-                                            Færdig
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                ✅ Account-system
-                                            </strong>
-
-                                            <small>
-                                                Profil,
-                                                sikkerhed og
-                                                connected
-                                                accounts.
-                                            </small>
-                                        </div>
-
-                                        <span className="status-open">
-                                            Færdig
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                ✅ Support &
-                                                Tickets
-                                            </strong>
-
-                                            <small>
-                                                Bruger- og
-                                                admin-ticket
-                                                system.
-                                            </small>
-                                        </div>
-
-                                        <span className="status-open">
-                                            Færdig
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                🔄 Statistik &
-                                                tracking
-                                            </strong>
-
-                                            <small>
-                                                Flere
-                                                dashboard-
-                                                statistikker
-                                                og tracking.
-                                            </small>
-                                        </div>
-
-                                        <span className="status-answered">
-                                            I gang
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 Moderation
-                                            </strong>
-
-                                            <small>
-                                                Moderations-
-                                                funktioner til
-                                                botten.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 Welcome System
-                                            </strong>
-
-                                            <small>
-                                                Velkomstsystem
-                                                til Discord-
-                                                servere.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 AutoMod
-                                            </strong>
-
-                                            <small>
-                                                Automatisk
-                                                moderation.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 Autoroles
-                                            </strong>
-
-                                            <small>
-                                                Automatisk
-                                                tildeling af
-                                                roller.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 Suggestions
-                                            </strong>
-
-                                            <small>
-                                                Forslags-system
-                                                til Discord.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 Ansøgninger
-                                            </strong>
-
-                                            <small>
-                                                Ansøgningssystem
-                                                til servere.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                    <div className="list-item">
-                                        <div>
-                                            <strong>
-                                                📅 Mini-games
-                                            </strong>
-
-                                            <small>
-                                                Små spil og
-                                                community-
-                                                funktioner.
-                                            </small>
-                                        </div>
-
-                                        <span>
-                                            Planlagt
-                                        </span>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        BOT
-                    ==================================================== */}
-
-                    {page === "bot" && isStaff && (
-                        <section>
-
-                            <div className="stats-grid">
-
-                                <div className="card stat-card">
-                                    <span>🤖</span>
-
-                                    <div>
-                                        <small>
-                                            Status
-                                        </small>
-
-                                        <strong>
-                                            {botStatus?.online
-                                                ? "Online"
-                                                : "Offline"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🌐</span>
-
-                                    <div>
-                                        <small>
-                                            Servere
-                                        </small>
-
-                                        <strong>
-                                            {botStatus?.guilds ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🆔</span>
-
-                                    <div>
-                                        <small>
-                                            Bot ID
-                                        </small>
-
-                                        <strong>
-                                            {botStatus?.id ||
-                                                "—"}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h2>
-                                    {botStatus?.name ||
-                                        "Hjælper"}
-                                </h2>
-
-                                <p>
-                                    Discord-botten er{" "}
-                                    {botStatus?.online
-                                        ? "online"
-                                        : "offline"}.
-                                </p>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        COGS
-                    ==================================================== */}
-
-                    {page === "cogs" && isStaff && (
-                        <section>
-
-                            <div className="card">
-
-                                <div className="card-header">
-
-                                    <div>
-                                        <h2>
-                                            Cogs
-                                        </h2>
-
-                                        <p>
-                                            Indlæste
-                                            extensions.
-                                        </p>
-                                    </div>
-
-                                    {(isOwner ||
-                                        isManager) && (
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={async () => {
-                                                try {
-                                                    await apiFetch(
-                                                        "/api/reload-cogs",
-                                                        {
-                                                            method:
-                                                                "POST",
-                                                        }
-                                                    );
-
-                                                    await loadAdminData();
-                                                } catch (
-                                                    err
-                                                ) {
-                                                    setError(
-                                                        err.message
-                                                    );
-                                                }
-                                            }}
-                                        >
-                                            🔄 Reload
-                                        </button>
-                                    )}
-
-                                </div>
-
-                                <div className="list">
-
-                                    {cogs.length === 0 ? (
-                                        <p>
-                                            Ingen cogs
-                                            fundet.
-                                        </p>
-                                    ) : (
-                                        cogs.map(
-                                            cog => (
-                                                <div
-                                                    className="list-item"
-                                                    key={
-                                                        cog.name
-                                                    }
-                                                >
-                                                    <strong>
-                                                        {cog.name}
-                                                    </strong>
-
-                                                    <span className="status-open">
-                                                        ● Loaded
-                                                    </span>
-                                                </div>
-                                            )
-                                        )
-                                    )}
-
-                                </div>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        SERVERS
-                    ==================================================== */}
-
-                    {page === "servers" && isStaff && (
-                        <section>
-
-                            <div className="card">
-
-                                <h2>
-                                    Servere
-                                </h2>
-
-                                <p>
-                                    Servere hvor
-                                    Hjælper er
-                                    installeret.
-                                </p>
-
-                                <div className="list">
-
-                                    {servers.length === 0 ? (
-                                        <p>
-                                            Ingen servere
-                                            fundet.
-                                        </p>
-                                    ) : (
-                                        servers.map(
-                                            server => (
-                                                <div
-                                                    className="list-item"
-                                                    key={
-                                                        server.id
-                                                    }
-                                                >
-
-                                                    <div className="server-info">
-
-                                                        {server.icon ? (
-                                                            <img
-                                                                src={
-                                                                    server.icon
-                                                                }
-                                                                alt=""
-                                                                className="server-icon"
-                                                            />
-                                                        ) : (
-                                                            <div className="server-icon-placeholder">
-                                                                🌐
-                                                            </div>
-                                                        )}
-
-                                                        <div>
-                                                            <strong>
-                                                                {server.name}
-                                                            </strong>
-
-                                                            <small>
-                                                                {server.member_count ??
-                                                                    server.members ??
-                                                                    0}{" "}
-                                                                medlemmer
-                                                            </small>
-                                                        </div>
-
-                                                    </div>
-
-                                                    {(isOwner ||
-                                                        isManager) && (
-                                                        <button
-                                                            className="btn btn-danger"
-                                                            onClick={async () => {
-                                                                if (
-                                                                    !window.confirm(
-                                                                        `Er du sikker på, at Hjælper skal forlade ${server.name}?`
-                                                                    )
-                                                                ) {
-                                                                    return;
-                                                                }
-
-                                                                try {
-                                                                    await apiFetch(
-                                                                        `/api/servers/${server.id}/leave`,
-                                                                        {
-                                                                            method:
-                                                                                "POST",
-                                                                        }
-                                                                    );
-
-                                                                    await loadAdminData();
-                                                                } catch (
-                                                                    err
-                                                                ) {
-                                                                    setError(
-                                                                        err.message
-                                                                    );
-                                                                }
-                                                            }}
-                                                        >
-                                                            Forlad
-                                                        </button>
-                                                    )}
-
-                                                </div>
-                                            )
-                                        )
-                                    )}
-
-                                </div>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        ADMIN TICKETS
-                    ==================================================== */}
-
-                    {page === "tickets" &&
-                        isStaff && (
-                            <section>
-
-                                {!selectedAdminTicket ? (
-                                    <>
-                                        <div className="page-intro">
-
-                                            <h2>
-                                                🎫 Tickets
-                                            </h2>
-
-                                            <p>
-                                                Administrer
-                                                alle
-                                                support-sager
-                                                fra brugerne.
-                                            </p>
-
-                                        </div>
-
-                                        {adminTicketError && (
-                                            <div className="alert alert-error">
-                                                {
-                                                    adminTicketError
-                                                }
-                                            </div>
-                                        )}
-
-                                        {adminTicketSuccess && (
-                                            <div className="alert alert-success">
-                                                {
-                                                    adminTicketSuccess
-                                                }
-                                            </div>
-                                        )}
-
-                                        {adminTicketLoading &&
-                                            adminTickets.length ===
-                                                0 && (
-                                                <div className="card">
-                                                    Indlæser
-                                                    tickets...
-                                                </div>
-                                            )}
-
-                                        <div className="ticket-list">
-
-                                            {adminTickets.length ===
-                                            0 ? (
-                                                <div className="card empty-state">
-
-                                                    <h3>
-                                                        Ingen
-                                                        tickets
-                                                    </h3>
-
-                                                    <p>
-                                                        Der er
-                                                        ingen
-                                                        support-sager
-                                                        lige nu.
-                                                    </p>
-
-                                                </div>
-                                            ) : (
-                                                adminTickets.map(
-                                                    ticket => (
-                                                        <button
-                                                            key={
-                                                                ticket.id
-                                                            }
-                                                            className="ticket-card"
-                                                            onClick={() =>
-                                                                openAdminTicket(
-                                                                    ticket
-                                                                )
-                                                            }
-                                                        >
-
-                                                            <div className="ticket-card-top">
-
-                                                                <div>
-                                                                    <strong>
-                                                                        {ticket.subject ||
-                                                                            "Ingen emne"}
-                                                                    </strong>
-
-                                                                    <small>
-                                                                        #{ticket.id}
-                                                                    </small>
-                                                                </div>
-
-                                                                <span
-                                                                    className={
-                                                                        statusClass(
-                                                                            ticket.status
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    {statusLabel(
-                                                                        ticket.status
-                                                                    )}
-                                                                </span>
-
-                                                            </div>
-
-                                                            <div className="ticket-card-bottom">
-
-                                                                <span>
-                                                                    👤{" "}
-                                                                    {ticket.username ||
-                                                                        "Bruger"}
-                                                                </span>
-
-                                                                <span>
-                                                                    {formatDate(
-                                                                        ticket.updated_at ||
-                                                                            ticket.created_at
-                                                                    )}
-                                                                </span>
-
-                                                            </div>
-
-                                                        </button>
-                                                    )
-                                                )
-                                            )}
-
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="ticket-detail">
-
-                                        <button
-                                            className="btn btn-secondary back-button"
-                                            onClick={
-                                                backToAdminTickets
-                                            }
-                                        >
-                                            ← Alle tickets
-                                        </button>
-
-                                        <div className="card ticket-header-card">
-
-                                            <div>
-                                                <h2>
-                                                    {
-                                                        selectedAdminTicket.subject
-                                                    }
-                                                </h2>
-
-                                                <p>
-                                                    Ticket #
-                                                    {
-                                                        selectedAdminTicket.id
-                                                    }
-                                                </p>
-                                            </div>
-
-                                            <span
-                                                className={
-                                                    statusClass(
-                                                        selectedAdminTicket.status
-                                                    )
-                                                }
-                                            >
-                                                {statusLabel(
-                                                    selectedAdminTicket.status
-                                                )}
-                                            </span>
-
-                                        </div>
-
-                                        {adminTicketError && (
-                                            <div className="alert alert-error">
-                                                {
-                                                    adminTicketError
-                                                }
-                                            </div>
-                                        )}
-
-                                        {adminTicketSuccess && (
-                                            <div className="alert alert-success">
-                                                {
-                                                    adminTicketSuccess
-                                                }
-                                            </div>
-                                        )}
-
-                                        <div className="card">
-
-                                            <div className="ticket-user-info">
-
-                                                <strong>
-                                                    👤{" "}
-                                                    {
-                                                        selectedAdminTicket.username
-                                                    }
-                                                </strong>
-
-                                                <span>
-                                                    Oprettet{" "}
-                                                    {formatDate(
-                                                        selectedAdminTicket.created_at
-                                                    )}
-                                                </span>
-
-                                            </div>
-
-                                            {renderTicketMessages(
-                                                selectedAdminTicket
-                                            )}
-
-                                        </div>
-
-                                        {selectedAdminTicket.status !==
-                                            "closed" && (
-                                            <div className="card ticket-reply-card">
-
-                                                <h3>
-                                                    Svar på ticket
-                                                </h3>
-
-                                                <textarea
-                                                    className="textarea"
-                                                    value={
-                                                        adminTicketReply
-                                                    }
-                                                    onChange={e =>
-                                                        setAdminTicketReply(
-                                                            e.target
-                                                                .value
-                                                        )
-                                                    }
-                                                    placeholder="Skriv dit svar..."
-                                                    rows={5}
-                                                />
-
-                                                <div className="ticket-actions">
-
-                                                    <button
-                                                        className="btn btn-primary"
-                                                        disabled={
-                                                            adminTicketLoading
-                                                        }
-                                                        onClick={
-                                                            replyToAdminTicket
-                                                        }
-                                                    >
-                                                        📤 Send svar
-                                                    </button>
-
-                                                    <button
-                                                        className="btn btn-danger"
-                                                        disabled={
-                                                            adminTicketLoading
-                                                        }
-                                                        onClick={
-                                                            closeAdminTicket
-                                                        }
-                                                    >
-                                                        🔒 Luk ticket
-                                                    </button>
-
-                                                </div>
-
-                                            </div>
-                                        )}
-
-                                    </div>
-                                )}
-
-                            </section>
-                        )}
-
-                    {/* ====================================================
-                        USER SUPPORT
-                    ==================================================== */}
-
-                    {page === "support" &&
-                        !isStaff && (
-                            <section>
-
-                                {!selectedUserTicket ? (
-                                    <>
-
-                                        <div className="page-intro">
-
-                                            <h2>
-                                                🛟 Support
-                                            </h2>
-
-                                            <p>
-                                                Har du brug
-                                                for hjælp?
-                                                Opret en
-                                                ticket.
-                                            </p>
-
-                                        </div>
-
-                                        {supportError && (
-                                            <div className="alert alert-error">
-                                                {supportError}
-                                            </div>
-                                        )}
-
-                                        {supportSuccess && (
-                                            <div className="alert alert-success">
-                                                {supportSuccess}
-                                            </div>
-                                        )}
-
-                                        <div className="card">
-
-                                            <h3>
-                                                Opret ticket
-                                            </h3>
-
-                                            <form
-                                                onSubmit={
-                                                    createUserTicket
-                                                }
-                                            >
-
-                                                <label>
-                                                    Emne
-                                                </label>
-
-                                                <input
-                                                    className="input"
-                                                    value={
-                                                        supportSubject
-                                                    }
-                                                    onChange={e =>
-                                                        setSupportSubject(
-                                                            e.target
-                                                                .value
-                                                        )
-                                                    }
-                                                    placeholder="Hvad handler din ticket om?"
-                                                    maxLength={150}
-                                                />
-
-                                                <label>
-                                                    Besked
-                                                </label>
-
-                                                <textarea
-                                                    className="textarea"
-                                                    value={
-                                                        supportMessage
-                                                    }
-                                                    onChange={e =>
-                                                        setSupportMessage(
-                                                            e.target
-                                                                .value
-                                                        )
-                                                    }
-                                                    placeholder="Beskriv dit problem..."
-                                                    rows={6}
-                                                    maxLength={5000}
-                                                />
-
-                                                <button
-                                                    className="btn btn-primary"
-                                                    type="submit"
-                                                    disabled={
-                                                        supportLoading
-                                                    }
-                                                >
-                                                    🎫 Opret ticket
-                                                </button>
-
-                                            </form>
-
-                                        </div>
-
-                                        <div className="card">
-
-                                            <div className="card-header">
-
-                                                <div>
-                                                    <h3>
-                                                        Mine tickets
-                                                    </h3>
-
-                                                    <p>
-                                                        Se dine
-                                                        tidligere
-                                                        support-sager.
-                                                    </p>
-                                                </div>
-
-                                                <button
-                                                    className="btn btn-secondary"
-                                                    onClick={
-                                                        loadUserTickets
-                                                    }
-                                                >
-                                                    🔄 Opdater
-                                                </button>
-
-                                            </div>
-
-                                            <div className="ticket-list">
-
-                                                {userTickets.length ===
-                                                0 ? (
-                                                    <div className="empty-state">
-
-                                                        <h3>
-                                                            Ingen
-                                                            tickets
-                                                        </h3>
-
-                                                        <p>
-                                                            Du har
-                                                            ikke
-                                                            oprettet
-                                                            nogen
-                                                            tickets
-                                                            endnu.
-                                                        </p>
-
-                                                    </div>
-                                                ) : (
-                                                    userTickets.map(
-                                                        ticket => (
-                                                            <button
-                                                                key={
-                                                                    ticket.id
-                                                                }
-                                                                className="ticket-card"
-                                                                onClick={() =>
-                                                                    openUserTicket(
-                                                                        ticket
-                                                                    )
-                                                                }
-                                                            >
-
-                                                                <div className="ticket-card-top">
-
-                                                                    <div>
-                                                                        <strong>
-                                                                            {
-                                                                                ticket.subject
-                                                                            }
-                                                                        </strong>
-
-                                                                        <small>
-                                                                            #{ticket.id}
-                                                                        </small>
-                                                                    </div>
-
-                                                                    <span
-                                                                        className={
-                                                                            statusClass(
-                                                                                ticket.status
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        {statusLabel(
-                                                                            ticket.status
-                                                                        )}
-                                                                    </span>
-
-                                                                </div>
-
-                                                                <div className="ticket-card-bottom">
-
-                                                                    <span>
-                                                                        {formatDate(
-                                                                            ticket.updated_at ||
-                                                                                ticket.created_at
-                                                                        )}
-                                                                    </span>
-
-                                                                    <span>
-                                                                        →
-                                                                    </span>
-
-                                                                </div>
-
-                                                            </button>
-                                                        )
-                                                    )
-                                                )}
-
-                                            </div>
-
-                                        </div>
-
-                                    </>
-                                ) : (
-                                    <div className="ticket-detail">
-
-                                        <button
-                                            className="btn btn-secondary back-button"
-                                            onClick={
-                                                backToUserTickets
-                                            }
-                                        >
-                                            ← Mine tickets
-                                        </button>
-
-                                        {supportError && (
-                                            <div className="alert alert-error">
-                                                {supportError}
-                                            </div>
-                                        )}
-
-                                        {supportSuccess && (
-                                            <div className="alert alert-success">
-                                                {supportSuccess}
-                                            </div>
-                                        )}
-
-                                        <div className="card ticket-header-card">
-
-                                            <div>
-                                                <h2>
-                                                    {
-                                                        selectedUserTicket.subject
-                                                    }
-                                                </h2>
-
-                                                <p>
-                                                    Ticket #
-                                                    {
-                                                        selectedUserTicket.id
-                                                    }
-                                                </p>
-                                            </div>
-
-                                            <span
-                                                className={
-                                                    statusClass(
-                                                        selectedUserTicket.status
-                                                    )
-                                                }
-                                            >
-                                                {statusLabel(
-                                                    selectedUserTicket.status
-                                                )}
-                                            </span>
-
-                                        </div>
-
-                                        <div className="card">
-
-                                            <div className="ticket-user-info">
-
-                                                <strong>
-                                                    🎫 Support
-                                                </strong>
-
-                                                <span>
-                                                    Oprettet{" "}
-                                                    {formatDate(
-                                                        selectedUserTicket.created_at
-                                                    )}
-                                                </span>
-
-                                            </div>
-
-                                            {renderTicketMessages(
-                                                selectedUserTicket
-                                            )}
-
-                                        </div>
-
-                                        {selectedUserTicket.status !==
-                                            "closed" && (
-                                            <div className="card ticket-reply-card">
-
-                                                <h3>
-                                                    Svar
-                                                </h3>
-
-                                                <textarea
-                                                    className="textarea"
-                                                    value={
-                                                        userTicketReply
-                                                    }
-                                                    onChange={e =>
-                                                        setUserTicketReply(
-                                                            e.target
-                                                                .value
-                                                        )
-                                                    }
-                                                    placeholder="Skriv et svar..."
-                                                    rows={5}
-                                                    maxLength={5000}
-                                                />
-
-                                                <div className="ticket-actions">
-
-                                                    <button
-                                                        className="btn btn-primary"
-                                                        disabled={
-                                                            supportLoading
-                                                        }
-                                                        onClick={
-                                                            replyToUserTicket
-                                                        }
-                                                    >
-                                                        📤 Send svar
-                                                    </button>
-
-                                                    <button
-                                                        className="btn btn-danger"
-                                                        disabled={
-                                                            supportLoading
-                                                        }
-                                                        onClick={
-                                                            closeUserTicket
-                                                        }
-                                                    >
-                                                        🔒 Luk ticket
-                                                    </button>
-
-                                                </div>
-
-                                            </div>
-                                        )}
-
-                                    </div>
-                                )}
-
-                            </section>
-                        )}
-
-                    {/* ====================================================
-                        LOGS
-                    ==================================================== */}
-
-                    {page === "logs" && isStaff && (
-                        <section>
-
-                            <div className="card">
-
-                                <h2>
-                                    📜 Logs
-                                </h2>
-
-                                <p>
-                                    Log-systemet kan
-                                    udvides med
-                                    dashboard- og
-                                    bot-events.
-                                </p>
-
-                                {logs.length > 0 ? (
-                                    <div className="list">
-
-                                        {logs.map(
-                                            (log, index) => (
-                                                <div
-                                                    className="list-item"
-                                                    key={
-                                                        index
-                                                    }
-                                                >
-                                                    {JSON.stringify(
-                                                        log
-                                                    )}
-                                                </div>
-                                            )
-                                        )}
-
-                                    </div>
-                                ) : (
-                                    <div className="empty-state">
-                                        Ingen logs
-                                        tilgængelige.
-                                    </div>
-                                )}
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
-                        SYSTEM
-                    ==================================================== */}
-
-                    {page === "system" &&
-                        (isOwner ||
-                            isManager) && (
-                            <section>
-
-                                <div className="card">
-
-                                    <h2>
-                                        ⚙️ System
-                                    </h2>
-
-                                    <p>
-                                        Systemindstillinger
-                                        for Hjælper.
-                                    </p>
-
-                                    <div className="list">
-
-                                        <div className="list-item">
-
-                                            <strong>
-                                                Din rolle
-                                            </strong>
-
-                                            <span
-                                                className={roleClass(
-                                                    user.role
-                                                )}
-                                            >
-                                                {roleLabel(
-                                                    user.role
-                                                )}
-                                            </span>
-
-                                        </div>
-
-                                        <div className="list-item">
-
-                                            <strong>
-                                                API
-                                            </strong>
-
-                                            <span>
-                                                Hjælper V2
-                                            </span>
-
-                                        </div>
-
-                                        <div className="list-item">
-
-                                            <strong>
-                                                Session
-                                            </strong>
-
-                                            <span>
-                                                Aktiv
-                                            </span>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </section>
-                        )}
-
-                    {/* ====================================================
-                        ACCOUNT
-                    ==================================================== */}
-
-                    {page === "account" && (
-                        <section>
-
-                            <div className="card">
-
-                                <div className="account-profile">
-
-                                    {user.avatar ? (
-                                        <img
-                                            src={
-                                                `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`
-                                            }
-                                            alt=""
-                                            className="account-avatar"
-                                        />
-                                    ) : (
-                                        <div className="account-avatar-placeholder">
-                                            {user.username
-                                                ?.charAt(
-                                                    0
-                                                )
-                                                ?.toUpperCase()}
-                                        </div>
-                                    )}
-
-                                    <div>
-
-                                        <h2>
-                                            {user.username}
-                                        </h2>
-
-                                        <span
-                                            className={roleClass(
-                                                user.role
-                                            )}
-                                        >
-                                            {roleLabel(
-                                                user.role
-                                            )}
-                                        </span>
-
-                                        <p>
-                                            Discord ID:{" "}
-                                            {user.id}
-                                        </p>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    🔐 Security
-                                </h3>
-
-                                <p>
-                                    Aktive
-                                    sessioner:{" "}
-                                    {
-                                        security
-                                            ?.active_sessions
-                                            ?.length
-                                    }
-                                </p>
-
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={
-                                        async () => {
-                                            try {
-                                                await apiFetch(
-                                                    "/api/account/security/logout-all",
-                                                    {
-                                                        method:
-                                                            "POST",
-                                                    }
-                                                );
-
-                                                await loadAccount();
-                                            } catch (
-                                                err
-                                            ) {
-                                                setError(
-                                                    err.message
-                                                );
-                                            }
-                                        }
-                                    }
-                                >
-                                    Log ud af andre
-                                    sessioner
-                                </button>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    🔗 Connected accounts
-                                </h3>
-
-                                {connected?.accounts?.map(
-                                    connectedAccount => (
-                                        <div
-                                            className="list-item"
-                                            key={
-                                                connectedAccount.provider
-                                            }
-                                        >
-                                            <strong>
-                                                {
-                                                    connectedAccount.provider
-                                                }
-                                            </strong>
-
-                                            <span className="status-open">
-                                                ✓ Forbundet
-                                            </span>
-                                        </div>
-                                    )
-                                )}
-
-                            </div>
-
-                        </section>
-                    )}
-
-                </div>
-
-            </main>
-
-        </div>
+      <PublicLanding
+        onStats={() => goPublic("stats")}
+        onStatus={() => goPublic("status")}
+        onRoadmap={() => goPublic("roadmap")}
+        onAdminLogin={adminLogin}
+        onUserLogin={userLogin}
+      />
     );
+  }
+
+  /*
+   * ======================================================
+   * USER DASHBOARD
+   * ======================================================
+   */
+
+  if (!isStaff) {
+    return (
+      <DashboardLayout
+        user={user}
+        roleLabel={roleLabel}
+        page={page}
+        setPage={setPage}
+        onLogout={logout}
+        userMode
+      >
+        {page === "dashboard" && (
+          <UserDashboard
+            user={user}
+            tickets={tickets}
+            onSupport={() => setPage("support")}
+          />
+        )}
+
+        {page === "stats" && (
+          <DashboardPublicStats
+            stats={publicStats}
+          />
+        )}
+
+        {page === "status" && (
+          <DashboardPublicStatus
+            status={publicStatus}
+          />
+        )}
+
+        {page === "roadmap" && (
+          <Roadmap />
+        )}
+
+        {page === "support" && (
+          <SupportPage
+            tickets={tickets}
+            selectedTicket={selectedTicket}
+            setSelectedTicket={setSelectedTicket}
+            onOpenTicket={openTicket}
+            onCreateTicket={createTicket}
+            ticketSubject={ticketSubject}
+            setTicketSubject={setTicketSubject}
+            ticketMessage={ticketMessage}
+            setTicketMessage={setTicketMessage}
+            replyMessage={replyMessage}
+            setReplyMessage={setReplyMessage}
+            onReply={replyToTicket}
+            onClose={closeTicket}
+            onBack={() => setSelectedTicket(null)}
+            staff={false}
+          />
+        )}
+
+        {page === "account" && (
+          <AccountPage
+            user={user}
+            account={account}
+            security={security}
+            sessions={sessions}
+            loginHistory={loginHistory}
+            connected={connected}
+            profileUsername={profileUsername}
+            setProfileUsername={setProfileUsername}
+            onSaveProfile={saveProfile}
+            onLogoutAll={logoutAllSessions}
+            onDeleteSession={deleteSession}
+            onDeleteAccount={deleteAccount}
+          />
+        )}
+
+        {error && (
+          <div className="error-box">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="success-box">
+            {success}
+          </div>
+        )}
+      </DashboardLayout>
+    );
+  }
+
+  /*
+   * ======================================================
+   * STAFF DASHBOARD
+   * ======================================================
+   */
+
+  return (
+    <DashboardLayout
+      user={user}
+      roleLabel={roleLabel}
+      page={page}
+      setPage={setPage}
+      onLogout={logout}
+      staffMode
+      isOwner={isOwner}
+      isManager={isManager}
+    >
+      {page === "admin" && (
+        <AdminPanel
+          user={user}
+          stats={stats}
+          servers={servers}
+          cogs={cogs}
+          tickets={tickets}
+          onStats={loadStats}
+          onServers={loadServers}
+          onCogs={loadCogs}
+          onTickets={loadTickets}
+          onPage={setPage}
+        />
+      )}
+
+      {page === "stats" && (
+        <StaffStats
+          stats={stats}
+          publicStats={publicStats}
+        />
+      )}
+
+      {page === "status" && (
+        <DashboardPublicStatus
+          status={publicStatus}
+        />
+      )}
+
+      {page === "bot" && (
+        <BotPage
+          stats={stats}
+          publicStats={publicStats}
+        />
+      )}
+
+      {page === "cogs" && (
+        <CogsPage
+          cogs={cogs}
+          onReload={reloadCogs}
+        />
+      )}
+
+      {page === "servers" && !selectedServer && (
+        <ServersPage
+          servers={servers}
+          onSelect={setSelectedServer}
+        />
+      )}
+
+      {page === "servers" && selectedServer && (
+        <ServerDetails
+          server={selectedServer}
+          onBack={() => setSelectedServer(null)}
+          onLeave={leaveServer}
+        />
+      )}
+
+      {page === "tickets" && (
+        <SupportPage
+          tickets={tickets}
+          selectedTicket={selectedTicket}
+          setSelectedTicket={setSelectedTicket}
+          onOpenTicket={openTicket}
+          onCreateTicket={null}
+          ticketSubject=""
+          setTicketSubject={() => {}}
+          ticketMessage=""
+          setTicketMessage={() => {}}
+          replyMessage={replyMessage}
+          setReplyMessage={setReplyMessage}
+          onReply={replyToTicket}
+          onClose={closeTicket}
+          onBack={() => setSelectedTicket(null)}
+          staff
+        />
+      )}
+
+      {page === "roadmap" && (
+        <Roadmap />
+      )}
+
+      {page === "logs" && (
+        <LogsPage />
+      )}
+
+      {page === "system" && (
+        <SystemPage
+          user={user}
+          security={security}
+        />
+      )}
+
+      {page === "account" && (
+        <AccountPage
+          user={user}
+          account={account}
+          security={security}
+          sessions={sessions}
+          loginHistory={loginHistory}
+          connected={connected}
+          profileUsername={profileUsername}
+          setProfileUsername={setProfileUsername}
+          onSaveProfile={saveProfile}
+          onLogoutAll={logoutAllSessions}
+          onDeleteSession={deleteSession}
+          onDeleteAccount={deleteAccount}
+        />
+      )}
+
+      {error && (
+        <div className="error-box">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="success-box">
+          {success}
+        </div>
+      )}
+    </DashboardLayout>
+  );
+}
+
+/* ======================================================
+   PUBLIC LANDING
+====================================================== */
+
+function PublicLanding({
+  onStats,
+  onStatus,
+  onRoadmap,
+  onAdminLogin,
+  onUserLogin,
+}) {
+  return (
+    <div className="public-page">
+      <div className="public-topbar">
+        <div className="brand">
+          <div className="brand-icon">H</div>
+
+          <div>
+            <h1>Hjælper</h1>
+            <span>Dashboard</span>
+          </div>
+        </div>
+      </div>
+
+      <main className="public-content">
+        <div className="public-title">
+          <div className="eyebrow">
+            HJÆLPER V2
+          </div>
+
+          <h2>Velkommen til Hjælper</h2>
+
+          <p>
+            Administrer botten, se statistik og få
+            support fra ét samlet dashboard.
+          </p>
+        </div>
+
+        <div className="stats-grid">
+          <button
+            className="stat-card"
+            onClick={onStats}
+            style={{
+              border: "1px solid rgba(255,255,255,0.07)",
+              color: "inherit",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            <span>📊 Statistik</span>
+            <strong>Se statistik</strong>
+          </button>
+
+          <button
+            className="stat-card"
+            onClick={onStatus}
+            style={{
+              border: "1px solid rgba(255,255,255,0.07)",
+              color: "inherit",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            <span>🟢 Status</span>
+            <strong>System status</strong>
+          </button>
+
+          <button
+            className="stat-card"
+            onClick={onRoadmap}
+            style={{
+              border: "1px solid rgba(255,255,255,0.07)",
+              color: "inherit",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            <span>🗺️ Roadmap</span>
+            <strong>Se roadmap</strong>
+          </button>
+        </div>
+
+        <div
+          className="public-info-box"
+          style={{ marginTop: "25px" }}
+        >
+          <div className="eyebrow">
+            LOGIN
+          </div>
+
+          <h3>Log ind med Discord</h3>
+
+          <p>
+            Vælg den login-type, du skal bruge.
+            Staff får adgang til Admin Panel, mens
+            almindelige brugere får adgang til deres
+            bruger-dashboard.
+          </p>
+
+          <button
+            className="login"
+            style={{
+              marginTop: "20px",
+              minHeight: "60px",
+            }}
+            onClick={onAdminLogin}
+          >
+            <span>
+              <span className="discord-icon">
+                🛡️
+              </span>
+
+              <strong>
+                Admin Login med Discord
+              </strong>
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <button
+            className="login secondary-login"
+            style={{
+              minHeight: "60px",
+            }}
+            onClick={onUserLogin}
+          >
+            <span>
+              <span className="discord-icon">
+                👤
+              </span>
+
+              <strong>
+                Bruger Login med Discord
+              </strong>
+            </span>
+
+            <span>→</span>
+          </button>
+        </div>
+
+        <div className="login-footer">
+          Hjælper · 2026
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ======================================================
+   PUBLIC LAYOUT
+====================================================== */
+
+function PublicLayout({
+  title,
+  onBack,
+  children,
+}) {
+  return (
+    <div className="public-page">
+      <div className="public-topbar">
+        <div className="brand">
+          <div className="brand-icon">H</div>
+
+          <div>
+            <h1>Hjælper</h1>
+            <span>{title}</span>
+          </div>
+        </div>
+
+        <button
+          className="back-button"
+          onClick={onBack}
+        >
+          ← Tilbage
+        </button>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+/* ======================================================
+   PUBLIC STATS
+====================================================== */
+
+function PublicStats({
+  stats,
+  lastUpdated,
+}) {
+  const data = stats || {};
+
+  const values = [
+    [
+      "🤖 Bot status",
+      data.bot_online === false
+        ? "Offline"
+        : "Online",
+    ],
+    [
+      "🖥️ Servere",
+      data.servers ??
+      data.server_count ??
+      data.guilds ??
+      0,
+    ],
+    [
+      "👥 Brugere",
+      data.users ??
+      data.user_count ??
+      data.total_users ??
+      0,
+    ],
+    [
+      "💬 Commands",
+      data.commands ??
+      data.command_count ??
+      0,
+    ],
+  ];
+
+  return (
+    <div className="public-content">
+      <div className="public-title">
+        <div className="eyebrow">
+          STATISTIK
+        </div>
+
+        <h2>Hjælper statistik</h2>
+
+        <p>
+          Aktuel offentlig statistik for Hjælper.
+        </p>
+      </div>
+
+      <div className="stats-grid">
+        {values.map(([label, value]) => (
+          <div
+            className="stat-card"
+            key={label}
+          >
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="last-updated">
+        Sidst opdateret{" "}
+        {lastUpdated
+          ? lastUpdated.toLocaleTimeString("da-DK")
+          : "—"}
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   PUBLIC STATUS
+====================================================== */
+
+function PublicStatus({
+  status,
+}) {
+  const online =
+    status?.bot_online !== false &&
+    status?.online !== false;
+
+  return (
+    <div className="public-content">
+      <div className="public-title">
+        <div className="eyebrow">
+          STATUS
+        </div>
+
+        <h2>System status</h2>
+
+        <p>
+          Se den aktuelle status for Hjælper.
+        </p>
+      </div>
+
+      <div className="public-status-grid">
+        <div className="public-status-card">
+          <div className="status-icon">
+            🤖
+          </div>
+
+          <div>
+            <span>Discord bot</span>
+
+            <strong
+              className={
+                online
+                  ? "status-online"
+                  : "status-offline"
+              }
+            >
+              {online
+                ? "Online"
+                : "Offline"}
+            </strong>
+          </div>
+        </div>
+
+        <div className="public-status-card">
+          <div className="status-icon">
+            🌐
+          </div>
+
+          <div>
+            <span>Dashboard API</span>
+
+            <strong className="status-online">
+              Online
+            </strong>
+          </div>
+        </div>
+
+        <div className="public-status-card">
+          <div className="status-icon">
+            🔐
+          </div>
+
+          <div>
+            <span>Discord OAuth</span>
+
+            <strong className="status-online">
+              Online
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="public-info-box">
+        <h3>
+          {online
+            ? "Alle systemer ser gode ud"
+            : "Botten er offline"}
+        </h3>
+
+        <p>
+          {online
+            ? "Hjælper-dashboardet og de vigtigste services svarer normalt."
+            : "Discord-botten ser ud til at være offline lige nu."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   DASHBOARD LAYOUT
+====================================================== */
+
+function DashboardLayout({
+  user,
+  roleLabel,
+  page,
+  setPage,
+  onLogout,
+  children,
+  staffMode,
+  userMode,
+  isOwner,
+  isManager,
+}) {
+  const staffItems = [
+    ["admin", "🏠", "Admin Panel"],
+    ["stats", "📊", "Statistik"],
+    ["status", "🟢", "Status"],
+    ["bot", "🤖", "Bot"],
+    ["cogs", "🧩", "Cogs"],
+    ["servers", "🖥️", "Servere"],
+    ["tickets", "🎫", "Tickets"],
+    ["roadmap", "🗺️", "Roadmap"],
+    ["logs", "📜", "Logs"],
+  ];
+
+  if (isOwner || isManager) {
+    staffItems.push([
+      "system",
+      "⚙️",
+      "System",
+    ]);
+  }
+
+  staffItems.push([
+    "account",
+    "👤",
+    "Konto",
+  ]);
+
+  const userItems = [
+    ["dashboard", "🏠", "Dashboard"],
+    ["stats", "📊", "Statistik"],
+    ["status", "🟢", "Status"],
+    ["roadmap", "🗺️", "Roadmap"],
+    ["support", "🛟", "Support"],
+    ["account", "👤", "Konto"],
+  ];
+
+  const items = staffMode
+    ? staffItems
+    : userItems;
+
+  const currentTitle =
+    items.find(
+      ([key]) => key === page
+    )?.[2] || "Dashboard";
+
+  return (
+    <div className="dashboard">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-icon">
+            H
+          </div>
+
+          <div>
+            <h2>Hjælper</h2>
+            <span>
+              {staffMode
+                ? "Admin Dashboard"
+                : "Bruger Dashboard"}
+            </span>
+          </div>
+        </div>
+
+        <nav>
+          {items.map(
+            ([key, icon, label]) => (
+              <button
+                key={key}
+                className={
+                  `nav-item ${
+                    page === key
+                      ? "active"
+                      : ""
+                  }`
+                }
+                onClick={() => {
+                  setPage(key);
+                }}
+              >
+                <span>{icon}</span>
+                <span>{label}</span>
+              </button>
+            )
+          )}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="user-mini">
+            <UserAvatar user={user} />
+
+            <div className="user-info">
+              <strong>
+                {user?.username ||
+                  user?.global_name ||
+                  "Bruger"}
+              </strong>
+
+              <span>
+                {roleLabel}
+              </span>
+            </div>
+          </div>
+
+          <button
+            className="logout-button"
+            onClick={onLogout}
+          >
+            ↪ Log ud
+          </button>
+        </div>
+      </aside>
+
+      <main className="main">
+        <header className="topbar">
+          <div>
+            <h1>{currentTitle}</h1>
+            <span>
+              Hjælper Dashboard
+            </span>
+          </div>
+
+          <div className="topbar-user">
+            {roleLabel}
+          </div>
+        </header>
+
+        <div className="content">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ======================================================
+   USER DASHBOARD
+====================================================== */
+
+function UserDashboard({
+  user,
+  tickets,
+  onSupport,
+}) {
+  const openTickets = tickets.filter(
+    (ticket) =>
+      ticket.status !== "closed"
+  ).length;
+
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          DASHBOARD
+        </div>
+
+        <h2>
+          Hej{" "}
+          {user?.username ||
+            user?.global_name ||
+            "Bruger"} 👋
+        </h2>
+
+        <p>
+          Velkommen tilbage til Hjælper.
+        </p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span>🎫 Mine tickets</span>
+          <strong>
+            {tickets.length}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <span>🟢 Åbne tickets</span>
+          <strong>
+            {openTickets}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <span>🔐 Login</span>
+          <strong>
+            Discord
+          </strong>
+        </div>
+      </div>
+
+      <div
+        className="public-info-box"
+        style={{
+          marginTop: "20px",
+        }}
+      >
+        <h3>
+          Har du brug for hjælp?
+        </h3>
+
+        <p>
+          Opret en support-ticket, hvis du
+          har brug for hjælp med Hjælper.
+        </p>
+
+        <button
+          className="primary-button"
+          style={{
+            marginTop: "15px",
+          }}
+          onClick={onSupport}
+        >
+          🛟 Åbn Support
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   DASHBOARD PUBLIC STATS
+====================================================== */
+
+function DashboardPublicStats({
+  stats,
+}) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          STATISTIK
+        </div>
+
+        <h2>Statistik</h2>
+
+        <p>
+          Offentlig statistik for Hjælper.
+        </p>
+      </div>
+
+      <PublicStats
+        stats={stats}
+      />
+    </div>
+  );
+}
+
+/* ======================================================
+   DASHBOARD STATUS
+====================================================== */
+
+function DashboardPublicStatus({
+  status,
+}) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          STATUS
+        </div>
+
+        <h2>Status</h2>
+
+        <p>
+          Aktuel status for Hjælper.
+        </p>
+      </div>
+
+      <PublicStatus
+        status={status}
+      />
+    </div>
+  );
+}
+
+/* ======================================================
+   ADMIN PANEL
+====================================================== */
+
+function AdminPanel({
+  user,
+  stats,
+  servers,
+  cogs,
+  tickets,
+  onStats,
+  onServers,
+  onCogs,
+  onTickets,
+  onPage,
+}) {
+  const openTickets = tickets.filter(
+    (ticket) =>
+      ticket.status !== "closed"
+  ).length;
+
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          ADMIN PANEL
+        </div>
+
+        <h2>
+          Velkommen,{" "}
+          {user?.username ||
+            "Admin"} 👋
+        </h2>
+
+        <p>
+          Administrer Hjælper fra dette panel.
+        </p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span>🖥️ Servere</span>
+          <strong>
+            {servers.length}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <span>🧩 Cogs</span>
+          <strong>
+            {cogs.length}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <span>🎫 Åbne tickets</span>
+          <strong>
+            {openTickets}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <span>📊 Bot status</span>
+          <strong>
+            {stats?.bot_online === false
+              ? "Offline"
+              : "Online"}
+          </strong>
+        </div>
+      </div>
+
+      <div
+        className="public-info-box"
+        style={{
+          marginTop: "20px",
+        }}
+      >
+        <h3>
+          Hurtige handlinger
+        </h3>
+
+        <p>
+          Gå direkte til de vigtigste dele
+          af admin-panelet.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px",
+            marginTop: "16px",
+          }}
+        >
+          <button
+            className="primary-button"
+            onClick={() => {
+              onStats();
+              onPage("stats");
+            }}
+          >
+            📊 Statistik
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={() => {
+              onServers();
+              onPage("servers");
+            }}
+          >
+            🖥️ Servere
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={() => {
+              onCogs();
+              onPage("cogs");
+            }}
+          >
+            🧩 Cogs
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={() => {
+              onTickets();
+              onPage("tickets");
+            }}
+          >
+            🎫 Tickets
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   STAFF STATS
+====================================================== */
+
+function StaffStats({
+  stats,
+  publicStats,
+}) {
+  const data = stats || {};
+  const publicData = publicStats || {};
+
+  const values = [
+    [
+      "🤖 Bot status",
+      data.bot_online === false
+        ? "Offline"
+        : "Online",
+    ],
+    [
+      "🖥️ Servere",
+      data.servers ??
+      data.server_count ??
+      publicData.servers ??
+      0,
+    ],
+    [
+      "👥 Brugere",
+      data.users ??
+      data.user_count ??
+      publicData.users ??
+      0,
+    ],
+    [
+      "💬 Commands",
+      data.commands ??
+      data.command_count ??
+      publicData.commands ??
+      0,
+    ],
+    [
+      "🧩 Cogs",
+      data.cogs ??
+      data.cog_count ??
+      0,
+    ],
+    [
+      "⏱️ Uptime",
+      data.uptime ??
+      "—",
+    ],
+  ];
+
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          STATISTIK
+        </div>
+
+        <h2>Bot statistik</h2>
+
+        <p>
+          Statistik og information om Hjælper.
+        </p>
+      </div>
+
+      <div className="stats-grid">
+        {values.map(
+          ([label, value]) => (
+            <div
+              className="stat-card"
+              key={label}
+            >
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   BOT
+====================================================== */
+
+function BotPage({
+  stats,
+  publicStats,
+}) {
+  const online =
+    stats?.bot_online !== false;
+
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          BOT
+        </div>
+
+        <h2>Hjælper bot</h2>
+
+        <p>
+          Information om den aktive Discord-bot.
+        </p>
+      </div>
+
+      <div className="info-card">
+        <div>
+          <span>Status</span>
+          <strong>
+            {online
+              ? "🟢 Online"
+              : "🔴 Offline"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Navn</span>
+          <strong>
+            {stats?.bot_name ||
+              "Hjælper"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Servers</span>
+          <strong>
+            {stats?.servers ??
+              publicStats?.servers ??
+              0}
+          </strong>
+        </div>
+
+        <div>
+          <span>Activity</span>
+          <strong>
+            Playing Hjælper servere
+          </strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   COGS
+====================================================== */
+
+function CogsPage({
+  cogs,
+  onReload,
+}) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          COGS
+        </div>
+
+        <h2>Bot Cogs</h2>
+
+        <p>
+          Se alle loaded bot-moduler.
+        </p>
+      </div>
+
+      <div
+        style={{
+          marginBottom: "15px",
+        }}
+      >
+        <button
+          className="primary-button"
+          onClick={onReload}
+        >
+          🔄 Genindlæs Cogs
+        </button>
+      </div>
+
+      <div className="list-card">
+        {cogs.length === 0 ? (
+          <div className="empty">
+            Ingen cogs fundet.
+          </div>
+        ) : (
+          cogs.map((cog, index) => {
+            const name =
+              typeof cog === "string"
+                ? cog
+                : cog?.name ||
+                  cog?.cog ||
+                  `Cog ${index + 1}`;
+
+            const status =
+              typeof cog === "object"
+                ? cog?.status ||
+                  "Loaded"
+                : "Loaded";
+
+            return (
+              <div
+                className="list-row"
+                key={`${name}-${index}`}
+              >
+                <span>🧩</span>
+
+                <strong>{name}</strong>
+
+                <span>
+                  {status}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   SERVERS
+====================================================== */
+
+function ServersPage({
+  servers,
+  onSelect,
+}) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          SERVER MANAGEMENT
+        </div>
+
+        <h2>Servere</h2>
+
+        <p>
+          Servere hvor Hjælper er tilføjet.
+        </p>
+      </div>
+
+      <div className="list-card">
+        {servers.length === 0 ? (
+          <div className="empty">
+            Ingen servere fundet.
+          </div>
+        ) : (
+          servers.map(
+            (server, index) => {
+              const guildId =
+                server.id ||
+                server.guild_id;
+
+              const name =
+                server.name ||
+                server.guild_name ||
+                "Ukendt server";
+
+              const members =
+                server.members ??
+                server.member_count ??
+                0;
+
+              const icon =
+                server.icon ||
+                server.icon_url;
+
+              return (
+                <button
+                  className="server-row"
+                  key={
+                    guildId ||
+                    `${name}-${index}`
+                  }
+                  onClick={() =>
+                    onSelect(server)
+                  }
+                >
+                  <div className="server-icon">
+                    {icon ? (
+                      <img
+                        src={icon}
+                        alt=""
+                      />
+                    ) : (
+                      "🖥️"
+                    )}
+                  </div>
+
+                  <div className="server-main">
+                    <strong>
+                      {name}
+                    </strong>
+
+                    <small>
+                      {guildId ||
+                        "Ukendt ID"}
+                    </small>
+                  </div>
+
+                  <div className="server-members">
+                    👥 {members}
+                  </div>
+
+                  <div className="server-arrow">
+                    →
+                  </div>
+                </button>
+              );
+            }
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   SERVER DETAILS
+====================================================== */
+
+function ServerDetails({
+  server,
+  onBack,
+  onLeave,
+}) {
+  const name =
+    server?.name ||
+    server?.guild_name ||
+    "Ukendt server";
+
+  const id =
+    server?.id ||
+    server?.guild_id ||
+    "Ukendt";
+
+  const members =
+    server?.members ??
+    server?.member_count ??
+    0;
+
+  const owner =
+    server?.owner ||
+    server?.owner_name ||
+    "Ukendt";
+
+  const icon =
+    server?.icon ||
+    server?.icon_url;
+
+  return (
+    <div className="server-details-page">
+      <button
+        className="back-button"
+        onClick={onBack}
+      >
+        ← Alle servere
+      </button>
+
+      <div className="server-hero">
+        <div className="server-hero-icon">
+          {icon ? (
+            <img
+              src={icon}
+              alt=""
+            />
+          ) : (
+            "🖥️"
+          )}
+        </div>
+
+        <div className="server-hero-info">
+          <div className="eyebrow">
+            DISCORD SERVER
+          </div>
+
+          <h2>{name}</h2>
+
+          <p>
+            Server ID: {id}
+          </p>
+        </div>
+      </div>
+
+      <div className="server-detail-grid">
+        <div className="server-detail-card">
+          <span>👥 Medlemmer</span>
+          <strong>{members}</strong>
+        </div>
+
+        <div className="server-detail-card">
+          <span>👑 Ejer</span>
+          <strong>{owner}</strong>
+        </div>
+
+        <div className="server-detail-card">
+          <span>🆔 Server ID</span>
+          <strong className="server-id">
+            {id}
+          </strong>
+        </div>
+      </div>
+
+      <div className="server-danger-card">
+        <div>
+          <div className="eyebrow">
+            DANGER ZONE
+          </div>
+
+          <h3>
+            Forlad server
+          </h3>
+
+          <p>
+            Dette får Hjælper til at forlade
+            serveren. Handlingen kan ikke
+            fortrydes fra dashboardet.
+          </p>
+        </div>
+
+        <button
+          className="danger-button"
+          onClick={() =>
+            onLeave(id)
+          }
+        >
+          Forlad server
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   SUPPORT / TICKETS
+====================================================== */
+
+function SupportPage({
+  tickets,
+  selectedTicket,
+  onOpenTicket,
+  onCreateTicket,
+  ticketSubject,
+  setTicketSubject,
+  ticketMessage,
+  setTicketMessage,
+  replyMessage,
+  setReplyMessage,
+  onReply,
+  onClose,
+  onBack,
+  staff,
+}) {
+  if (selectedTicket) {
+    return (
+      <TicketDetails
+        ticket={selectedTicket}
+        staff={staff}
+        replyMessage={replyMessage}
+        setReplyMessage={setReplyMessage}
+        onReply={onReply}
+        onClose={onClose}
+        onBack={onBack}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          {staff
+            ? "TICKETS"
+            : "SUPPORT"}
+        </div>
+
+        <h2>
+          {staff
+            ? "Alle tickets"
+            : "Support"}
+        </h2>
+
+        <p>
+          {staff
+            ? "Se og håndter alle supporttickets."
+            : "Opret og administrer dine supporttickets."}
+        </p>
+      </div>
+
+      <div
+        className={
+          staff
+            ? "support-grid"
+            : "support-grid"
+        }
+      >
+        {!staff &&
+          onCreateTicket && (
+            <form
+              className="account-card"
+              onSubmit={onCreateTicket}
+            >
+              <div className="account-card-title">
+                <div>
+                  <div className="eyebrow">
+                    NY TICKET
+                  </div>
+
+                  <h3>
+                    Opret ticket
+                  </h3>
+                </div>
+              </div>
+
+              <label>
+                Emne
+              </label>
+
+              <input
+                value={ticketSubject}
+                onChange={(event) =>
+                  setTicketSubject(
+                    event.target.value
+                  )
+                }
+                placeholder="Hvad har du brug for hjælp til?"
+                maxLength={100}
+              />
+
+              <label>
+                Besked
+              </label>
+
+              <textarea
+                value={ticketMessage}
+                onChange={(event) =>
+                  setTicketMessage(
+                    event.target.value
+                  )
+                }
+                placeholder="Beskriv dit problem..."
+                maxLength={3000}
+              />
+
+              <div className="character-count">
+                {ticketMessage.length}/3000
+              </div>
+
+              <button
+                className="primary-button"
+                type="submit"
+              >
+                🎫 Opret ticket
+              </button>
+            </form>
+          )}
+
+        <div className="account-card">
+          <div className="account-card-title">
+            <div>
+              <div className="eyebrow">
+                {staff
+                  ? "SUPPORT"
+                  : "MINE TICKETS"}
+              </div>
+
+              <h3>
+                {staff
+                  ? "Tickets"
+                  : "Mine tickets"}
+              </h3>
+            </div>
+          </div>
+
+          <div className="support-ticket-list">
+            {tickets.length === 0 ? (
+              <div className="empty">
+                {staff
+                  ? "Der er ingen tickets."
+                  : "Du har ingen tickets endnu."}
+              </div>
+            ) : (
+              tickets.map(
+                (ticket) => (
+                  <button
+                    key={ticket.id}
+                    className="ticket-card"
+                    onClick={() =>
+                      onOpenTicket(ticket)
+                    }
+                    style={{
+                      width: "100%",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      color: "inherit",
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div className="ticket-top">
+                      <strong>
+                        #{ticket.id}
+                      </strong>
+
+                      <span
+                        className={
+                          ticket.status ===
+                          "closed"
+                            ? "ticket-closed"
+                            : "ticket-open"
+                        }
+                      >
+                        {ticket.status ===
+                        "closed"
+                          ? "Lukket"
+                          : ticket.status ===
+                            "answered"
+                            ? "Besvaret"
+                            : "Åben"}
+                      </span>
+                    </div>
+
+                    <h4>
+                      {ticket.subject}
+                    </h4>
+
+                    <p>
+                      {ticket.message}
+                    </p>
+
+                    {staff && (
+                      <small>
+                        👤{" "}
+                        {ticket.username ||
+                          ticket.user_id}
+                      </small>
+                    )}
+
+                    <br />
+
+                    <small>
+                      {ticket.created_at ||
+                        ""}
+                    </small>
+                  </button>
+                )
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   TICKET DETAILS
+====================================================== */
+
+function TicketDetails({
+  ticket,
+  staff,
+  replyMessage,
+  setReplyMessage,
+  onReply,
+  onClose,
+  onBack,
+}) {
+  const replies =
+    Array.isArray(ticket?.replies)
+      ? ticket.replies
+      : [];
+
+  return (
+    <div>
+      <button
+        className="back-button"
+        onClick={onBack}
+        style={{
+          marginBottom: "20px",
+        }}
+      >
+        ←{" "}
+        {staff
+          ? "Alle tickets"
+          : "Mine tickets"}
+      </button>
+
+      <div className="page-heading">
+        <div className="eyebrow">
+          TICKET #{ticket?.id}
+        </div>
+
+        <h2>
+          {ticket?.subject ||
+            "Support ticket"}
+        </h2>
+
+        <p>
+          {ticket?.username
+            ? `Oprettet af ${ticket.username}`
+            : "Support samtale"}
+        </p>
+      </div>
+
+      <div className="account-card">
+        <div className="ticket-card">
+          <div className="ticket-top">
+            <strong>
+              👤{" "}
+              {ticket?.username ||
+                ticket?.user_id ||
+                "Bruger"}
+            </strong>
+
+            <span
+              className={
+                ticket?.status ===
+                "closed"
+                  ? "ticket-closed"
+                  : "ticket-open"
+              }
+            >
+              {ticket?.status ===
+              "closed"
+                ? "Lukket"
+                : ticket?.status ===
+                  "answered"
+                  ? "Besvaret"
+                  : "Åben"}
+            </span>
+          </div>
+
+          <h4>
+            {ticket?.subject}
+          </h4>
+
+          <p>
+            {ticket?.message}
+          </p>
+
+          <small>
+            {ticket?.created_at || ""}
+          </small>
+        </div>
+
+        {replies.length > 0 && (
+          <div
+            style={{
+              marginTop: "15px",
+              display: "grid",
+              gap: "10px",
+            }}
+          >
+            {replies.map(
+              (reply) => (
+                <div
+                  className="ticket-card"
+                  key={reply.id}
+                >
+                  <div className="ticket-top">
+                    <strong>
+                      {reply.username ||
+                        "Bruger"}
+                    </strong>
+
+                    <span>
+                      {reply.role_name ||
+                        reply.role ||
+                        ""}
+                    </span>
+                  </div>
+
+                  <p>
+                    {reply.message}
+                  </p>
+
+                  <small>
+                    {reply.created_at ||
+                      ""}
+                  </small>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
+        {ticket?.status !== "closed" && (
+          <>
+            <div
+              className="account-subtitle"
+            >
+              Svar på ticket
+            </div>
+
+            <textarea
+              value={replyMessage}
+              onChange={(event) =>
+                setReplyMessage(
+                  event.target.value
+                )
+              }
+              placeholder="Skriv dit svar..."
+              style={{
+                width: "100%",
+                minHeight: "120px",
+                padding: "13px",
+                borderRadius: "10px",
+                border:
+                  "1px solid rgba(255,255,255,0.08)",
+                background: "#0d121c",
+                color: "white",
+                resize: "vertical",
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginTop: "12px",
+              }}
+            >
+              <button
+                className="primary-button"
+                onClick={() =>
+                  onReply(ticket.id)
+                }
+              >
+                💬 Send svar
+              </button>
+
+              <button
+                className="secondary-button"
+                onClick={() =>
+                  onClose(ticket.id)
+                }
+              >
+                🔒 Luk ticket
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   ROADMAP
+====================================================== */
+
+function Roadmap() {
+  const items = [
+    {
+      version: "V2.0",
+      title: "Dashboard",
+      status: "I gang",
+      active: true,
+      tasks: [
+        "Discord OAuth login",
+        "Admin dashboard",
+        "Bruger dashboard",
+        "Statistik",
+        "Status",
+      ],
+    },
+    {
+      version: "V2.1",
+      title: "Support",
+      status: "I gang",
+      active: true,
+      tasks: [
+        "Support tickets",
+        "Ticket svar",
+        "Admin ticket management",
+        "Ticket historik",
+      ],
+    },
+    {
+      version: "V2.2",
+      title: "Bot Management",
+      status: "Planlagt",
+      active: false,
+      tasks: [
+        "Cogs management",
+        "Server management",
+        "Flere bot-statistikker",
+        "Systemværktøjer",
+      ],
+    },
+    {
+      version: "V3.0",
+      title: "Mere",
+      status: "Planlagt",
+      active: false,
+      tasks: [
+        "Flere dashboard features",
+        "Flere integrationer",
+        "Optimeringer",
+        "Nye Hjælper features",
+      ],
+    },
+  ];
+
+  return (
+    <div className="roadmap">
+      <div className="public-title">
+        <div className="eyebrow">
+          ROADMAP
+        </div>
+
+        <h2>
+          Hvad kommer der?
+        </h2>
+
+        <p>
+          Planen for udviklingen af Hjælper.
+        </p>
+      </div>
+
+      {items.map(
+        (item) => (
+          <div
+            className={
+              `roadmap-card ${
+                item.active
+                  ? "active"
+                  : ""
+              }`
+            }
+            key={item.version}
+          >
+            <div className="roadmap-header">
+              <div>
+                <div className="roadmap-version">
+                  {item.version}
+                </div>
+
+                <h2>
+                  {item.title}
+                </h2>
+              </div>
+
+              <div
+                className={
+                  `roadmap-status ${
+                    item.active
+                      ? "active"
+                      : ""
+                  }`
+                }
+              >
+                {item.status}
+              </div>
+            </div>
+
+            <div className="roadmap-items">
+              {item.tasks.map(
+                (task) => (
+                  <div key={task}>
+                    {item.active
+                      ? "✓"
+                      : "○"}{" "}
+                    {task}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )
+      )}
+
+      <div className="roadmap-note">
+        Roadmapen kan ændre sig under udviklingen.
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   LOGS
+====================================================== */
+
+function LogsPage() {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          LOGS
+        </div>
+
+        <h2>System logs</h2>
+
+        <p>
+          Seneste dashboard-information.
+        </p>
+      </div>
+
+      <div className="list-card">
+        <div className="list-row">
+          <span>🔐</span>
+
+          <strong>
+            Discord OAuth er aktiv
+          </strong>
+
+          <span>
+            Login
+          </span>
+        </div>
+
+        <div className="list-row">
+          <span>🌐</span>
+
+          <strong>
+            Dashboard API er online
+          </strong>
+
+          <span>
+            API
+          </span>
+        </div>
+
+        <div className="list-row">
+          <span>🤖</span>
+
+          <strong>
+            Hjælper bot system aktivt
+          </strong>
+
+          <span>
+            Bot
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   SYSTEM
+====================================================== */
+
+function SystemPage({
+  user,
+  security,
+}) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          SYSTEM
+        </div>
+
+        <h2>System</h2>
+
+        <p>
+          Information om dashboard-systemet.
+        </p>
+      </div>
+
+      <div className="info-card">
+        <div>
+          <span>Dashboard</span>
+          <strong>
+            Hjælper V2
+          </strong>
+        </div>
+
+        <div>
+          <span>API</span>
+          <strong>
+            Online
+          </strong>
+        </div>
+
+        <div>
+          <span>Din rolle</span>
+          <strong>
+            {user?.role_name ||
+              (user?.role === "owner"
+                ? "Ejer"
+                : user?.role === "manager"
+                  ? "Manager"
+                  : "Admin")}
+          </strong>
+        </div>
+
+        <div>
+          <span>Sessions</span>
+          <strong>
+            {security?.active_sessions ??
+              "—"}
+          </strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   ACCOUNT
+====================================================== */
+
+function AccountPage({
+  user,
+  account,
+  security,
+  sessions,
+  loginHistory,
+  connected,
+  profileUsername,
+  setProfileUsername,
+  onSaveProfile,
+  onLogoutAll,
+  onDeleteSession,
+  onDeleteAccount,
+}) {
+  const avatar =
+    user?.avatar_url ||
+    user?.avatar ||
+    account?.avatar_url ||
+    account?.avatar;
+
+  const username =
+    user?.username ||
+    user?.global_name ||
+    account?.username ||
+    "Bruger";
+
+  const userId =
+    user?.id ||
+    account?.id ||
+    account?.user_id ||
+    "Ukendt";
+
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">
+          KONTO
+        </div>
+
+        <h2>Din konto</h2>
+
+        <p>
+          Administrer din profil og sikkerhed.
+        </p>
+      </div>
+
+      <div className="account-grid">
+        <div className="account-profile-card">
+          <div className="large-avatar">
+            {avatar ? (
+              <img
+                src={avatar}
+                alt=""
+              />
+            ) : (
+              "👤"
+            )}
+          </div>
+
+          <div className="account-profile-info">
+            <div className="eyebrow">
+              DISCORD
+            </div>
+
+            <h3>{username}</h3>
+
+            <p>
+              {user?.role === "owner"
+                ? "👑 Ejer"
+                : user?.role === "manager"
+                  ? "💼 Manager"
+                  : user?.role === "admin"
+                    ? "🛡️ Admin"
+                    : "👤 Bruger"}
+            </p>
+
+            <small>
+              ID: {userId}
+            </small>
+          </div>
+        </div>
+
+        <form
+          className="account-card"
+          onSubmit={onSaveProfile}
+        >
+          <div className="account-card-title">
+            <div>
+              <div className="eyebrow">
+                PROFIL
+              </div>
+
+              <h3>
+                Profiloplysninger
+              </h3>
+            </div>
+          </div>
+
+          <label>
+            Brugernavn
+          </label>
+
+          <input
+            value={profileUsername}
+            onChange={(event) =>
+              setProfileUsername(
+                event.target.value
+              )
+            }
+            maxLength={100}
+          />
+
+          <button
+            className="primary-button"
+            type="submit"
+          >
+            Gem ændringer
+          </button>
+        </form>
+      </div>
+
+      <div className="account-card">
+        <div className="account-card-title">
+          <div>
+            <div className="eyebrow">
+              CONNECTED ACCOUNTS
+            </div>
+
+            <h3>
+              Forbundne konti
+            </h3>
+          </div>
+        </div>
+
+        <div className="connected-account">
+          <div className="connected-icon">
+            💜
+          </div>
+
+          <div className="connected-main">
+            <strong>
+              Discord
+            </strong>
+
+            <span>
+              {username}
+            </span>
+          </div>
+
+          <div className="connected-status">
+            Forbundet
+          </div>
+        </div>
+
+        {connected &&
+          Array.isArray(
+            connected.accounts
+          ) &&
+          connected.accounts.map(
+            (item, index) => (
+              <div
+                className="connected-account"
+                key={index}
+                style={{
+                  marginTop: "8px",
+                }}
+              >
+                <div className="connected-icon">
+                  🔗
+                </div>
+
+                <div className="connected-main">
+                  <strong>
+                    {item.name ||
+                      item.provider ||
+                      "Account"}
+                  </strong>
+
+                  <span>
+                    {item.username ||
+                      item.email ||
+                      ""}
+                  </span>
+                </div>
+
+                <div className="connected-status">
+                  Forbundet
+                </div>
+              </div>
+            )
+          )}
+      </div>
+
+      <div className="account-card">
+        <div className="account-card-title">
+          <div>
+            <div className="eyebrow">
+              SECURITY
+            </div>
+
+            <h3>
+              Sikkerhed
+            </h3>
+          </div>
+        </div>
+
+        <div className="info-card">
+          <div>
+            <span>
+              Aktive sessions
+            </span>
+
+            <strong>
+              {security?.active_sessions ??
+                sessions.length}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Sidste login
+            </span>
+
+            <strong>
+              {security?.last_login ||
+                "—"}
+            </strong>
+          </div>
+        </div>
+
+        <button
+          className="secondary-button"
+          style={{
+            marginTop: "15px",
+          }}
+          onClick={onLogoutAll}
+        >
+          🔒 Log ud af andre sessions
+        </button>
+      </div>
+
+      <div className="account-card">
+        <div className="account-card-title">
+          <div>
+            <div className="eyebrow">
+              SESSIONS
+            </div>
+
+            <h3>
+              Aktive sessions
+            </h3>
+          </div>
+        </div>
+
+        <div className="session-list">
+          {sessions.length === 0 ? (
+            <div className="empty">
+              Ingen sessions fundet.
+            </div>
+          ) : (
+            sessions.map(
+              (session, index) => (
+                <div
+                  className="session-row"
+                  key={
+                    session.id ||
+                    session.session_id ||
+                    index
+                  }
+                >
+                  <div className="session-icon">
+                    💻
+                  </div>
+
+                  <div className="session-main">
+                    <strong>
+                      {session.device ||
+                        session.browser ||
+                        "Browser"}
+                    </strong>
+
+                    <span>
+                      {session.ip ||
+                        "IP skjult"}
+                    </span>
+
+                    <small>
+                      {session.created_at ||
+                        session.last_active ||
+                        ""}
+                    </small>
+                  </div>
+
+                  {session.current ? (
+                    <span className="session-current">
+                      Denne session
+                    </span>
+                  ) : (
+                    <button
+                      className="secondary-button small-button"
+                      onClick={() =>
+                        onDeleteSession(
+                          session.id ||
+                          session.session_id
+                        )
+                      }
+                    >
+                      Fjern
+                    </button>
+                  )}
+                </div>
+              )
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="account-card">
+        <div className="account-card-title">
+          <div>
+            <div className="eyebrow">
+              LOGIN HISTORY
+            </div>
+
+            <h3>
+              Login historik
+            </h3>
+          </div>
+        </div>
+
+        <div className="login-history">
+          {loginHistory.length === 0 ? (
+            <div className="empty">
+              Ingen loginhistorik fundet.
+            </div>
+          ) : (
+            loginHistory.map(
+              (item, index) => (
+                <div
+                  className="history-row"
+                  key={
+                    item.id ||
+                    index
+                  }
+                >
+                  <div>
+                    <strong>
+                      {item.provider ||
+                        "Discord"}
+                    </strong>
+
+                    <span>
+                      {item.created_at ||
+                        item.timestamp ||
+                        ""}
+                    </span>
+                  </div>
+
+                  <span className="history-success">
+                    {item.success === false
+                      ? "Fejlet"
+                      : "Succes"}
+                  </span>
+                </div>
+              )
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="danger-account-card">
+        <div>
+          <div className="eyebrow">
+            DANGER ZONE
+          </div>
+
+          <h3>
+            Slet konto
+          </h3>
+
+          <p>
+            Dette sletter din dashboard-konto
+            permanent.
+          </p>
+        </div>
+
+        <button
+          className="danger-button"
+          onClick={onDeleteAccount}
+        >
+          Slet konto
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   USER AVATAR
+====================================================== */
+
+function UserAvatar({
+  user,
+}) {
+  const avatar =
+    user?.avatar_url ||
+    user?.avatar;
+
+  return (
+    <div className="user-avatar">
+      {avatar ? (
+        <img
+          src={avatar}
+          alt=""
+        />
+      ) : (
+        "👤"
+      )}
+    </div>
+  );
 }
