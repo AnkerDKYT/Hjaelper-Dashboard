@@ -22,11 +22,26 @@ export default function App() {
 
   const [supportTickets, setSupportTickets] = useState([]);
   const [adminTickets, setAdminTickets] = useState([]);
+
+  const [selectedSupportTicket, setSelectedSupportTicket] =
+    useState(null);
+
   const [selectedTicket, setSelectedTicket] = useState(null);
+
   const [ticketReply, setTicketReply] = useState("");
+  const [supportReply, setSupportReply] = useState("");
+
   const [ticketLoading, setTicketLoading] = useState(false);
+  const [supportTicketLoading, setSupportTicketLoading] =
+    useState(false);
+
   const [ticketError, setTicketError] = useState("");
   const [ticketMessage, setTicketMessage] = useState("");
+
+  const [supportTicketError, setSupportTicketError] =
+    useState("");
+  const [supportTicketMessage, setSupportTicketMessage] =
+    useState("");
 
   const [bio, setBio] = useState("");
   const [supportSubject, setSupportSubject] = useState("");
@@ -36,7 +51,8 @@ export default function App() {
 
   const [serverError, setServerError] = useState("");
   const [accountMessage, setAccountMessage] = useState("");
-  const [supportMessageStatus, setSupportMessageStatus] = useState("");
+  const [supportMessageStatus, setSupportMessageStatus] =
+    useState("");
 
   const isOwner =
     user?.role === "owner" ||
@@ -107,9 +123,12 @@ export default function App() {
 
   async function loadUser() {
     try {
-      const response = await fetch(`${API}/auth/me`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${API}/auth/me`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         setUser(null);
@@ -133,7 +152,11 @@ export default function App() {
         setPage("overview");
       }
     } catch (error) {
-      console.error("Kunne ikke hente bruger:", error);
+      console.error(
+        "Kunne ikke hente bruger:",
+        error
+      );
+
       setUser(null);
       setPage("login");
     } finally {
@@ -143,18 +166,21 @@ export default function App() {
 
   async function loadAdminData() {
     try {
-      const [statsRes, cogsRes, serversRes] =
-        await Promise.all([
-          fetch(`${API}/api/stats`, {
-            credentials: "include",
-          }),
-          fetch(`${API}/api/cogs`, {
-            credentials: "include",
-          }),
-          fetch(`${API}/api/servers`, {
-            credentials: "include",
-          }),
-        ]);
+      const [
+        statsRes,
+        cogsRes,
+        serversRes,
+      ] = await Promise.all([
+        fetch(`${API}/api/stats`, {
+          credentials: "include",
+        }),
+        fetch(`${API}/api/cogs`, {
+          credentials: "include",
+        }),
+        fetch(`${API}/api/servers`, {
+          credentials: "include",
+        }),
+      ]);
 
       if (statsRes.ok) {
         setStats(await statsRes.json());
@@ -170,7 +196,10 @@ export default function App() {
         setServers(data.servers || []);
       }
     } catch (error) {
-      console.error("Fejl ved admin-data:", error);
+      console.error(
+        "Fejl ved admin-data:",
+        error
+      );
     }
   }
 
@@ -187,7 +216,10 @@ export default function App() {
       setPublicStats(data);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error("Public stats fejl:", error);
+      console.error(
+        "Public stats fejl:",
+        error
+      );
     }
   }
 
@@ -199,29 +231,38 @@ export default function App() {
 
       if (!response.ok) return;
 
-      setPublicStatus(await response.json());
+      setPublicStatus(
+        await response.json()
+      );
     } catch (error) {
-      console.error("Public status fejl:", error);
+      console.error(
+        "Public status fejl:",
+        error
+      );
     }
   }
 
   async function loadAccount() {
     try {
-      const [accountRes, securityRes, connectedRes] =
-        await Promise.all([
-          fetch(`${API}/api/account`, {
-            credentials: "include",
-          }),
-          fetch(`${API}/api/account/security`, {
-            credentials: "include",
-          }),
-          fetch(`${API}/api/account/connected`, {
-            credentials: "include",
-          }),
-        ]);
+      const [
+        accountRes,
+        securityRes,
+        connectedRes,
+      ] = await Promise.all([
+        fetch(`${API}/api/account`, {
+          credentials: "include",
+        }),
+        fetch(`${API}/api/account/security`, {
+          credentials: "include",
+        }),
+        fetch(`${API}/api/account/connected`, {
+          credentials: "include",
+        }),
+      ]);
 
       if (accountRes.ok) {
-        const data = await accountRes.json();
+        const data =
+          await accountRes.json();
 
         setAccount(data);
 
@@ -233,11 +274,15 @@ export default function App() {
       }
 
       if (securityRes.ok) {
-        setSecurity(await securityRes.json());
+        setSecurity(
+          await securityRes.json()
+        );
       }
 
       if (connectedRes.ok) {
-        setConnected(await connectedRes.json());
+        setConnected(
+          await connectedRes.json()
+        );
       }
     } catch (error) {
       console.error(
@@ -258,11 +303,34 @@ export default function App() {
 
       if (!response.ok) return;
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       setSupportTickets(
         data.tickets || []
       );
+
+      /*
+       * Hvis brugeren allerede står inde i
+       * en ticket, opdaterer vi også den åbne
+       * ticket med de nyeste messages.
+       */
+      if (selectedSupportTicket) {
+        const updated =
+          (data.tickets || []).find(
+            ticket =>
+              String(ticket.id) ===
+              String(
+                selectedSupportTicket.id
+              )
+          );
+
+        if (updated) {
+          setSelectedSupportTicket(
+            updated
+          );
+        }
+      }
     } catch (error) {
       console.error(
         "Support kunne ikke indlæses:",
@@ -283,16 +351,11 @@ export default function App() {
       );
 
       if (!response.ok) {
-        if (response.status !== 404) {
-          console.error(
-            "Admin tickets kunne ikke hentes:",
-            response.status
-          );
-        }
         return;
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       setAdminTickets(
         data.tickets || []
@@ -326,7 +389,8 @@ export default function App() {
         return;
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       setSelectedTicket(
         data.ticket || data
@@ -345,6 +409,172 @@ export default function App() {
     }
   }
 
+  /*
+   * USER SUPPORT
+   */
+
+  function openSupportTicket(ticket) {
+    setSupportTicketError("");
+    setSupportTicketMessage("");
+    setSupportReply("");
+
+    setSelectedSupportTicket(
+      ticket
+    );
+  }
+
+  function closeSupportView() {
+    setSelectedSupportTicket(null);
+    setSupportReply("");
+    setSupportTicketError("");
+    setSupportTicketMessage("");
+
+    loadSupport();
+  }
+
+  async function replyToSupportTicket(
+    ticketId
+  ) {
+    setSupportTicketError("");
+    setSupportTicketMessage("");
+
+    if (!supportReply.trim()) {
+      setSupportTicketError(
+        "Skriv en besked først."
+      );
+      return;
+    }
+
+    try {
+      setSupportTicketLoading(true);
+
+      const response = await fetch(
+        `${API}/api/support/${ticketId}/reply`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            message:
+              supportReply.trim(),
+          }),
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        setSupportTicketError(
+          data.detail ||
+          "Kunne ikke sende svaret."
+        );
+        return;
+      }
+
+      setSupportReply("");
+
+      setSupportTicketMessage(
+        "✅ Dit svar blev sendt."
+      );
+
+      if (data.ticket) {
+        setSelectedSupportTicket(
+          data.ticket
+        );
+      } else {
+        await loadSupport();
+      }
+
+      await loadSupport();
+    } catch (error) {
+      console.error(
+        "Kunne ikke svare på supportticket:",
+        error
+      );
+
+      setSupportTicketError(
+        "Der opstod en fejl."
+      );
+    } finally {
+      setSupportTicketLoading(false);
+    }
+  }
+
+  async function closeSelectedSupportTicket(
+    ticketId
+  ) {
+    if (
+      !window.confirm(
+        "Vil du lukke denne supportsag?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSupportTicketLoading(true);
+      setSupportTicketError("");
+      setSupportTicketMessage("");
+
+      const response = await fetch(
+        `${API}/api/support/tickets/${ticketId}/close`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        setSupportTicketError(
+          data.detail ||
+          "Kunne ikke lukke sagen."
+        );
+        return;
+      }
+
+      setSupportTicketMessage(
+        "✅ Supportsagen blev lukket."
+      );
+
+      if (data.ticket) {
+        setSelectedSupportTicket(
+          data.ticket
+        );
+      } else {
+        setSelectedSupportTicket(
+          current =>
+            current
+              ? {
+                  ...current,
+                  status: "closed",
+                }
+              : current
+        );
+      }
+
+      await loadSupport();
+    } catch (error) {
+      console.error(error);
+
+      setSupportTicketError(
+        "Der opstod en fejl."
+      );
+    } finally {
+      setSupportTicketLoading(false);
+    }
+  }
+
+  /*
+   * NAVIGATION
+   */
+
   function goToAccount() {
     setPage("account");
     setAccountMessage("");
@@ -354,6 +584,10 @@ export default function App() {
   function goToSupport() {
     setPage("support");
     setSupportMessageStatus("");
+    setSelectedSupportTicket(null);
+    setSupportReply("");
+    setSupportTicketError("");
+    setSupportTicketMessage("");
     loadSupport();
   }
 
@@ -378,10 +612,13 @@ export default function App() {
 
   async function logout() {
     try {
-      await fetch(`${API}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await fetch(
+        `${API}/auth/logout`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
     } catch (error) {
       console.error(error);
     }
@@ -393,11 +630,18 @@ export default function App() {
     setSupportTickets([]);
     setAdminTickets([]);
     setSelectedTicket(null);
+    setSelectedSupportTicket(null);
     setSelectedServer(null);
     setPage("login");
   }
 
-  function getAvatarUrl(targetUser = user) {
+  /*
+   * HELPERS
+   */
+
+  function getAvatarUrl(
+    targetUser = user
+  ) {
     if (!targetUser?.id) {
       return "https://cdn.discordapp.com/embed/avatars/0.png";
     }
@@ -410,12 +654,16 @@ export default function App() {
   }
 
   function getServerIcon(server) {
-    if (!server?.id || !server?.icon) {
+    if (
+      !server?.id ||
+      !server?.icon
+    ) {
       return null;
     }
 
     if (
-      typeof server.icon === "string" &&
+      typeof server.icon ===
+        "string" &&
       server.icon.startsWith("http")
     ) {
       return server.icon;
@@ -432,7 +680,9 @@ export default function App() {
       return "0";
     }
 
-    return Number(value).toLocaleString("da-DK");
+    return Number(value).toLocaleString(
+      "da-DK"
+    );
   }
 
   function formatTime(date) {
@@ -440,16 +690,20 @@ export default function App() {
       return "Ikke opdateret";
     }
 
-    return date.toLocaleTimeString("da-DK", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    return date.toLocaleTimeString(
+      "da-DK",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }
+    );
   }
 
   function getTicketStatus(ticket) {
-    const status =
-      String(ticket?.status || "open").toLowerCase();
+    const status = String(
+      ticket?.status || "open"
+    ).toLowerCase();
 
     if (
       status === "closed" ||
@@ -457,7 +711,8 @@ export default function App() {
     ) {
       return {
         text: "⚪ Lukket",
-        className: "ticket-closed",
+        className:
+          "ticket-closed",
       };
     }
 
@@ -467,13 +722,15 @@ export default function App() {
     ) {
       return {
         text: "🟡 Afventer",
-        className: "ticket-open",
+        className:
+          "ticket-open",
       };
     }
 
     return {
       text: "🟢 Åben",
-      className: "ticket-open",
+      className:
+        "ticket-open",
     };
   }
 
@@ -492,8 +749,9 @@ export default function App() {
 
   function getTicketMessages(ticket) {
     if (
-      Array.isArray(ticket?.messages) &&
-      ticket.messages.length > 0
+      Array.isArray(
+        ticket?.messages
+      )
     ) {
       return ticket.messages;
     }
@@ -532,8 +790,27 @@ export default function App() {
     );
   }
 
-  function getMessageAuthor(message) {
-    if (message?.is_staff) {
+  function isStaffMessage(message) {
+    return (
+      message?.is_staff === true ||
+      message?.staff === true ||
+      message?.author_role ===
+        "admin" ||
+      message?.author_role ===
+        "manager" ||
+      message?.author_role ===
+        "owner" ||
+      message?.author_role ===
+        "staff"
+    );
+  }
+
+  function getMessageAuthor(
+    message
+  ) {
+    if (
+      isStaffMessage(message)
+    ) {
       return (
         message?.author_name ||
         message?.username ||
@@ -550,6 +827,10 @@ export default function App() {
     );
   }
 
+  /*
+   * ACCOUNT
+   */
+
   async function saveProfile() {
     setAccountMessage("");
 
@@ -560,7 +841,8 @@ export default function App() {
           method: "PATCH",
           credentials: "include",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             bio,
@@ -568,7 +850,8 @@ export default function App() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setAccountMessage(
@@ -582,20 +865,22 @@ export default function App() {
         "✅ Profilen er gemt."
       );
 
-      setAccount(current =>
-        current
-          ? {
-              ...current,
-              user: {
-                ...current.user,
-                bio: data.bio,
-              },
-              account: {
-                ...(current.account || {}),
-                bio: data.bio,
-              },
-            }
-          : current
+      setAccount(
+        current =>
+          current
+            ? {
+                ...current,
+                user: {
+                  ...current.user,
+                  bio: data.bio,
+                },
+                account: {
+                  ...(current.account ||
+                    {}),
+                  bio: data.bio,
+                },
+              }
+            : current
       );
     } catch (error) {
       console.error(error);
@@ -616,15 +901,17 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(
-        `${API}/api/account/security/logout-all`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/account/security/logout-all`,
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setAccountMessage(
@@ -635,7 +922,9 @@ export default function App() {
       }
 
       setAccountMessage(
-        `✅ ${data.removed || 0} andre sessions blev logget ud.`
+        `✅ ${
+          data.removed || 0
+        } andre sessions blev logget ud.`
       );
 
       await loadAccount();
@@ -649,28 +938,32 @@ export default function App() {
   }
 
   async function deleteAccount() {
-    const firstConfirm = window.confirm(
-      "Er du sikker på, at du vil slette din Hjælper-konto?"
-    );
+    const firstConfirm =
+      window.confirm(
+        "Er du sikker på, at du vil slette din Hjælper-konto?"
+      );
 
     if (!firstConfirm) return;
 
-    const secondConfirm = window.confirm(
-      "Dette kan ikke fortrydes. Slet kontoen?"
-    );
+    const secondConfirm =
+      window.confirm(
+        "Dette kan ikke fortrydes. Slet kontoen?"
+      );
 
     if (!secondConfirm) return;
 
     try {
-      const response = await fetch(
-        `${API}/api/account`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/account`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setAccountMessage(
@@ -699,6 +992,10 @@ export default function App() {
     }
   }
 
+  /*
+   * CREATE USER TICKET
+   */
+
   async function createSupportTicket() {
     setSupportMessageStatus("");
 
@@ -717,22 +1014,27 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(
-        `${API}/api/support/tickets`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            subject: supportSubject.trim(),
-            message: supportMessage.trim(),
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/support/tickets`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              subject:
+                supportSubject.trim(),
+              message:
+                supportMessage.trim(),
+            }),
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setSupportMessageStatus(
@@ -759,17 +1061,21 @@ export default function App() {
     }
   }
 
-  async function closeSupportTicket(ticketId) {
+  async function closeSupportTicket(
+    ticketId
+  ) {
     try {
-      const response = await fetch(
-        `${API}/api/support/tickets/${ticketId}/close`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/support/tickets/${ticketId}/close`,
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setSupportMessageStatus(
@@ -789,7 +1095,13 @@ export default function App() {
     }
   }
 
-  async function replyToTicket(ticketId) {
+  /*
+   * ADMIN TICKETS
+   */
+
+  async function replyToTicket(
+    ticketId
+  ) {
     setTicketError("");
     setTicketMessage("");
 
@@ -803,21 +1115,25 @@ export default function App() {
     try {
       setTicketLoading(true);
 
-      const response = await fetch(
-        `${API}/api/support/admin/tickets/${ticketId}/reply`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: ticketReply.trim(),
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/support/admin/tickets/${ticketId}/reply`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              message:
+                ticketReply.trim(),
+            }),
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setTicketError(
@@ -828,14 +1144,19 @@ export default function App() {
       }
 
       setTicketReply("");
+
       setTicketMessage(
         "✅ Svaret blev sendt."
       );
 
       if (data.ticket) {
-        setSelectedTicket(data.ticket);
+        setSelectedTicket(
+          data.ticket
+        );
       } else {
-        await loadAdminTicket(ticketId);
+        await loadAdminTicket(
+          ticketId
+        );
       }
 
       await loadAdminTickets();
@@ -853,7 +1174,9 @@ export default function App() {
     }
   }
 
-  async function closeAdminTicket(ticketId) {
+  async function closeAdminTicket(
+    ticketId
+  ) {
     setTicketError("");
     setTicketMessage("");
 
@@ -868,15 +1191,17 @@ export default function App() {
     try {
       setTicketLoading(true);
 
-      const response = await fetch(
-        `${API}/api/support/admin/tickets/${ticketId}/close`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/support/admin/tickets/${ticketId}/close`,
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setTicketError(
@@ -891,17 +1216,18 @@ export default function App() {
       );
 
       if (data.ticket) {
-        setSelectedTicket(data.ticket);
+        setSelectedTicket(
+          data.ticket
+        );
       } else {
-        await loadAdminTicket(ticketId);
+        await loadAdminTicket(
+          ticketId
+        );
       }
 
       await loadAdminTickets();
     } catch (error) {
-      console.error(
-        "Kunne ikke lukke admin ticket:",
-        error
-      );
+      console.error(error);
 
       setTicketError(
         "Der opstod en fejl."
@@ -911,16 +1237,23 @@ export default function App() {
     }
   }
 
-  async function openServer(server) {
+  /*
+   * SERVERS
+   */
+
+  async function openServer(
+    server
+  ) {
     setServerError("");
 
     try {
-      const response = await fetch(
-        `${API}/api/servers`,
-        {
-          credentials: "include",
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/servers`,
+          {
+            credentials: "include",
+          }
+        );
 
       if (!response.ok) {
         setServerError(
@@ -929,7 +1262,8 @@ export default function App() {
         return;
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       const updated =
         (data.servers || []).find(
@@ -938,8 +1272,13 @@ export default function App() {
             String(server.id)
         ) || server;
 
-      setSelectedServer(updated);
-      setPage("server-details");
+      setSelectedServer(
+        updated
+      );
+
+      setPage(
+        "server-details"
+      );
     } catch (error) {
       console.error(error);
 
@@ -949,7 +1288,9 @@ export default function App() {
     }
   }
 
-  async function removeServer(guildId) {
+  async function removeServer(
+    guildId
+  ) {
     if (
       user?.role !== "owner" &&
       user?.role !== "manager"
@@ -969,15 +1310,17 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(
-        `${API}/api/servers/${guildId}/leave`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      const response =
+        await fetch(
+          `${API}/api/servers/${guildId}/leave`,
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setServerError(
@@ -987,12 +1330,13 @@ export default function App() {
         return;
       }
 
-      setServers(current =>
-        current.filter(
-          server =>
-            String(server.id) !==
-            String(guildId)
-        )
+      setServers(
+        current =>
+          current.filter(
+            server =>
+              String(server.id) !==
+              String(guildId)
+          )
       );
 
       setSelectedServer(null);
@@ -1005,6 +1349,10 @@ export default function App() {
       );
     }
   }
+
+  /*
+   * ACCOUNT PAGE
+   */
 
   function renderAccountPage() {
     const accountUser =
@@ -1045,7 +1393,9 @@ export default function App() {
           <div className="account-profile-card">
             <div className="large-avatar">
               <img
-                src={getAvatarUrl(accountUser)}
+                src={getAvatarUrl(
+                  accountUser
+                )}
                 alt=""
               />
             </div>
@@ -1066,7 +1416,9 @@ export default function App() {
               </p>
 
               <small>
-                ID: {accountUser?.id || user?.id}
+                ID:{" "}
+                {accountUser?.id ||
+                  user?.id}
               </small>
             </div>
           </div>
@@ -1091,7 +1443,9 @@ export default function App() {
             <textarea
               value={bio}
               onChange={event =>
-                setBio(event.target.value)
+                setBio(
+                  event.target.value
+                )
               }
               maxLength={500}
               placeholder="Skriv lidt om dig selv..."
@@ -1103,7 +1457,9 @@ export default function App() {
 
             <button
               className="primary-button"
-              onClick={saveProfile}
+              onClick={
+                saveProfile
+              }
             >
               💾 Gem profil
             </button>
@@ -1166,7 +1522,9 @@ export default function App() {
 
             <button
               className="secondary-button small-button"
-              onClick={logoutAllSessions}
+              onClick={
+                logoutAllSessions
+              }
             >
               Log andre sessions ud
             </button>
@@ -1196,7 +1554,8 @@ export default function App() {
 
                       <span>
                         Oprettet:{" "}
-                        {session.created_at || "-"}
+                        {session.created_at ||
+                          "-"}
                       </span>
 
                       <small>
@@ -1235,7 +1594,10 @@ export default function App() {
           <div className="login-history">
             {security?.login_history?.length ? (
               security.login_history.map(
-                (entry, index) => (
+                (
+                  entry,
+                  index
+                ) => (
                   <div
                     className="history-row"
                     key={`${entry.timestamp}-${index}`}
@@ -1275,14 +1637,17 @@ export default function App() {
             </h3>
 
             <p>
-              Dette sletter din Hjælper-dashboardkonto
+              Dette sletter din
+              Hjælper-dashboardkonto
               og gemte profiloplysninger.
             </p>
           </div>
 
           <button
             className="danger-button"
-            onClick={deleteAccount}
+            onClick={
+              deleteAccount
+            }
           >
             Slet min konto
           </button>
@@ -1291,7 +1656,255 @@ export default function App() {
     );
   }
 
+  /*
+   * USER SUPPORT PAGE
+   */
+
   function renderSupportPage() {
+    /*
+     * OPEN TICKET
+     */
+
+    if (selectedSupportTicket) {
+      const status =
+        getTicketStatus(
+          selectedSupportTicket
+        );
+
+      const messages =
+        getTicketMessages(
+          selectedSupportTicket
+        );
+
+      const isClosed =
+        String(
+          selectedSupportTicket.status
+        ).toLowerCase() ===
+        "closed";
+
+      return (
+        <>
+          <div className="page-heading">
+            <button
+              className="back-button"
+              onClick={
+                closeSupportView
+              }
+            >
+              ← Tilbage til Support
+            </button>
+
+            <span className="eyebrow">
+              TICKET #
+              {selectedSupportTicket.id}
+            </span>
+
+            <h2>
+              🎫{" "}
+              {selectedSupportTicket.subject ||
+                "Supportticket"}
+            </h2>
+
+            <p>
+              💬 Samtale med Hjælper Support
+            </p>
+          </div>
+
+          {supportTicketError && (
+            <div className="error-box">
+              {supportTicketError}
+            </div>
+          )}
+
+          {supportTicketMessage && (
+            <div className="success-box">
+              {supportTicketMessage}
+            </div>
+          )}
+
+          <div className="account-card">
+            <div className="account-card-title">
+              <div>
+                <span className="eyebrow">
+                  STATUS
+                </span>
+
+                <h3>
+                  {status.text}
+                </h3>
+              </div>
+
+              <small>
+                Oprettet:{" "}
+                {selectedSupportTicket.created_at ||
+                  "-"}
+              </small>
+            </div>
+
+            <div
+              className="support-ticket-list"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              {messages.length === 0 ? (
+                <div className="empty">
+                  Ingen beskeder i denne ticket endnu.
+                </div>
+              ) : (
+                messages.map(
+                  (
+                    message,
+                    index
+                  ) => {
+                    const staff =
+                      isStaffMessage(
+                        message
+                      );
+
+                    return (
+                      <div
+                        className="ticket-card"
+                        key={
+                          message.id ||
+                          `${selectedSupportTicket.id}-${index}`
+                        }
+                        style={{
+                          borderLeft:
+                            staff
+                              ? "3px solid #5865f2"
+                              : "3px solid #3ba55d",
+                        }}
+                      >
+                        <div className="ticket-top">
+                          <strong>
+                            {staff
+                              ? `🛡️ ${getMessageAuthor(
+                                  message
+                                )}`
+                              : `👤 ${getMessageAuthor(
+                                  message
+                                )}`}
+                          </strong>
+
+                          <small>
+                            {message.created_at ||
+                              message.timestamp ||
+                              ""}
+                          </small>
+                        </div>
+
+                        <p
+                          style={{
+                            whiteSpace:
+                              "pre-wrap",
+                          }}
+                        >
+                          {getMessageText(
+                            message
+                          )}
+                        </p>
+                      </div>
+                    );
+                  }
+                )
+              )}
+            </div>
+          </div>
+
+          {!isClosed && (
+            <div className="account-card">
+              <div className="account-card-title">
+                <div>
+                  <span className="eyebrow">
+                    SVAR
+                  </span>
+
+                  <h3>
+                    💬 Svar på ticket
+                  </h3>
+                </div>
+              </div>
+
+              <textarea
+                value={
+                  supportReply
+                }
+                onChange={event =>
+                  setSupportReply(
+                    event.target.value
+                  )
+                }
+                maxLength={3000}
+                placeholder="Skriv dit svar..."
+              />
+
+              <div
+                style={{
+                  display:
+                    "flex",
+                  gap: "10px",
+                  marginTop:
+                    "12px",
+                  flexWrap:
+                    "wrap",
+                }}
+              >
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    replyToSupportTicket(
+                      selectedSupportTicket.id
+                    )
+                  }
+                  disabled={
+                    supportTicketLoading
+                  }
+                >
+                  {supportTicketLoading
+                    ? "Sender..."
+                    : "📨 Send svar"}
+                </button>
+
+                <button
+                  className="danger-button"
+                  onClick={() =>
+                    closeSelectedSupportTicket(
+                      selectedSupportTicket.id
+                    )
+                  }
+                  disabled={
+                    supportTicketLoading
+                  }
+                >
+                  🔒 Luk ticket
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isClosed && (
+            <div className="public-info-box">
+              <h3>
+                🔒 Ticketen er lukket
+              </h3>
+
+              <p>
+                Denne supportsag er lukket
+                og kan ikke længere besvares.
+              </p>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    /*
+     * SUPPORT OVERVIEW
+     */
+
     return (
       <>
         <div className="page-heading">
@@ -1304,7 +1917,8 @@ export default function App() {
           </h2>
 
           <p>
-            Har du brug for hjælp? Opret en supportsag.
+            Opret en supportsag eller åbn
+            en eksisterende sag.
           </p>
         </div>
 
@@ -1334,7 +1948,9 @@ export default function App() {
 
             <input
               type="text"
-              value={supportSubject}
+              value={
+                supportSubject
+              }
               onChange={event =>
                 setSupportSubject(
                   event.target.value
@@ -1349,7 +1965,9 @@ export default function App() {
             </label>
 
             <textarea
-              value={supportMessage}
+              value={
+                supportMessage
+              }
               onChange={event =>
                 setSupportMessage(
                   event.target.value
@@ -1361,7 +1979,9 @@ export default function App() {
 
             <button
               className="primary-button"
-              onClick={createSupportTicket}
+              onClick={
+                createSupportTicket
+              }
             >
               🚀 Opret supportsag
             </button>
@@ -1378,66 +1998,133 @@ export default function App() {
                   📋 Supporthistorik
                 </h3>
               </div>
+
+              <button
+                className="secondary-button small-button"
+                onClick={
+                  loadSupport
+                }
+              >
+                🔄 Opdater
+              </button>
             </div>
 
             <div className="support-ticket-list">
-              {supportTickets.length === 0 ? (
+              {supportTickets.length ===
+              0 ? (
                 <div className="empty">
                   Du har ingen supportsager endnu.
                 </div>
               ) : (
-                supportTickets.map(ticket => {
-                  const status =
-                    getTicketStatus(ticket);
+                supportTickets.map(
+                  ticket => {
+                    const status =
+                      getTicketStatus(
+                        ticket
+                      );
 
-                  return (
-                    <div
-                      className="ticket-card"
-                      key={ticket.id}
-                    >
-                      <div className="ticket-top">
-                        <strong>
-                          #{ticket.id}
-                        </strong>
+                    const messages =
+                      getTicketMessages(
+                        ticket
+                      );
 
-                        <span
-                          className={
-                            status.className
-                          }
+                    const closed =
+                      String(
+                        ticket.status
+                      ).toLowerCase() ===
+                      "closed";
+
+                    return (
+                      <div
+                        className="ticket-card"
+                        key={ticket.id}
+                        style={{
+                          cursor:
+                            "pointer",
+                        }}
+                        onClick={() =>
+                          openSupportTicket(
+                            ticket
+                          )
+                        }
+                      >
+                        <div className="ticket-top">
+                          <strong>
+                            #{ticket.id}
+                          </strong>
+
+                          <span
+                            className={
+                              status.className
+                            }
+                          >
+                            {status.text}
+                          </span>
+                        </div>
+
+                        <h4>
+                          {ticket.subject ||
+                            "Uden emne"}
+                        </h4>
+
+                        <p>
+                          {ticket.message ||
+                            ticket.content ||
+                            "Åbn ticketen for at se samtalen."}
+                        </p>
+
+                        <small>
+                          💬{" "}
+                          {messages.length}{" "}
+                          besked
+                          {messages.length ===
+                          1
+                            ? ""
+                            : "er"}
+                          {" • "}
+                          Oprettet:{" "}
+                          {ticket.created_at ||
+                            "Ukendt"}
+                        </small>
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            gap: "10px",
+                            alignItems:
+                              "center",
+                            flexWrap:
+                              "wrap",
+                            marginTop:
+                              "12px",
+                          }}
                         >
-                          {status.text}
-                        </span>
+                          <span
+                            className="secondary-button"
+                          >
+                            💬 Åbn ticket
+                          </span>
+
+                          {!closed && (
+                            <button
+                              className="secondary-button"
+                              onClick={event => {
+                                event.stopPropagation();
+
+                                closeSupportTicket(
+                                  ticket.id
+                                );
+                              }}
+                            >
+                              🔒 Luk sag
+                            </button>
+                          )}
+                        </div>
                       </div>
-
-                      <h4>
-                        {ticket.subject}
-                      </h4>
-
-                      <p>
-                        {ticket.message ||
-                          ticket.content}
-                      </p>
-
-                      <small>
-                        Oprettet:{" "}
-                        {ticket.created_at}
-                      </small>
-
-                      {ticket.status === "open" && (
-                        <button
-                          className="secondary-button close-ticket-button"
-                          onClick={() =>
-                            closeSupportTicket(
-                              ticket.id
-                            )
-                          }
-                        >
-                          Luk sag
-                        </button>
-                      )}
-                    </div>
-                  );
-                })
+                    );
+                  }
+                )
               )}
             </div>
           </div>
@@ -1446,13 +2133,27 @@ export default function App() {
     );
   }
 
+  /*
+   * ADMIN TICKETS
+   */
+
   function renderAdminTicketsPage() {
     if (selectedTicket) {
       const status =
-        getTicketStatus(selectedTicket);
+        getTicketStatus(
+          selectedTicket
+        );
 
       const messages =
-        getTicketMessages(selectedTicket);
+        getTicketMessages(
+          selectedTicket
+        );
+
+      const closed =
+        String(
+          selectedTicket.status
+        ).toLowerCase() ===
+        "closed";
 
       return (
         <>
@@ -1460,7 +2161,9 @@ export default function App() {
             <button
               className="back-button"
               onClick={() => {
-                setSelectedTicket(null);
+                setSelectedTicket(
+                  null
+                );
                 setTicketReply("");
                 setTicketError("");
                 setTicketMessage("");
@@ -1470,15 +2173,21 @@ export default function App() {
             </button>
 
             <span className="eyebrow">
-              TICKET #{selectedTicket.id}
+              TICKET #
+              {selectedTicket.id}
             </span>
 
             <h2>
-              🎫 {selectedTicket.subject}
+              🎫{" "}
+              {selectedTicket.subject ||
+                "Supportticket"}
             </h2>
 
             <p>
-              👤 {getTicketUser(selectedTicket)}
+              👤{" "}
+              {getTicketUser(
+                selectedTicket
+              )}
             </p>
           </div>
 
@@ -1514,13 +2223,17 @@ export default function App() {
             </div>
 
             <div className="support-ticket-list">
-              {messages.length === 0 ? (
+              {messages.length ===
+              0 ? (
                 <div className="empty">
                   Ingen beskeder i denne ticket.
                 </div>
               ) : (
                 messages.map(
-                  (message, index) => (
+                  (
+                    message,
+                    index
+                  ) => (
                     <div
                       className="ticket-card"
                       key={
@@ -1530,9 +2243,15 @@ export default function App() {
                     >
                       <div className="ticket-top">
                         <strong>
-                          {getMessageAuthor(
+                          {isStaffMessage(
                             message
-                          )}
+                          )
+                            ? `🛡️ ${getMessageAuthor(
+                                message
+                              )}`
+                            : `👤 ${getMessageAuthor(
+                                message
+                              )}`}
                         </strong>
 
                         <small>
@@ -1542,7 +2261,12 @@ export default function App() {
                         </small>
                       </div>
 
-                      <p>
+                      <p
+                        style={{
+                          whiteSpace:
+                            "pre-wrap",
+                        }}
+                      >
                         {getMessageText(
                           message
                         )}
@@ -1554,9 +2278,7 @@ export default function App() {
             </div>
           </div>
 
-          {String(
-            selectedTicket.status
-          ).toLowerCase() !== "closed" && (
+          {!closed && (
             <div className="account-card">
               <div className="account-card-title">
                 <div>
@@ -1571,7 +2293,9 @@ export default function App() {
               </div>
 
               <textarea
-                value={ticketReply}
+                value={
+                  ticketReply
+                }
                 onChange={event =>
                   setTicketReply(
                     event.target.value
@@ -1583,10 +2307,13 @@ export default function App() {
 
               <div
                 style={{
-                  display: "flex",
+                  display:
+                    "flex",
                   gap: "10px",
-                  marginTop: "12px",
-                  flexWrap: "wrap",
+                  marginTop:
+                    "12px",
+                  flexWrap:
+                    "wrap",
                 }}
               >
                 <button
@@ -1596,7 +2323,9 @@ export default function App() {
                       selectedTicket.id
                     )
                   }
-                  disabled={ticketLoading}
+                  disabled={
+                    ticketLoading
+                  }
                 >
                   {ticketLoading
                     ? "Sender..."
@@ -1610,7 +2339,9 @@ export default function App() {
                       selectedTicket.id
                     )
                   }
-                  disabled={ticketLoading}
+                  disabled={
+                    ticketLoading
+                  }
                 >
                   🔒 Luk ticket
                 </button>
@@ -1618,17 +2349,15 @@ export default function App() {
             </div>
           )}
 
-          {String(
-            selectedTicket.status
-          ).toLowerCase() === "closed" && (
+          {closed && (
             <div className="public-info-box">
               <h3>
                 🔒 Ticketen er lukket
               </h3>
 
               <p>
-                Denne ticket er lukket og kan ikke
-                længere besvares.
+                Denne ticket er lukket og
+                kan ikke længere besvares.
               </p>
             </div>
           )}
@@ -1648,7 +2377,8 @@ export default function App() {
           </h2>
 
           <p>
-            Her kan staff se og håndtere tickets fra brugere.
+            Her kan staff se og håndtere
+            tickets fra brugere.
           </p>
         </div>
 
@@ -1672,77 +2402,101 @@ export default function App() {
 
             <button
               className="secondary-button small-button"
-              onClick={loadAdminTickets}
+              onClick={
+                loadAdminTickets
+              }
             >
               🔄 Opdater
             </button>
           </div>
 
           <div className="support-ticket-list">
-            {adminTickets.length === 0 ? (
+            {adminTickets.length ===
+            0 ? (
               <div className="empty">
                 Ingen tickets fundet.
               </div>
             ) : (
-              adminTickets.map(ticket => {
-                const status =
-                  getTicketStatus(ticket);
+              adminTickets.map(
+                ticket => {
+                  const status =
+                    getTicketStatus(
+                      ticket
+                    );
 
-                return (
-                  <button
-                    key={ticket.id}
-                    className="ticket-card"
-                    onClick={() => {
-                      setTicketError("");
-                      setTicketMessage("");
-                      setTicketReply("");
-                      loadAdminTicket(ticket.id);
-                    }}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      border: "none",
-                      font: "inherit",
-                    }}
-                  >
-                    <div className="ticket-top">
-                      <strong>
-                        #{ticket.id}
-                      </strong>
+                  return (
+                    <button
+                      key={
+                        ticket.id
+                      }
+                      className="ticket-card"
+                      onClick={() => {
+                        setTicketError("");
+                        setTicketMessage("");
+                        setTicketReply("");
 
-                      <span
-                        className={
-                          status.className
-                        }
-                      >
-                        {status.text}
-                      </span>
-                    </div>
+                        loadAdminTicket(
+                          ticket.id
+                        );
+                      }}
+                      style={{
+                        width:
+                          "100%",
+                        textAlign:
+                          "left",
+                        cursor:
+                          "pointer",
+                        border:
+                          "none",
+                        font:
+                          "inherit",
+                      }}
+                    >
+                      <div className="ticket-top">
+                        <strong>
+                          #{ticket.id}
+                        </strong>
 
-                    <h4>
-                      {ticket.subject ||
-                        "Uden emne"}
-                    </h4>
+                        <span
+                          className={
+                            status.className
+                          }
+                        >
+                          {status.text}
+                        </span>
+                      </div>
 
-                    <p>
-                      👤 {getTicketUser(ticket)}
-                    </p>
+                      <h4>
+                        {ticket.subject ||
+                          "Uden emne"}
+                      </h4>
 
-                    <small>
-                      Oprettet:{" "}
-                      {ticket.created_at ||
-                        "Ukendt"}
-                    </small>
-                  </button>
-                );
-              })
+                      <p>
+                        👤{" "}
+                        {getTicketUser(
+                          ticket
+                        )}
+                      </p>
+
+                      <small>
+                        Oprettet:{" "}
+                        {ticket.created_at ||
+                          "Ukendt"}
+                      </small>
+                    </button>
+                  );
+                }
+              )
             )}
           </div>
         </div>
       </>
     );
   }
+
+  /*
+   * PUBLIC STATS
+   */
 
   function renderPublicStats() {
     return (
@@ -1791,7 +2545,9 @@ export default function App() {
 
           <div className="stats-grid">
             <div className="stat-card">
-              <span>🟢 Bot status</span>
+              <span>
+                🟢 Bot status
+              </span>
 
               <strong>
                 {publicStats?.online
@@ -1801,7 +2557,9 @@ export default function App() {
             </div>
 
             <div className="stat-card">
-              <span>🖥️ Servere</span>
+              <span>
+                🖥️ Servere
+              </span>
 
               <strong>
                 {formatNumber(
@@ -1811,7 +2569,9 @@ export default function App() {
             </div>
 
             <div className="stat-card">
-              <span>👥 Discord-brugere</span>
+              <span>
+                👥 Discord-brugere
+              </span>
 
               <strong>
                 {formatNumber(
@@ -1821,7 +2581,9 @@ export default function App() {
             </div>
 
             <div className="stat-card">
-              <span>⚡ Commands</span>
+              <span>
+                ⚡ Commands
+              </span>
 
               <strong>
                 {formatNumber(
@@ -1831,7 +2593,9 @@ export default function App() {
             </div>
 
             <div className="stat-card">
-              <span>🧩 Cogs</span>
+              <span>
+                🧩 Cogs
+              </span>
 
               <strong>
                 {formatNumber(
@@ -1854,44 +2618,60 @@ export default function App() {
 
             <div className="stats-grid">
               <div className="stat-card">
-                <span>📅 I dag</span>
+                <span>
+                  📅 I dag
+                </span>
 
                 <strong>
                   {formatNumber(
-                    publicStats?.dashboard_users?.today ??
+                    publicStats
+                      ?.dashboard_users
+                      ?.today ??
                     publicStats?.panel_users_today
                   )}
                 </strong>
               </div>
 
               <div className="stat-card">
-                <span>📆 Denne uge</span>
+                <span>
+                  📆 Denne uge
+                </span>
 
                 <strong>
                   {formatNumber(
-                    publicStats?.dashboard_users?.week ??
+                    publicStats
+                      ?.dashboard_users
+                      ?.week ??
                     publicStats?.panel_users_week
                   )}
                 </strong>
               </div>
 
               <div className="stat-card">
-                <span>🗓️ Dette år</span>
+                <span>
+                  🗓️ Dette år
+                </span>
 
                 <strong>
                   {formatNumber(
-                    publicStats?.dashboard_users?.year ??
+                    publicStats
+                      ?.dashboard_users
+                      ?.year ??
                     publicStats?.panel_users_year
                   )}
                 </strong>
               </div>
 
               <div className="stat-card">
-                <span>👤 I alt</span>
+                <span>
+                  👤 I alt
+                </span>
 
                 <strong>
                   {formatNumber(
-                    publicStats?.dashboard_users?.total ??
+                    publicStats
+                      ?.dashboard_users
+                      ?.total ??
                     publicStats?.panel_users_total
                   )}
                 </strong>
@@ -1901,12 +2681,18 @@ export default function App() {
 
           <div className="last-updated">
             Sidst opdateret:{" "}
-            {formatTime(lastUpdated)}
+            {formatTime(
+              lastUpdated
+            )}
           </div>
         </div>
       </div>
     );
   }
+
+  /*
+   * PUBLIC STATUS
+   */
 
   function renderPublicStatus() {
     return (
@@ -1960,7 +2746,9 @@ export default function App() {
               </div>
 
               <div>
-                <span>Bot</span>
+                <span>
+                  Bot
+                </span>
 
                 <strong
                   className={
@@ -1982,7 +2770,9 @@ export default function App() {
               </div>
 
               <div>
-                <span>API</span>
+                <span>
+                  API
+                </span>
 
                 <strong className="status-online">
                   Online
@@ -1996,7 +2786,9 @@ export default function App() {
               </div>
 
               <div>
-                <span>Servere</span>
+                <span>
+                  Servere
+                </span>
 
                 <strong>
                   {formatNumber(
@@ -2012,7 +2804,9 @@ export default function App() {
               </div>
 
               <div>
-                <span>Commands</span>
+                <span>
+                  Commands
+                </span>
 
                 <strong>
                   {formatNumber(
@@ -2028,7 +2822,9 @@ export default function App() {
               </div>
 
               <div>
-                <span>Cogs</span>
+                <span>
+                  Cogs
+                </span>
 
                 <strong>
                   {formatNumber(
@@ -2052,12 +2848,18 @@ export default function App() {
 
           <div className="last-updated">
             Sidst opdateret:{" "}
-            {formatTime(lastUpdated)}
+            {formatTime(
+              lastUpdated
+            )}
           </div>
         </div>
       </div>
     );
   }
+
+  /*
+   * ROADMAP
+   */
 
   function renderRoadmap() {
     return (
@@ -2171,6 +2973,10 @@ export default function App() {
       </div>
     );
   }
+
+  /*
+   * USER LEGAL PAGES
+   */
 
   function renderUserPrivacy() {
     return (
@@ -2354,6 +3160,10 @@ export default function App() {
     );
   }
 
+  /*
+   * LOADING
+   */
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -2372,7 +3182,14 @@ export default function App() {
     );
   }
 
-  if (page === "login" && !user) {
+  /*
+   * LOGIN
+   */
+
+  if (
+    page === "login" &&
+    !user
+  ) {
     return (
       <div className="login-page">
         <div className="login-box">
@@ -2390,7 +3207,9 @@ export default function App() {
 
           <button
             className="login"
-            onClick={adminLogin}
+            onClick={
+              adminLogin
+            }
           >
             <span>
               <span className="discord-icon">
@@ -2400,12 +3219,16 @@ export default function App() {
               Admin Login
             </span>
 
-            <span>→</span>
+            <span>
+              →
+            </span>
           </button>
 
           <button
             className="login secondary-login"
-            onClick={userLogin}
+            onClick={
+              userLogin
+            }
           >
             <span>
               <span className="discord-icon">
@@ -2415,13 +3238,17 @@ export default function App() {
               Bruger Login
             </span>
 
-            <span>→</span>
+            <span>
+              →
+            </span>
           </button>
 
           <button
             className="login secondary-login"
             onClick={() =>
-              setPage("public-stats")
+              setPage(
+                "public-stats"
+              )
             }
           >
             <span>
@@ -2432,13 +3259,17 @@ export default function App() {
               Se Statistik
             </span>
 
-            <span>→</span>
+            <span>
+              →
+            </span>
           </button>
 
           <button
             className="login secondary-login"
             onClick={() =>
-              setPage("public-status")
+              setPage(
+                "public-status"
+              )
             }
           >
             <span>
@@ -2449,7 +3280,9 @@ export default function App() {
               Status
             </span>
 
-            <span>→</span>
+            <span>
+              →
+            </span>
           </button>
 
           <button
@@ -2466,7 +3299,9 @@ export default function App() {
               Roadmap
             </span>
 
-            <span>→</span>
+            <span>
+              →
+            </span>
           </button>
 
           <div className="login-footer">
@@ -2477,17 +3312,27 @@ export default function App() {
     );
   }
 
-  if (page === "public-stats") {
+  if (
+    page === "public-stats"
+  ) {
     return renderPublicStats();
   }
 
-  if (page === "public-status") {
+  if (
+    page === "public-status"
+  ) {
     return renderPublicStatus();
   }
 
-  if (page === "roadmap") {
+  if (
+    page === "roadmap"
+  ) {
     return renderRoadmap();
   }
+
+  /*
+   * MAIN DASHBOARD
+   */
 
   if (user) {
     return (
@@ -2516,12 +3361,15 @@ export default function App() {
               <>
                 <button
                   className={`nav-item ${
-                    page === "overview"
+                    page ===
+                    "overview"
                       ? "active"
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("overview")
+                    setPage(
+                      "overview"
+                    )
                   }
                 >
                   🏠 Dashboard
@@ -2547,7 +3395,9 @@ export default function App() {
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("stats")
+                    setPage(
+                      "stats"
+                    )
                   }
                 >
                   📊 Stats
@@ -2560,7 +3410,9 @@ export default function App() {
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("cogs")
+                    setPage(
+                      "cogs"
+                    )
                   }
                 >
                   🧩 Cogs
@@ -2568,12 +3420,15 @@ export default function App() {
 
                 <button
                   className={`nav-item ${
-                    page === "servers"
+                    page ===
+                    "servers"
                       ? "active"
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("servers")
+                    setPage(
+                      "servers"
+                    )
                   }
                 >
                   🖥️ Servere
@@ -2581,11 +3436,14 @@ export default function App() {
 
                 <button
                   className={`nav-item ${
-                    page === "tickets"
+                    page ===
+                    "tickets"
                       ? "active"
                       : ""
                   }`}
-                  onClick={goToTickets}
+                  onClick={
+                    goToTickets
+                  }
                 >
                   🎫 Tickets
                 </button>
@@ -2603,15 +3461,19 @@ export default function App() {
                   📜 Logs
                 </button>
 
-                {(isOwner || isManager) && (
+                {(isOwner ||
+                  isManager) && (
                   <button
                     className={`nav-item ${
-                      page === "system"
+                      page ===
+                      "system"
                         ? "active"
                         : ""
                     }`}
                     onClick={() =>
-                      setPage("system")
+                      setPage(
+                        "system"
+                      )
                     }
                   >
                     ⚙️ System
@@ -2622,12 +3484,15 @@ export default function App() {
               <>
                 <button
                   className={`nav-item ${
-                    page === "user-dashboard"
+                    page ===
+                    "user-dashboard"
                       ? "active"
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("user-dashboard")
+                    setPage(
+                      "user-dashboard"
+                    )
                   }
                 >
                   🏠 Dashboard
@@ -2635,11 +3500,14 @@ export default function App() {
 
                 <button
                   className={`nav-item ${
-                    page === "support"
+                    page ===
+                    "support"
                       ? "active"
                       : ""
                   }`}
-                  onClick={goToSupport}
+                  onClick={
+                    goToSupport
+                  }
                 >
                   🛟 Support
                 </button>
@@ -2652,7 +3520,9 @@ export default function App() {
                   ? "active"
                   : ""
               }`}
-              onClick={goToAccount}
+              onClick={
+                goToAccount
+              }
             >
               👤 Konto
             </button>
@@ -2663,12 +3533,15 @@ export default function App() {
               <>
                 <button
                   className={`nav-item ${
-                    page === "user-privacy"
+                    page ===
+                    "user-privacy"
                       ? "active"
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("user-privacy")
+                    setPage(
+                      "user-privacy"
+                    )
                   }
                 >
                   🔒 Privacy Policy
@@ -2676,12 +3549,15 @@ export default function App() {
 
                 <button
                   className={`nav-item ${
-                    page === "user-terms"
+                    page ===
+                    "user-terms"
                       ? "active"
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("user-terms")
+                    setPage(
+                      "user-terms"
+                    )
                   }
                 >
                   📜 Terms of Service
@@ -2689,12 +3565,15 @@ export default function App() {
 
                 <button
                   className={`nav-item ${
-                    page === "user-cookies"
+                    page ===
+                    "user-cookies"
                       ? "active"
                       : ""
                   }`}
                   onClick={() =>
-                    setPage("user-cookies")
+                    setPage(
+                      "user-cookies"
+                    )
                   }
                 >
                   🍪 Cookie Policy
@@ -2723,7 +3602,9 @@ export default function App() {
 
             <button
               className="logout-button"
-              onClick={logout}
+              onClick={
+                logout
+              }
             >
               🚪 Log ud
             </button>
@@ -2734,33 +3615,46 @@ export default function App() {
           <header className="topbar">
             <div>
               <h1>
-                {page === "overview"
+                {page ===
+                "overview"
                   ? "🏠 Dashboard"
                   : page === "bot"
                     ? "🤖 Bot"
-                    : page === "stats"
+                    : page ===
+                        "stats"
                       ? "📊 Stats"
-                      : page === "cogs"
+                      : page ===
+                          "cogs"
                         ? "🧩 Cogs"
-                        : page === "servers"
+                        : page ===
+                            "servers"
                           ? "🖥️ Servere"
-                          : page === "server-details"
+                          : page ===
+                              "server-details"
                             ? "🖥️ Server"
-                            : page === "tickets"
+                            : page ===
+                                "tickets"
                               ? "🎫 Tickets"
-                              : page === "logs"
+                              : page ===
+                                  "logs"
                                 ? "📜 Logs"
-                                : page === "system"
+                                : page ===
+                                    "system"
                                   ? "⚙️ System"
-                                  : page === "account"
+                                  : page ===
+                                      "account"
                                     ? "👤 Konto"
-                                    : page === "support"
+                                    : page ===
+                                        "support"
                                       ? "🛟 Support"
-                                      : page === "user-privacy"
+                                      : page ===
+                                          "user-privacy"
                                         ? "🔒 Privacy Policy"
-                                        : page === "user-terms"
+                                        : page ===
+                                            "user-terms"
                                           ? "📜 Terms of Service"
-                                          : page === "user-dashboard"
+                                          : page ===
+                                              "user-dashboard"
                                             ? "🏠 Dashboard"
                                             : "🍪 Cookie Policy"}
               </h1>
@@ -2771,23 +3665,28 @@ export default function App() {
             </div>
 
             <div className="topbar-user">
-              {user.username} • {roleLabel}
+              {user.username} •{" "}
+              {roleLabel}
             </div>
           </header>
 
           <div className="content">
-            {page === "account" &&
+            {page ===
+              "account" &&
               renderAccountPage()}
 
-            {page === "support" &&
+            {page ===
+              "support" &&
               !isStaff &&
               renderSupportPage()}
 
-            {page === "tickets" &&
+            {page ===
+              "tickets" &&
               isStaff &&
               renderAdminTicketsPage()}
 
-            {page === "user-dashboard" && (
+            {page ===
+              "user-dashboard" && (
               <>
                 <div className="page-heading">
                   <span className="eyebrow">
@@ -2795,11 +3694,13 @@ export default function App() {
                   </span>
 
                   <h2>
-                    Velkommen, {user.username}! 👋
+                    Velkommen,{" "}
+                    {user.username}! 👋
                   </h2>
 
                   <p>
-                    Dette er dit Hjælper-dashboard.
+                    Dette er dit
+                    Hjælper-dashboard.
                   </p>
                 </div>
 
@@ -2841,470 +3742,578 @@ export default function App() {
                   </h3>
 
                   <p>
-                    Du er logget ind som almindelig
-                    bruger. Brug Konto til at administrere
-                    din profil og Support hvis du har brug
-                    for hjælp.
+                    Du er logget ind som
+                    almindelig bruger.
+                    Brug Konto til at
+                    administrere din profil
+                    og Support hvis du har
+                    brug for hjælp.
                   </p>
                 </div>
               </>
             )}
 
-            {page === "user-privacy" &&
+            {page ===
+              "user-privacy" &&
               renderUserPrivacy()}
 
-            {page === "user-terms" &&
+            {page ===
+              "user-terms" &&
               renderUserTerms()}
 
-            {page === "user-cookies" &&
+            {page ===
+              "user-cookies" &&
               renderUserCookies()}
 
-            {page === "overview" && isStaff && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    OVERVIEW
-                  </span>
-
-                  <h2>
-                    Velkommen tilbage, {user.username}! 👋
-                  </h2>
-
-                  <p>
-                    Her er en oversigt over Hjælper.
-                  </p>
-                </div>
-
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <span>🟢 Status</span>
-
-                    <strong>
-                      {stats?.online
-                        ? "Online"
-                        : "Offline"}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>🖥️ Servere</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.servers
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>👥 Brugere</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.users
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>⚡ Commands</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.commands
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="public-panel-users">
-                  <div className="public-section-title">
+            {page ===
+              "overview" &&
+              isStaff && (
+                <>
+                  <div className="page-heading">
                     <span className="eyebrow">
-                      DASHBOARD
+                      OVERVIEW
                     </span>
 
-                    <h3>
-                      👤 Panelbrugere
-                    </h3>
+                    <h2>
+                      Velkommen tilbage,{" "}
+                      {user.username}! 👋
+                    </h2>
+
+                    <p>
+                      Her er en
+                      oversigt over
+                      Hjælper.
+                    </p>
                   </div>
 
                   <div className="stats-grid">
                     <div className="stat-card">
-                      <span>📅 I dag</span>
+                      <span>
+                        🟢 Status
+                      </span>
+
+                      <strong>
+                        {stats?.online
+                          ? "Online"
+                          : "Offline"}
+                      </strong>
+                    </div>
+
+                    <div className="stat-card">
+                      <span>
+                        🖥️ Servere
+                      </span>
 
                       <strong>
                         {formatNumber(
-                          stats?.dashboard_users?.today ??
-                          stats?.panel_users_today
+                          stats?.servers
                         )}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>📆 Denne uge</span>
+                      <span>
+                        👥 Brugere
+                      </span>
 
                       <strong>
                         {formatNumber(
-                          stats?.dashboard_users?.week ??
-                          stats?.panel_users_week
+                          stats?.users
                         )}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>🗓️ Dette år</span>
+                      <span>
+                        ⚡ Commands
+                      </span>
 
                       <strong>
                         {formatNumber(
-                          stats?.dashboard_users?.year ??
-                          stats?.panel_users_year
-                        )}
-                      </strong>
-                    </div>
-
-                    <div className="stat-card">
-                      <span>👤 I alt</span>
-
-                      <strong>
-                        {formatNumber(
-                          stats?.dashboard_users?.total ??
-                          stats?.panel_users_total
+                          stats?.commands
                         )}
                       </strong>
                     </div>
                   </div>
-                </div>
 
-                <div className="public-info-box">
-                  <h3>
-                    🛡️ Din rolle
-                  </h3>
+                  <div className="public-panel-users">
+                    <div className="public-section-title">
+                      <span className="eyebrow">
+                        DASHBOARD
+                      </span>
 
-                  <p>
-                    {roleLabel}
-                  </p>
-                </div>
-              </>
-            )}
+                      <h3>
+                        👤 Panelbrugere
+                      </h3>
+                    </div>
 
-            {page === "bot" && isStaff && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    BOT
-                  </span>
+                    <div className="stats-grid">
+                      <div className="stat-card">
+                        <span>
+                          📅 I dag
+                        </span>
 
-                  <h2>
-                    🤖 Hjælper Bot
-                  </h2>
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.today ??
+                            stats?.panel_users_today
+                          )}
+                        </strong>
+                      </div>
 
-                  <p>
-                    Information om botten.
-                  </p>
-                </div>
+                      <div className="stat-card">
+                        <span>
+                          📆 Denne uge
+                        </span>
 
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <span>🟢 Status</span>
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.week ??
+                            stats?.panel_users_week
+                          )}
+                        </strong>
+                      </div>
 
-                    <strong>
-                      {stats?.online
-                        ? "Online"
-                        : "Offline"}
-                    </strong>
+                      <div className="stat-card">
+                        <span>
+                          🗓️ Dette år
+                        </span>
+
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.year ??
+                            stats?.panel_users_year
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="stat-card">
+                        <span>
+                          👤 I alt
+                        </span>
+
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.total ??
+                            stats?.panel_users_total
+                          )}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="stat-card">
-                    <span>🖥️ Servere</span>
+                  <div className="public-info-box">
+                    <h3>
+                      🛡️ Din rolle
+                    </h3>
 
-                    <strong>
-                      {formatNumber(
-                        stats?.servers
-                      )}
-                    </strong>
+                    <p>
+                      {roleLabel}
+                    </p>
                   </div>
+                </>
+              )}
 
-                  <div className="stat-card">
-                    <span>⚡ Commands</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.commands
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>🧩 Cogs</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.cogs
-                      )}
-                    </strong>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {page === "stats" && isStaff && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    STATISTIK
-                  </span>
-
-                  <h2>
-                    📊 Statistik
-                  </h2>
-
-                  <p>
-                    Statistik for Hjælper.
-                  </p>
-                </div>
-
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <span>🖥️ Servere</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.servers
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>👥 Discord-brugere</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.users
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>⚡ Commands</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.commands
-                      )}
-                    </strong>
-                  </div>
-
-                  <div className="stat-card">
-                    <span>🧩 Cogs</span>
-
-                    <strong>
-                      {formatNumber(
-                        stats?.cogs
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="public-panel-users">
-                  <div className="public-section-title">
+            {page ===
+              "bot" &&
+              isStaff && (
+                <>
+                  <div className="page-heading">
                     <span className="eyebrow">
-                      DASHBOARD
+                      BOT
                     </span>
 
-                    <h3>
-                      👤 Panelbrugere
-                    </h3>
+                    <h2>
+                      🤖 Hjælper Bot
+                    </h2>
+
+                    <p>
+                      Information om
+                      botten.
+                    </p>
                   </div>
 
                   <div className="stats-grid">
                     <div className="stat-card">
-                      <span>📅 I dag</span>
+                      <span>
+                        🟢 Status
+                      </span>
+
+                      <strong>
+                        {stats?.online
+                          ? "Online"
+                          : "Offline"}
+                      </strong>
+                    </div>
+
+                    <div className="stat-card">
+                      <span>
+                        🖥️ Servere
+                      </span>
 
                       <strong>
                         {formatNumber(
-                          stats?.dashboard_users?.today ??
-                          stats?.panel_users_today
+                          stats?.servers
                         )}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>📆 Denne uge</span>
+                      <span>
+                        ⚡ Commands
+                      </span>
 
                       <strong>
                         {formatNumber(
-                          stats?.dashboard_users?.week ??
-                          stats?.panel_users_week
+                          stats?.commands
                         )}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>🗓️ Dette år</span>
+                      <span>
+                        🧩 Cogs
+                      </span>
 
                       <strong>
                         {formatNumber(
-                          stats?.dashboard_users?.year ??
-                          stats?.panel_users_year
-                        )}
-                      </strong>
-                    </div>
-
-                    <div className="stat-card">
-                      <span>👤 I alt</span>
-
-                      <strong>
-                        {formatNumber(
-                          stats?.dashboard_users?.total ??
-                          stats?.panel_users_total
+                          stats?.cogs
                         )}
                       </strong>
                     </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            {page === "cogs" && isStaff && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    MODULES
-                  </span>
+            {page ===
+              "stats" &&
+              isStaff && (
+                <>
+                  <div className="page-heading">
+                    <span className="eyebrow">
+                      STATISTIK
+                    </span>
 
-                  <h2>
-                    🧩 Cogs
-                  </h2>
+                    <h2>
+                      📊 Statistik
+                    </h2>
 
-                  <p>
-                    Aktive moduler.
-                  </p>
-                </div>
-
-                <div className="list-card">
-                  {cogs.length === 0 ? (
-                    <div className="empty">
-                      Ingen cogs fundet.
-                    </div>
-                  ) : (
-                    cogs.map((cog, index) => {
-                      const name =
-                        typeof cog === "string"
-                          ? cog
-                          : cog.name ||
-                            cog.cog ||
-                            `Cog ${index + 1}`;
-
-                      return (
-                        <div
-                          className="list-row"
-                          key={index}
-                        >
-                          <span>🧩</span>
-
-                          <strong>
-                            {name}
-                          </strong>
-
-                          <span>
-                            🟢 Loaded
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </>
-            )}
-
-            {page === "servers" && isStaff && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    SERVERE
-                  </span>
-
-                  <h2>
-                    🖥️ Servere
-                  </h2>
-
-                  <p>
-                    Discord-servere hvor Hjælper er installeret.
-                  </p>
-                </div>
-
-                {serverError && (
-                  <div className="error-box">
-                    {serverError}
+                    <p>
+                      Statistik for
+                      Hjælper.
+                    </p>
                   </div>
-                )}
 
-                <div className="list-card">
-                  {servers.length === 0 ? (
-                    <div className="empty">
-                      Ingen servere fundet.
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <span>
+                        🖥️ Servere
+                      </span>
+
+                      <strong>
+                        {formatNumber(
+                          stats?.servers
+                        )}
+                      </strong>
                     </div>
-                  ) : (
-                    servers.map(server => {
-                      const icon =
-                        getServerIcon(server);
 
-                      return (
-                        <button
-                          key={server.id}
-                          className="server-row"
-                          onClick={() =>
-                            openServer(server)
-                          }
-                        >
-                          <div className="server-icon">
-                            {icon ? (
-                              <img
-                                src={icon}
-                                alt=""
-                              />
-                            ) : (
-                              "🖥️"
-                            )}
-                          </div>
+                    <div className="stat-card">
+                      <span>
+                        👥 Discord-brugere
+                      </span>
 
-                          <div className="server-main">
-                            <strong>
-                              {server.name ||
-                                "Ukendt server"}
-                            </strong>
+                      <strong>
+                        {formatNumber(
+                          stats?.users
+                        )}
+                      </strong>
+                    </div>
 
-                            <small>
-                              {server.id}
-                            </small>
-                          </div>
+                    <div className="stat-card">
+                      <span>
+                        ⚡ Commands
+                      </span>
 
-                          <div className="server-members">
-                            👥{" "}
-                            {formatNumber(
-                              server.member_count
-                            )}
-                          </div>
+                      <strong>
+                        {formatNumber(
+                          stats?.commands
+                        )}
+                      </strong>
+                    </div>
 
-                          <div className="server-arrow">
-                            →
-                          </div>
-                        </button>
-                      );
-                    })
+                    <div className="stat-card">
+                      <span>
+                        🧩 Cogs
+                      </span>
+
+                      <strong>
+                        {formatNumber(
+                          stats?.cogs
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="public-panel-users">
+                    <div className="public-section-title">
+                      <span className="eyebrow">
+                        DASHBOARD
+                      </span>
+
+                      <h3>
+                        👤 Panelbrugere
+                      </h3>
+                    </div>
+
+                    <div className="stats-grid">
+                      <div className="stat-card">
+                        <span>
+                          📅 I dag
+                        </span>
+
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.today ??
+                            stats?.panel_users_today
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="stat-card">
+                        <span>
+                          📆 Denne uge
+                        </span>
+
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.week ??
+                            stats?.panel_users_week
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="stat-card">
+                        <span>
+                          🗓️ Dette år
+                        </span>
+
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.year ??
+                            stats?.panel_users_year
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="stat-card">
+                        <span>
+                          👤 I alt
+                        </span>
+
+                        <strong>
+                          {formatNumber(
+                            stats
+                              ?.dashboard_users
+                              ?.total ??
+                            stats?.panel_users_total
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+            {page ===
+              "cogs" &&
+              isStaff && (
+                <>
+                  <div className="page-heading">
+                    <span className="eyebrow">
+                      MODULES
+                    </span>
+
+                    <h2>
+                      🧩 Cogs
+                    </h2>
+
+                    <p>
+                      Aktive moduler.
+                    </p>
+                  </div>
+
+                  <div className="list-card">
+                    {cogs.length ===
+                    0 ? (
+                      <div className="empty">
+                        Ingen cogs fundet.
+                      </div>
+                    ) : (
+                      cogs.map(
+                        (
+                          cog,
+                          index
+                        ) => {
+                          const name =
+                            typeof cog ===
+                            "string"
+                              ? cog
+                              : cog.name ||
+                                cog.cog ||
+                                `Cog ${
+                                  index +
+                                  1
+                                }`;
+
+                          return (
+                            <div
+                              className="list-row"
+                              key={
+                                index
+                              }
+                            >
+                              <span>
+                                🧩
+                              </span>
+
+                              <strong>
+                                {name}
+                              </strong>
+
+                              <span>
+                                🟢 Loaded
+                              </span>
+                            </div>
+                          );
+                        }
+                      )
+                    )}
+                  </div>
+                </>
+              )}
+
+            {page ===
+              "servers" &&
+              isStaff && (
+                <>
+                  <div className="page-heading">
+                    <span className="eyebrow">
+                      SERVERE
+                    </span>
+
+                    <h2>
+                      🖥️ Servere
+                    </h2>
+
+                    <p>
+                      Discord-servere
+                      hvor Hjælper er
+                      installeret.
+                    </p>
+                  </div>
+
+                  {serverError && (
+                    <div className="error-box">
+                      {serverError}
+                    </div>
                   )}
-                </div>
-              </>
-            )}
 
-            {page === "server-details" &&
+                  <div className="list-card">
+                    {servers.length ===
+                    0 ? (
+                      <div className="empty">
+                        Ingen servere fundet.
+                      </div>
+                    ) : (
+                      servers.map(
+                        server => {
+                          const icon =
+                            getServerIcon(
+                              server
+                            );
+
+                          return (
+                            <button
+                              key={
+                                server.id
+                              }
+                              className="server-row"
+                              onClick={() =>
+                                openServer(
+                                  server
+                                )
+                              }
+                            >
+                              <div className="server-icon">
+                                {icon ? (
+                                  <img
+                                    src={
+                                      icon
+                                    }
+                                    alt=""
+                                  />
+                                ) : (
+                                  "🖥️"
+                                )}
+                              </div>
+
+                              <div className="server-main">
+                                <strong>
+                                  {server.name ||
+                                    "Ukendt server"}
+                                </strong>
+
+                                <small>
+                                  {
+                                    server.id
+                                  }
+                                </small>
+                              </div>
+
+                              <div className="server-members">
+                                👥{" "}
+                                {formatNumber(
+                                  server.member_count
+                                )}
+                              </div>
+
+                              <div className="server-arrow">
+                                →
+                              </div>
+                            </button>
+                          );
+                        }
+                      )
+                    )}
+                  </div>
+                </>
+              )}
+
+            {page ===
+              "server-details" &&
               selectedServer &&
               isStaff && (
                 <div className="server-details-page">
                   <button
                     className="back-button"
                     onClick={() =>
-                      setPage("servers")
+                      setPage(
+                        "servers"
+                      )
                     }
                   >
                     ← Tilbage
@@ -3332,12 +4341,16 @@ export default function App() {
                       </span>
 
                       <h2>
-                        {selectedServer.name}
+                        {
+                          selectedServer.name
+                        }
                       </h2>
 
                       <p>
                         Discord ID:{" "}
-                        {selectedServer.id}
+                        {
+                          selectedServer.id
+                        }
                       </p>
                     </div>
                   </div>
@@ -3367,7 +4380,9 @@ export default function App() {
                       </span>
 
                       <strong className="server-id">
-                        {selectedServer.id}
+                        {
+                          selectedServer.id
+                        }
                       </strong>
                     </div>
 
@@ -3382,7 +4397,8 @@ export default function App() {
                     </div>
                   </div>
 
-                  {(isOwner || isManager) && (
+                  {(isOwner ||
+                    isManager) && (
                     <div className="server-danger-card">
                       <div>
                         <span className="eyebrow">
@@ -3394,8 +4410,10 @@ export default function App() {
                         </h3>
 
                         <p>
-                          Dette fjerner Hjælper fra
-                          denne Discord-server.
+                          Dette fjerner
+                          Hjælper fra
+                          denne
+                          Discord-server.
                         </p>
                       </div>
 
@@ -3414,37 +4432,43 @@ export default function App() {
                 </div>
               )}
 
-            {page === "logs" && isStaff && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    LOGS
-                  </span>
+            {page ===
+              "logs" &&
+              isStaff && (
+                <>
+                  <div className="page-heading">
+                    <span className="eyebrow">
+                      LOGS
+                    </span>
 
-                  <h2>
-                    📜 Logs
-                  </h2>
+                    <h2>
+                      📜 Logs
+                    </h2>
 
-                  <p>
-                    System- og botaktivitet.
-                  </p>
-                </div>
+                    <p>
+                      System- og
+                      botaktivitet.
+                    </p>
+                  </div>
 
-                <div className="public-info-box">
-                  <h3>
-                    📡 System Logs
-                  </h3>
+                  <div className="public-info-box">
+                    <h3>
+                      📡 System Logs
+                    </h3>
 
-                  <p>
-                    Live logs kan administreres via
-                    Wispbyte console.
-                  </p>
-                </div>
-              </>
-            )}
+                    <p>
+                      Live logs kan
+                      administreres via
+                      Wispbyte console.
+                    </p>
+                  </div>
+                </>
+              )}
 
-            {page === "system" &&
-              (isOwner || isManager) && (
+            {page ===
+              "system" &&
+              (isOwner ||
+                isManager) && (
                 <>
                   <div className="page-heading">
                     <span className="eyebrow">
@@ -3462,7 +4486,9 @@ export default function App() {
 
                   <div className="stats-grid">
                     <div className="stat-card">
-                      <span>🐍 Python</span>
+                      <span>
+                        🐍 Python
+                      </span>
 
                       <strong>
                         3.14.7
@@ -3470,7 +4496,9 @@ export default function App() {
                     </div>
 
                     <div className="stat-card">
-                      <span>🌐 API</span>
+                      <span>
+                        🌐 API
+                      </span>
 
                       <strong>
                         FastAPI
@@ -3478,7 +4506,9 @@ export default function App() {
                     </div>
 
                     <div className="stat-card">
-                      <span>🤖 Discord</span>
+                      <span>
+                        🤖 Discord
+                      </span>
 
                       <strong>
                         discord.py
@@ -3486,7 +4516,9 @@ export default function App() {
                     </div>
 
                     <div className="stat-card">
-                      <span>✨ Hjælper</span>
+                      <span>
+                        ✨ Hjælper
+                      </span>
 
                       <strong>
                         V2
