@@ -14,9 +14,12 @@ export default function App() {
 
   const [publicStats, setPublicStats] = useState(null);
   const [publicStatus, setPublicStatus] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const [account, setAccount] = useState(null);
   const [security, setSecurity] = useState(null);
+  const [connected, setConnected] = useState(null);
+
   const [supportTickets, setSupportTickets] = useState([]);
 
   const [bio, setBio] = useState("");
@@ -24,20 +27,17 @@ export default function App() {
   const [supportMessage, setSupportMessage] = useState("");
 
   const [selectedServer, setSelectedServer] = useState(null);
+
   const [serverError, setServerError] = useState("");
   const [accountMessage, setAccountMessage] = useState("");
   const [supportMessageStatus, setSupportMessageStatus] = useState("");
-  const [lastUpdated, setLastUpdated] = useState(null);
 
   const isOwner =
     user?.role === "owner" ||
     user?.is_owner === true;
 
-  const isManager =
-    user?.role === "manager";
-
-  const isAdmin =
-    user?.role === "admin";
+  const isManager = user?.role === "manager";
+  const isAdmin = user?.role === "admin";
 
   const isStaff =
     isOwner ||
@@ -88,7 +88,7 @@ export default function App() {
     } else if (isStaff && page === "login") {
       setPage("overview");
     }
-  }, [user]);
+  }, [user, page, isStaff]);
 
   useEffect(() => {
     if (isStaff) {
@@ -110,7 +110,7 @@ export default function App() {
 
       const data = await response.json();
 
-      if (!data.authenticated) {
+      if (!data.authenticated || !data.user) {
         setUser(null);
         setPage("login");
         return;
@@ -118,7 +118,7 @@ export default function App() {
 
       setUser(data.user);
 
-      if (data.user?.role === "user") {
+      if (data.user.role === "user") {
         setPage("user-dashboard");
       } else {
         setPage("overview");
@@ -198,12 +198,15 @@ export default function App() {
 
   async function loadAccount() {
     try {
-      const [accountRes, securityRes] =
+      const [accountRes, securityRes, connectedRes] =
         await Promise.all([
           fetch(`${API}/api/account`, {
             credentials: "include",
           }),
           fetch(`${API}/api/account/security`, {
+            credentials: "include",
+          }),
+          fetch(`${API}/api/account/connected`, {
             credentials: "include",
           }),
         ]);
@@ -214,14 +217,18 @@ export default function App() {
         setAccount(data);
 
         setBio(
-          data.user?.bio || ""
+          data.user?.bio ||
+          data.account?.bio ||
+          ""
         );
       }
 
       if (securityRes.ok) {
-        setSecurity(
-          await securityRes.json()
-        );
+        setSecurity(await securityRes.json());
+      }
+
+      if (connectedRes.ok) {
+        setConnected(await connectedRes.json());
       }
     } catch (error) {
       console.error(
@@ -288,15 +295,21 @@ export default function App() {
     }
 
     setUser(null);
-    setPage("login");
+    setAccount(null);
+    setSecurity(null);
+    setConnected(null);
+    setSupportTickets([]);
     setSelectedServer(null);
+    setPage("login");
   }
 
-  function getAvatarUrl() {
-    if (!user?.id) return null;
+  function getAvatarUrl(targetUser = user) {
+    if (!targetUser?.id) {
+      return "https://cdn.discordapp.com/embed/avatars/0.png";
+    }
 
-    if (user.avatar) {
-      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`;
+    if (targetUser.avatar) {
+      return `https://cdn.discordapp.com/avatars/${targetUser.id}/${targetUser.avatar}.png?size=256`;
     }
 
     return "https://cdn.discordapp.com/embed/avatars/0.png";
@@ -307,7 +320,10 @@ export default function App() {
       return null;
     }
 
-    if (server.icon.startsWith("http")) {
+    if (
+      typeof server.icon === "string" &&
+      server.icon.startsWith("http")
+    ) {
       return server.icon;
     }
 
@@ -377,11 +393,16 @@ export default function App() {
                 ...current.user,
                 bio: data.bio,
               },
+              account: {
+                ...(current.account || {}),
+                bio: data.bio,
+              },
             }
           : current
       );
     } catch (error) {
       console.error(error);
+
       setAccountMessage(
         "Der opstod en fejl."
       );
@@ -420,9 +441,13 @@ export default function App() {
         `✅ ${data.removed || 0} andre sessions blev logget ud.`
       );
 
-      loadAccount();
+      await loadAccount();
     } catch (error) {
       console.error(error);
+
+      setAccountMessage(
+        "Der opstod en fejl."
+      );
     }
   }
 
@@ -465,6 +490,8 @@ export default function App() {
 
       setUser(null);
       setAccount(null);
+      setSecurity(null);
+      setConnected(null);
       setPage("login");
     } catch (error) {
       console.error(error);
@@ -478,6 +505,20 @@ export default function App() {
   async function createSupportTicket() {
     setSupportMessageStatus("");
 
+    if (!supportSubject.trim()) {
+      setSupportMessageStatus(
+        "❌ Skriv et emne."
+      );
+      return;
+    }
+
+    if (!supportMessage.trim()) {
+      setSupportMessageStatus(
+        "❌ Skriv en besked."
+      );
+      return;
+    }
+
     try {
       const response = await fetch(
         `${API}/api/support/tickets`,
@@ -488,8 +529,8 @@ export default function App() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            subject: supportSubject,
-            message: supportMessage,
+            subject: supportSubject.trim(),
+            message: supportMessage.trim(),
           }),
         }
       );
@@ -511,7 +552,7 @@ export default function App() {
         "✅ Din supportsag er oprettet."
       );
 
-      loadSupport();
+      await loadSupport();
     } catch (error) {
       console.error(error);
 
@@ -541,9 +582,13 @@ export default function App() {
         return;
       }
 
-      loadSupport();
+      await loadSupport();
     } catch (error) {
       console.error(error);
+
+      setSupportMessageStatus(
+        "Der opstod en fejl."
+      );
     }
   }
 
@@ -643,6 +688,17 @@ export default function App() {
   }
 
   function renderAccountPage() {
+    const accountUser =
+      account?.user || user;
+
+    const accountData =
+      account?.account || {};
+
+    const discordData =
+      accountData?.discord ||
+      connected?.discord ||
+      null;
+
     return (
       <>
         <div className="page-heading">
@@ -656,7 +712,7 @@ export default function App() {
 
           <p>
             Administrer dine oplysninger,
-            sikkerhed og connected accounts.
+            sikkerhed og forbundne konti.
           </p>
         </div>
 
@@ -670,7 +726,7 @@ export default function App() {
           <div className="account-profile-card">
             <div className="large-avatar">
               <img
-                src={getAvatarUrl()}
+                src={getAvatarUrl(accountUser)}
                 alt=""
               />
             </div>
@@ -681,15 +737,17 @@ export default function App() {
               </span>
 
               <h3>
-                {user.username}
+                {accountUser?.username ||
+                  user?.username}
               </h3>
 
               <p>
-                {roleLabel}
+                {accountUser?.role_name ||
+                  roleLabel}
               </p>
 
               <small>
-                ID: {user.id}
+                ID: {accountUser?.id || user?.id}
               </small>
             </div>
           </div>
@@ -757,8 +815,16 @@ export default function App() {
               </strong>
 
               <span>
-                {user.username}
+                {discordData?.username ||
+                  accountUser?.username ||
+                  user?.username}
               </span>
+
+              <small>
+                {discordData?.id ||
+                  accountUser?.id ||
+                  user?.id}
+              </small>
             </div>
 
             <div className="connected-status">
@@ -805,7 +871,8 @@ export default function App() {
 
                     <div className="session-main">
                       <strong>
-                        {session.device}
+                        {session.device ||
+                          "Ukendt enhed"}
                       </strong>
 
                       <span>
@@ -815,7 +882,9 @@ export default function App() {
 
                       <small>
                         Sidst aktiv:{" "}
-                        {session.last_activity || "-"}
+                        {session.last_activity ||
+                          session.last_seen ||
+                          "-"}
                       </small>
                     </div>
 
@@ -1056,125 +1125,7 @@ export default function App() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-box">
-          <div className="loading-spinner" />
-
-          <h2>
-            Hjælper
-          </h2>
-
-          <p>
-            Indlæser...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (page === "login" && !user) {
-    return (
-      <div className="login-page">
-        <div className="login-box">
-          <div className="login-logo">
-            ✨
-          </div>
-
-          <h1>
-            Hjælper
-          </h1>
-
-          <p>
-            Discord bot & dashboard
-          </p>
-
-          <button
-            className="login"
-            onClick={adminLogin}
-          >
-            <span>
-              <span className="discord-icon">
-                🔐
-              </span>
-              Admin Login
-            </span>
-
-            <span>→</span>
-          </button>
-
-          <button
-            className="login secondary-login"
-            onClick={userLogin}
-          >
-            <span>
-              <span className="discord-icon">
-                👤
-              </span>
-              Bruger Login
-            </span>
-
-            <span>→</span>
-          </button>
-
-          <button
-            className="login secondary-login"
-            onClick={() =>
-              setPage("public-stats")
-            }
-          >
-            <span>
-              <span className="discord-icon">
-                📊
-              </span>
-              Se Statistik
-            </span>
-
-            <span>→</span>
-          </button>
-
-          <button
-            className="login secondary-login"
-            onClick={() =>
-              setPage("public-status")
-            }
-          >
-            <span>
-              <span className="discord-icon">
-                🟢
-              </span>
-              Status
-            </span>
-
-            <span>→</span>
-          </button>
-
-          <button
-            className="login secondary-login"
-            onClick={() =>
-              setPage("roadmap")
-            }
-          >
-            <span>
-              <span className="discord-icon">
-                🚀
-              </span>
-              Roadmap
-            </span>
-
-            <span>→</span>
-          </button>
-
-          <div className="login-footer">
-            Hjælper • 2026
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (page === "public-stats") {
+  function renderPublicStats() {
     return (
       <div className="public-page">
         <div className="public-topbar">
@@ -1338,7 +1289,7 @@ export default function App() {
     );
   }
 
-  if (page === "public-status") {
+  function renderPublicStatus() {
     return (
       <div className="public-page">
         <div className="public-topbar">
@@ -1489,7 +1440,7 @@ export default function App() {
     );
   }
 
-  if (page === "roadmap") {
+  function renderRoadmap() {
     return (
       <div className="public-page">
         <div className="public-topbar">
@@ -1600,6 +1551,323 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  function renderUserPrivacy() {
+    return (
+      <>
+        <div className="page-heading">
+          <span className="eyebrow">
+            PRIVACY
+          </span>
+
+          <h2>
+            🔒 Privacy Policy
+          </h2>
+
+          <p>
+            Information om data og privatliv.
+          </p>
+        </div>
+
+        <div className="public-info-box">
+          <h3>
+            Hvilke data bruger Hjælper?
+          </h3>
+
+          <p>
+            Hjælper kan bruge oplysninger fra din
+            Discord-konto, som er nødvendige for
+            login og dashboard-funktioner.
+          </p>
+
+          <br />
+
+          <h3>
+            Discord-data
+          </h3>
+
+          <p>
+            Dette kan blandt andet være Discord ID,
+            brugernavn og avatar.
+          </p>
+
+          <br />
+
+          <h3>
+            Formål
+          </h3>
+
+          <p>
+            Data bruges til login, sessionshåndtering
+            og relevante dashboard-funktioner.
+          </p>
+
+          <br />
+
+          <h3>
+            Cookies
+          </h3>
+
+          <p>
+            Nødvendige cookies kan bruges til
+            sessionshåndtering og login.
+          </p>
+        </div>
+      </>
+    );
+  }
+
+  function renderUserTerms() {
+    return (
+      <>
+        <div className="page-heading">
+          <span className="eyebrow">
+            VILKÅR
+          </span>
+
+          <h2>
+            📜 Terms of Service
+          </h2>
+
+          <p>
+            Vilkår for brug af Hjælper.
+          </p>
+        </div>
+
+        <div className="public-info-box">
+          <h3>
+            1. Brug af tjenesten
+          </h3>
+
+          <p>
+            Hjælper skal bruges ansvarligt og i
+            overensstemmelse med gældende regler.
+          </p>
+
+          <br />
+
+          <h3>
+            2. Misbrug
+          </h3>
+
+          <p>
+            Forsøg på at omgå sikkerhed eller
+            forstyrre Hjælper er ikke tilladt.
+          </p>
+
+          <br />
+
+          <h3>
+            3. Discord
+          </h3>
+
+          <p>
+            Brug af Hjælper skal også følge
+            Discords gældende regler.
+          </p>
+
+          <br />
+
+          <h3>
+            4. Ændringer
+          </h3>
+
+          <p>
+            Hjælper kan ændre funktioner og
+            vilkår efter behov.
+          </p>
+        </div>
+      </>
+    );
+  }
+
+  function renderUserCookies() {
+    return (
+      <>
+        <div className="page-heading">
+          <span className="eyebrow">
+            COOKIES
+          </span>
+
+          <h2>
+            🍪 Cookie Policy
+          </h2>
+
+          <p>
+            Information om cookies.
+          </p>
+        </div>
+
+        <div className="public-info-box">
+          <h3>
+            Nødvendige cookies
+          </h3>
+
+          <p>
+            Hjælper kan bruge nødvendige cookies
+            til login og sessionshåndtering.
+          </p>
+
+          <br />
+
+          <h3>
+            Tredjepart
+          </h3>
+
+          <p>
+            Discord bruges blandt andet til
+            login og kontoidentifikation.
+          </p>
+
+          <br />
+
+          <h3>
+            Browserindstillinger
+          </h3>
+
+          <p>
+            Du kan normalt administrere cookies
+            gennem indstillingerne i din browser.
+          </p>
+        </div>
+      </>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-box">
+          <div className="loading-spinner" />
+
+          <h2>
+            Hjælper
+          </h2>
+
+          <p>
+            Indlæser...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "login" && !user) {
+    return (
+      <div className="login-page">
+        <div className="login-box">
+          <div className="login-logo">
+            ✨
+          </div>
+
+          <h1>
+            Hjælper
+          </h1>
+
+          <p>
+            Discord bot & dashboard
+          </p>
+
+          <button
+            className="login"
+            onClick={adminLogin}
+          >
+            <span>
+              <span className="discord-icon">
+                🔐
+              </span>
+
+              Admin Login
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <button
+            className="login secondary-login"
+            onClick={userLogin}
+          >
+            <span>
+              <span className="discord-icon">
+                👤
+              </span>
+
+              Bruger Login
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <button
+            className="login secondary-login"
+            onClick={() =>
+              setPage("public-stats")
+            }
+          >
+            <span>
+              <span className="discord-icon">
+                📊
+              </span>
+
+              Se Statistik
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <button
+            className="login secondary-login"
+            onClick={() =>
+              setPage("public-status")
+            }
+          >
+            <span>
+              <span className="discord-icon">
+                🟢
+              </span>
+
+              Status
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <button
+            className="login secondary-login"
+            onClick={() =>
+              setPage("roadmap")
+            }
+          >
+            <span>
+              <span className="discord-icon">
+                🚀
+              </span>
+
+              Roadmap
+            </span>
+
+            <span>→</span>
+          </button>
+
+          <div className="login-footer">
+            Hjælper • 2026
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "public-stats") {
+    return renderPublicStats();
+  }
+
+  if (page === "public-status") {
+    return renderPublicStatus();
+  }
+
+  if (page === "roadmap") {
+    return renderRoadmap();
   }
 
   if (
@@ -1951,181 +2219,14 @@ export default function App() {
               </>
             )}
 
-            {page === "user-privacy" && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    PRIVACY
-                  </span>
+            {page === "user-privacy" &&
+              renderUserPrivacy()}
 
-                  <h2>
-                    🔒 Privacy Policy
-                  </h2>
+            {page === "user-terms" &&
+              renderUserTerms()}
 
-                  <p>
-                    Information om data og privatliv.
-                  </p>
-                </div>
-
-                <div className="public-info-box">
-                  <h3>
-                    Hvilke data bruger Hjælper?
-                  </h3>
-
-                  <p>
-                    Hjælper kan bruge oplysninger fra din
-                    Discord-konto, som er nødvendige for
-                    login og dashboard-funktioner.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    Discord-data
-                  </h3>
-
-                  <p>
-                    Dette kan blandt andet være Discord ID,
-                    brugernavn og avatar.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    Formål
-                  </h3>
-
-                  <p>
-                    Data bruges til login, sessionshåndtering
-                    og relevante dashboard-funktioner.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    Cookies
-                  </h3>
-
-                  <p>
-                    Nødvendige cookies kan bruges til
-                    sessionshåndtering og login.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {page === "user-terms" && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    VILKÅR
-                  </span>
-
-                  <h2>
-                    📜 Terms of Service
-                  </h2>
-
-                  <p>
-                    Vilkår for brug af Hjælper.
-                  </p>
-                </div>
-
-                <div className="public-info-box">
-                  <h3>
-                    1. Brug af tjenesten
-                  </h3>
-
-                  <p>
-                    Hjælper skal bruges ansvarligt og i
-                    overensstemmelse med gældende regler.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    2. Misbrug
-                  </h3>
-
-                  <p>
-                    Forsøg på at omgå sikkerhed eller
-                    forstyrre Hjælper er ikke tilladt.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    3. Discord
-                  </h3>
-
-                  <p>
-                    Brug af Hjælper skal også følge
-                    Discords gældende regler.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    4. Ændringer
-                  </h3>
-
-                  <p>
-                    Hjælper kan ændre funktioner og
-                    vilkår efter behov.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {page === "user-cookies" && (
-              <>
-                <div className="page-heading">
-                  <span className="eyebrow">
-                    COOKIES
-                  </span>
-
-                  <h2>
-                    🍪 Cookie Policy
-                  </h2>
-
-                  <p>
-                    Information om cookies.
-                  </p>
-                </div>
-
-                <div className="public-info-box">
-                  <h3>
-                    Nødvendige cookies
-                  </h3>
-
-                  <p>
-                    Hjælper kan bruge nødvendige cookies
-                    til login og sessionshåndtering.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    Tredjepart
-                  </h3>
-
-                  <p>
-                    Discord bruges blandt andet til
-                    login og kontoidentifikation.
-                  </p>
-
-                  <br />
-
-                  <h3>
-                    Browserindstillinger
-                  </h3>
-
-                  <p>
-                    Du kan normalt administrere cookies
-                    gennem indstillingerne i din browser.
-                  </p>
-                </div>
-              </>
-            )}
+            {page === "user-cookies" &&
+              renderUserCookies()}
 
             {page === "overview" && isStaff && (
               <>
@@ -2182,6 +2283,64 @@ export default function App() {
                         stats?.commands
                       )}
                     </strong>
+                  </div>
+                </div>
+
+                <div className="public-panel-users">
+                  <div className="public-section-title">
+                    <span className="eyebrow">
+                      DASHBOARD
+                    </span>
+
+                    <h3>
+                      👤 Panelbrugere
+                    </h3>
+                  </div>
+
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <span>📅 I dag</span>
+
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.today ??
+                          stats?.panel_users_today
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="stat-card">
+                      <span>📆 Denne uge</span>
+
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.week ??
+                          stats?.panel_users_week
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="stat-card">
+                      <span>🗓️ Dette år</span>
+
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.year ??
+                          stats?.panel_users_year
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="stat-card">
+                      <span>👤 I alt</span>
+
+                      <strong>
+                        {formatNumber(
+                          stats?.dashboard_users?.total ??
+                          stats?.panel_users_total
+                        )}
+                      </strong>
+                    </div>
                   </div>
                 </div>
 
