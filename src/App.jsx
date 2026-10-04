@@ -80,6 +80,7 @@ export default function App() {
         page === "stats" ||
         page === "cogs" ||
         page === "servers" ||
+        page === "server-details" ||
         page === "logs" ||
         page === "system"
       ) {
@@ -1870,17 +1871,17 @@ export default function App() {
     return renderRoadmap();
   }
 
-  if (
-    user &&
-    (
-      page === "user-dashboard" ||
-      page === "user-privacy" ||
-      page === "user-terms" ||
-      page === "user-cookies" ||
-      page === "account" ||
-      page === "support"
-    )
-  ) {
+  /*
+   * VIGTIGT:
+   * Hele dashboardet rendres for alle autentificerede brugere.
+   *
+   * Før var denne if kun åben for:
+   * user-dashboard, account, support osv.
+   *
+   * Derfor endte Ejer/Manager/Admin på
+   * "Hjælper - Indlæser..." når page var "overview".
+   */
+  if (user) {
     return (
       <div className="dashboard">
         <aside className="sidebar">
@@ -2136,7 +2137,9 @@ export default function App() {
                                       ? "🔒 Privacy Policy"
                                       : page === "user-terms"
                                         ? "📜 Terms of Service"
-                                        : "🍪 Cookie Policy"}
+                                        : page === "user-dashboard"
+                                          ? "🏠 Dashboard"
+                                          : "🍪 Cookie Policy"}
               </h1>
 
               <span>
