@@ -15,8 +15,18 @@ export default function App() {
   const [publicStats, setPublicStats] = useState(null);
   const [publicStatus, setPublicStatus] = useState(null);
 
+  const [account, setAccount] = useState(null);
+  const [security, setSecurity] = useState(null);
+  const [supportTickets, setSupportTickets] = useState([]);
+
+  const [bio, setBio] = useState("");
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+
   const [selectedServer, setSelectedServer] = useState(null);
   const [serverError, setServerError] = useState("");
+  const [accountMessage, setAccountMessage] = useState("");
+  const [supportMessageStatus, setSupportMessageStatus] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const isOwner =
@@ -186,6 +196,77 @@ export default function App() {
     }
   }
 
+  async function loadAccount() {
+    try {
+      const [accountRes, securityRes] =
+        await Promise.all([
+          fetch(`${API}/api/account`, {
+            credentials: "include",
+          }),
+          fetch(`${API}/api/account/security`, {
+            credentials: "include",
+          }),
+        ]);
+
+      if (accountRes.ok) {
+        const data = await accountRes.json();
+
+        setAccount(data);
+
+        setBio(
+          data.user?.bio || ""
+        );
+      }
+
+      if (securityRes.ok) {
+        setSecurity(
+          await securityRes.json()
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Konto kunne ikke indlæses:",
+        error
+      );
+    }
+  }
+
+  async function loadSupport() {
+    try {
+      const response = await fetch(
+        `${API}/api/support/tickets`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      setSupportTickets(
+        data.tickets || []
+      );
+    } catch (error) {
+      console.error(
+        "Support kunne ikke indlæses:",
+        error
+      );
+    }
+  }
+
+  function goToAccount() {
+    setPage("account");
+    setAccountMessage("");
+    loadAccount();
+  }
+
+  function goToSupport() {
+    setPage("support");
+    setSupportMessageStatus("");
+    loadSupport();
+  }
+
   function adminLogin() {
     window.location.href =
       `${API}/auth/discord?login_type=admin`;
@@ -215,7 +296,7 @@ export default function App() {
     if (!user?.id) return null;
 
     if (user.avatar) {
-      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
+      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`;
     }
 
     return "https://cdn.discordapp.com/embed/avatars/0.png";
@@ -256,6 +337,216 @@ export default function App() {
     });
   }
 
+  async function saveProfile() {
+    setAccountMessage("");
+
+    try {
+      const response = await fetch(
+        `${API}/api/account/profile`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bio,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAccountMessage(
+          data.detail ||
+          "Kunne ikke gemme profilen."
+        );
+        return;
+      }
+
+      setAccountMessage(
+        "✅ Profilen er gemt."
+      );
+
+      setAccount(current =>
+        current
+          ? {
+              ...current,
+              user: {
+                ...current.user,
+                bio: data.bio,
+              },
+            }
+          : current
+      );
+    } catch (error) {
+      console.error(error);
+      setAccountMessage(
+        "Der opstod en fejl."
+      );
+    }
+  }
+
+  async function logoutAllSessions() {
+    if (
+      !window.confirm(
+        "Vil du logge alle andre aktive sessions ud?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API}/api/account/security/logout-all`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAccountMessage(
+          data.detail ||
+          "Kunne ikke logge sessions ud."
+        );
+        return;
+      }
+
+      setAccountMessage(
+        `✅ ${data.removed || 0} andre sessions blev logget ud.`
+      );
+
+      loadAccount();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function deleteAccount() {
+    const firstConfirm = window.confirm(
+      "Er du sikker på, at du vil slette din Hjælper-konto?"
+    );
+
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.confirm(
+      "Dette kan ikke fortrydes. Slet kontoen?"
+    );
+
+    if (!secondConfirm) return;
+
+    try {
+      const response = await fetch(
+        `${API}/api/account`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAccountMessage(
+          data.detail ||
+          "Kontoen kunne ikke slettes."
+        );
+        return;
+      }
+
+      alert(
+        data.message ||
+        "Kontoen er slettet."
+      );
+
+      setUser(null);
+      setAccount(null);
+      setPage("login");
+    } catch (error) {
+      console.error(error);
+
+      setAccountMessage(
+        "Der opstod en fejl ved sletning."
+      );
+    }
+  }
+
+  async function createSupportTicket() {
+    setSupportMessageStatus("");
+
+    try {
+      const response = await fetch(
+        `${API}/api/support/tickets`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            subject: supportSubject,
+            message: supportMessage,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSupportMessageStatus(
+          data.detail ||
+          "Kunne ikke oprette supportsag."
+        );
+        return;
+      }
+
+      setSupportSubject("");
+      setSupportMessage("");
+
+      setSupportMessageStatus(
+        "✅ Din supportsag er oprettet."
+      );
+
+      loadSupport();
+    } catch (error) {
+      console.error(error);
+
+      setSupportMessageStatus(
+        "Der opstod en fejl."
+      );
+    }
+  }
+
+  async function closeSupportTicket(ticketId) {
+    try {
+      const response = await fetch(
+        `${API}/api/support/tickets/${ticketId}/close`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSupportMessageStatus(
+          data.detail ||
+          "Kunne ikke lukke sagen."
+        );
+        return;
+      }
+
+      loadSupport();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   async function openServer(server) {
     setServerError("");
 
@@ -287,6 +578,7 @@ export default function App() {
       setPage("server-details");
     } catch (error) {
       console.error(error);
+
       setServerError(
         "Der opstod en fejl."
       );
@@ -343,24 +635,449 @@ export default function App() {
       setPage("servers");
     } catch (error) {
       console.error(error);
+
       setServerError(
         "Der opstod en fejl."
       );
     }
   }
 
-  /*
-   * =====================================================
-   * LOGIN
-   * =====================================================
-   */
+  function renderAccountPage() {
+    return (
+      <>
+        <div className="page-heading">
+          <span className="eyebrow">
+            KONTO
+          </span>
+
+          <h2>
+            👤 Konto & brugerprofil
+          </h2>
+
+          <p>
+            Administrer dine oplysninger,
+            sikkerhed og connected accounts.
+          </p>
+        </div>
+
+        {accountMessage && (
+          <div className="success-box">
+            {accountMessage}
+          </div>
+        )}
+
+        <div className="account-grid">
+          <div className="account-profile-card">
+            <div className="large-avatar">
+              <img
+                src={getAvatarUrl()}
+                alt=""
+              />
+            </div>
+
+            <div className="account-profile-info">
+              <span className="eyebrow">
+                DISCORD
+              </span>
+
+              <h3>
+                {user.username}
+              </h3>
+
+              <p>
+                {roleLabel}
+              </p>
+
+              <small>
+                ID: {user.id}
+              </small>
+            </div>
+          </div>
+
+          <div className="account-card">
+            <div className="account-card-title">
+              <div>
+                <span className="eyebrow">
+                  PROFIL
+                </span>
+
+                <h3>
+                  ✏️ Profil
+                </h3>
+              </div>
+            </div>
+
+            <label>
+              Om mig
+            </label>
+
+            <textarea
+              value={bio}
+              onChange={event =>
+                setBio(event.target.value)
+              }
+              maxLength={500}
+              placeholder="Skriv lidt om dig selv..."
+            />
+
+            <div className="character-count">
+              {bio.length}/500
+            </div>
+
+            <button
+              className="primary-button"
+              onClick={saveProfile}
+            >
+              💾 Gem profil
+            </button>
+          </div>
+        </div>
+
+        <div className="account-card">
+          <div className="account-card-title">
+            <div>
+              <span className="eyebrow">
+                CONNECTED ACCOUNTS
+              </span>
+
+              <h3>
+                🔗 Forbundne konti
+              </h3>
+            </div>
+          </div>
+
+          <div className="connected-account">
+            <div className="connected-icon">
+              💬
+            </div>
+
+            <div className="connected-main">
+              <strong>
+                Discord
+              </strong>
+
+              <span>
+                {user.username}
+              </span>
+            </div>
+
+            <div className="connected-status">
+              🟢 Forbundet
+            </div>
+          </div>
+        </div>
+
+        <div className="account-card">
+          <div className="account-card-title">
+            <div>
+              <span className="eyebrow">
+                SECURITY
+              </span>
+
+              <h3>
+                🔐 Sikkerhed
+              </h3>
+            </div>
+
+            <button
+              className="secondary-button small-button"
+              onClick={logoutAllSessions}
+            >
+              Log andre sessions ud
+            </button>
+          </div>
+
+          <h4 className="account-subtitle">
+            🟢 Aktive sessions
+          </h4>
+
+          <div className="session-list">
+            {security?.active_sessions?.length ? (
+              security.active_sessions.map(
+                session => (
+                  <div
+                    className="session-row"
+                    key={session.id}
+                  >
+                    <div className="session-icon">
+                      💻
+                    </div>
+
+                    <div className="session-main">
+                      <strong>
+                        {session.device}
+                      </strong>
+
+                      <span>
+                        Oprettet:{" "}
+                        {session.created_at || "-"}
+                      </span>
+
+                      <small>
+                        Sidst aktiv:{" "}
+                        {session.last_activity || "-"}
+                      </small>
+                    </div>
+
+                    <div
+                      className={
+                        session.current
+                          ? "session-current"
+                          : "session-status"
+                      }
+                    >
+                      {session.current
+                        ? "Denne session"
+                        : "Aktiv"}
+                    </div>
+                  </div>
+                )
+              )
+            ) : (
+              <div className="empty">
+                Ingen aktive sessions.
+              </div>
+            )}
+          </div>
+
+          <h4 className="account-subtitle">
+            📜 Login-historik
+          </h4>
+
+          <div className="login-history">
+            {security?.login_history?.length ? (
+              security.login_history.map(
+                (entry, index) => (
+                  <div
+                    className="history-row"
+                    key={`${entry.timestamp}-${index}`}
+                  >
+                    <div>
+                      <strong>
+                        🔐 Discord login
+                      </strong>
+
+                      <span>
+                        {entry.timestamp}
+                      </span>
+                    </div>
+
+                    <span className="history-success">
+                      🟢 Succes
+                    </span>
+                  </div>
+                )
+              )
+            ) : (
+              <div className="empty">
+                Ingen login-historik endnu.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="danger-account-card">
+          <div>
+            <span className="eyebrow">
+              DANGER ZONE
+            </span>
+
+            <h3>
+              🗑️ Slet konto
+            </h3>
+
+            <p>
+              Dette sletter din Hjælper-dashboardkonto
+              og gemte profiloplysninger.
+            </p>
+          </div>
+
+          <button
+            className="danger-button"
+            onClick={deleteAccount}
+          >
+            Slet min konto
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderSupportPage() {
+    return (
+      <>
+        <div className="page-heading">
+          <span className="eyebrow">
+            SUPPORT
+          </span>
+
+          <h2>
+            🛟 Hjælper Support
+          </h2>
+
+          <p>
+            Har du brug for hjælp? Opret en supportsag.
+          </p>
+        </div>
+
+        {supportMessageStatus && (
+          <div className="success-box">
+            {supportMessageStatus}
+          </div>
+        )}
+
+        <div className="support-grid">
+          <div className="account-card">
+            <div className="account-card-title">
+              <div>
+                <span className="eyebrow">
+                  NY SAG
+                </span>
+
+                <h3>
+                  🎫 Opret supportsag
+                </h3>
+              </div>
+            </div>
+
+            <label>
+              Emne
+            </label>
+
+            <input
+              type="text"
+              value={supportSubject}
+              onChange={event =>
+                setSupportSubject(
+                  event.target.value
+                )
+              }
+              maxLength={100}
+              placeholder="Hvad har du brug for hjælp til?"
+            />
+
+            <label>
+              Besked
+            </label>
+
+            <textarea
+              value={supportMessage}
+              onChange={event =>
+                setSupportMessage(
+                  event.target.value
+                )
+              }
+              maxLength={3000}
+              placeholder="Beskriv problemet så detaljeret som muligt..."
+            />
+
+            <button
+              className="primary-button"
+              onClick={createSupportTicket}
+            >
+              🚀 Opret supportsag
+            </button>
+          </div>
+
+          <div className="account-card">
+            <div className="account-card-title">
+              <div>
+                <span className="eyebrow">
+                  MINE SAGER
+                </span>
+
+                <h3>
+                  📋 Supporthistorik
+                </h3>
+              </div>
+            </div>
+
+            <div className="support-ticket-list">
+              {supportTickets.length === 0 ? (
+                <div className="empty">
+                  Du har ingen supportsager endnu.
+                </div>
+              ) : (
+                supportTickets.map(ticket => (
+                  <div
+                    className="ticket-card"
+                    key={ticket.id}
+                  >
+                    <div className="ticket-top">
+                      <strong>
+                        #{ticket.id}
+                      </strong>
+
+                      <span
+                        className={
+                          ticket.status === "open"
+                            ? "ticket-open"
+                            : "ticket-closed"
+                        }
+                      >
+                        {ticket.status === "open"
+                          ? "🟢 Åben"
+                          : "⚪ Lukket"}
+                      </span>
+                    </div>
+
+                    <h4>
+                      {ticket.subject}
+                    </h4>
+
+                    <p>
+                      {ticket.message}
+                    </p>
+
+                    <small>
+                      Oprettet:{" "}
+                      {ticket.created_at}
+                    </small>
+
+                    {ticket.status === "open" && (
+                      <button
+                        className="secondary-button close-ticket-button"
+                        onClick={() =>
+                          closeSupportTicket(
+                            ticket.id
+                          )
+                        }
+                      >
+                        Luk sag
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-box">
+          <div className="loading-spinner" />
+
+          <h2>
+            Hjælper
+          </h2>
+
+          <p>
+            Indlæser...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (page === "login" && !user) {
     return (
       <div className="login-page">
-
         <div className="login-box">
-
           <div className="login-logo">
             ✨
           </div>
@@ -381,42 +1098,28 @@ export default function App() {
               <span className="discord-icon">
                 🔐
               </span>
-
               Admin Login
             </span>
 
-            <span>
-              →
-            </span>
+            <span>→</span>
           </button>
 
           <button
-            className="login"
-            style={{
-              marginTop: "10px",
-              background: "#151b27",
-            }}
+            className="login secondary-login"
             onClick={userLogin}
           >
             <span>
               <span className="discord-icon">
                 👤
               </span>
-
               Bruger Login
             </span>
 
-            <span>
-              →
-            </span>
+            <span>→</span>
           </button>
 
           <button
-            className="login"
-            style={{
-              marginTop: "10px",
-              background: "#151b27",
-            }}
+            className="login secondary-login"
             onClick={() =>
               setPage("public-stats")
             }
@@ -425,21 +1128,14 @@ export default function App() {
               <span className="discord-icon">
                 📊
               </span>
-
               Se Statistik
             </span>
 
-            <span>
-              →
-            </span>
+            <span>→</span>
           </button>
 
           <button
-            className="login"
-            style={{
-              marginTop: "10px",
-              background: "#151b27",
-            }}
+            className="login secondary-login"
             onClick={() =>
               setPage("public-status")
             }
@@ -448,21 +1144,14 @@ export default function App() {
               <span className="discord-icon">
                 🟢
               </span>
-
               Status
             </span>
 
-            <span>
-              →
-            </span>
+            <span>→</span>
           </button>
 
           <button
-            className="login"
-            style={{
-              marginTop: "10px",
-              background: "#151b27",
-            }}
+            className="login secondary-login"
             onClick={() =>
               setPage("roadmap")
             }
@@ -471,39 +1160,25 @@ export default function App() {
               <span className="discord-icon">
                 🚀
               </span>
-
               Roadmap
             </span>
 
-            <span>
-              →
-            </span>
+            <span>→</span>
           </button>
 
           <div className="login-footer">
             Hjælper • 2026
           </div>
-
         </div>
-
       </div>
     );
   }
 
-  /*
-   * =====================================================
-   * PUBLIC STATS
-   * =====================================================
-   */
-
   if (page === "public-stats") {
     return (
       <div className="public-page">
-
         <div className="public-topbar">
-
           <div className="brand">
-
             <div className="brand-icon">
               ✨
             </div>
@@ -517,7 +1192,6 @@ export default function App() {
                 Offentlig statistik
               </span>
             </div>
-
           </div>
 
           <button
@@ -528,13 +1202,10 @@ export default function App() {
           >
             ← Tilbage
           </button>
-
         </div>
 
         <div className="public-content">
-
           <div className="public-title">
-
             <span className="eyebrow">
               STATISTIK
             </span>
@@ -546,13 +1217,12 @@ export default function App() {
             <p>
               Offentlig statistik for Hjælper.
             </p>
-
           </div>
 
           <div className="stats-grid">
-
             <div className="stat-card">
               <span>🟢 Bot status</span>
+
               <strong>
                 {publicStats?.online
                   ? "Online"
@@ -562,6 +1232,7 @@ export default function App() {
 
             <div className="stat-card">
               <span>🖥️ Servere</span>
+
               <strong>
                 {formatNumber(
                   publicStats?.servers
@@ -571,6 +1242,7 @@ export default function App() {
 
             <div className="stat-card">
               <span>👥 Discord-brugere</span>
+
               <strong>
                 {formatNumber(
                   publicStats?.users
@@ -580,6 +1252,7 @@ export default function App() {
 
             <div className="stat-card">
               <span>⚡ Commands</span>
+
               <strong>
                 {formatNumber(
                   publicStats?.commands
@@ -589,19 +1262,17 @@ export default function App() {
 
             <div className="stat-card">
               <span>🧩 Cogs</span>
+
               <strong>
                 {formatNumber(
                   publicStats?.cogs
                 )}
               </strong>
             </div>
-
           </div>
 
           <div className="public-panel-users">
-
             <div className="public-section-title">
-
               <span className="eyebrow">
                 PANEL
               </span>
@@ -609,13 +1280,12 @@ export default function App() {
               <h3>
                 👤 Panelbrugere
               </h3>
-
             </div>
 
             <div className="stats-grid">
-
               <div className="stat-card">
                 <span>📅 I dag</span>
+
                 <strong>
                   {formatNumber(
                     publicStats?.dashboard_users?.today ??
@@ -626,6 +1296,7 @@ export default function App() {
 
               <div className="stat-card">
                 <span>📆 Denne uge</span>
+
                 <strong>
                   {formatNumber(
                     publicStats?.dashboard_users?.week ??
@@ -636,6 +1307,7 @@ export default function App() {
 
               <div className="stat-card">
                 <span>🗓️ Dette år</span>
+
                 <strong>
                   {formatNumber(
                     publicStats?.dashboard_users?.year ??
@@ -646,6 +1318,7 @@ export default function App() {
 
               <div className="stat-card">
                 <span>👤 I alt</span>
+
                 <strong>
                   {formatNumber(
                     publicStats?.dashboard_users?.total ??
@@ -653,36 +1326,23 @@ export default function App() {
                   )}
                 </strong>
               </div>
-
             </div>
-
           </div>
 
           <div className="last-updated">
             Sidst opdateret:{" "}
             {formatTime(lastUpdated)}
           </div>
-
         </div>
-
       </div>
     );
   }
 
-  /*
-   * =====================================================
-   * PUBLIC STATUS
-   * =====================================================
-   */
-
   if (page === "public-status") {
     return (
       <div className="public-page">
-
         <div className="public-topbar">
-
           <div className="brand">
-
             <div className="brand-icon">
               ✨
             </div>
@@ -696,7 +1356,6 @@ export default function App() {
                 Systemstatus
               </span>
             </div>
-
           </div>
 
           <button
@@ -707,13 +1366,10 @@ export default function App() {
           >
             ← Tilbage
           </button>
-
         </div>
 
         <div className="public-content">
-
           <div className="public-title">
-
             <span className="eyebrow">
               STATUS
             </span>
@@ -725,13 +1381,10 @@ export default function App() {
             <p>
               Aktuel status for Hjælper.
             </p>
-
           </div>
 
           <div className="public-status-grid">
-
             <div className="public-status-card">
-
               <div className="status-icon">
                 🤖
               </div>
@@ -751,11 +1404,9 @@ export default function App() {
                     : "Offline"}
                 </strong>
               </div>
-
             </div>
 
             <div className="public-status-card">
-
               <div className="status-icon">
                 🌐
               </div>
@@ -767,11 +1418,9 @@ export default function App() {
                   Online
                 </strong>
               </div>
-
             </div>
 
             <div className="public-status-card">
-
               <div className="status-icon">
                 🖥️
               </div>
@@ -785,11 +1434,9 @@ export default function App() {
                   )}
                 </strong>
               </div>
-
             </div>
 
             <div className="public-status-card">
-
               <div className="status-icon">
                 ⚡
               </div>
@@ -803,11 +1450,9 @@ export default function App() {
                   )}
                 </strong>
               </div>
-
             </div>
 
             <div className="public-status-card">
-
               <div className="status-icon">
                 🧩
               </div>
@@ -821,13 +1466,10 @@ export default function App() {
                   )}
                 </strong>
               </div>
-
             </div>
-
           </div>
 
           <div className="public-info-box">
-
             <h3>
               🛡️ Systemstatus
             </h3>
@@ -836,34 +1478,22 @@ export default function App() {
               Hjælper overvåges løbende.
               Status opdateres automatisk.
             </p>
-
           </div>
 
           <div className="last-updated">
             Sidst opdateret:{" "}
             {formatTime(lastUpdated)}
           </div>
-
         </div>
-
       </div>
     );
   }
 
-  /*
-   * =====================================================
-   * ROADMAP
-   * =====================================================
-   */
-
   if (page === "roadmap") {
     return (
       <div className="public-page">
-
         <div className="public-topbar">
-
           <div className="brand">
-
             <div className="brand-icon">
               🚀
             </div>
@@ -877,7 +1507,6 @@ export default function App() {
                 Roadmap
               </span>
             </div>
-
           </div>
 
           <button
@@ -888,13 +1517,10 @@ export default function App() {
           >
             ← Tilbage
           </button>
-
         </div>
 
         <div className="roadmap">
-
           <div className="public-title">
-
             <span className="eyebrow">
               ROADMAP
             </span>
@@ -906,15 +1532,11 @@ export default function App() {
             <p>
               Vi afslører ikke alt på forhånd 👀
             </p>
-
           </div>
 
           <div className="roadmap-card active">
-
             <div className="roadmap-header">
-
               <div>
-
                 <div className="roadmap-version">
                   V2.1
                 </div>
@@ -922,17 +1544,14 @@ export default function App() {
                 <h2>
                   🔒 Privacy Policy
                 </h2>
-
               </div>
 
               <div className="roadmap-status active">
                 Næste update
               </div>
-
             </div>
 
             <div className="roadmap-items">
-
               <div>
                 🔒 Tydelig information om data
               </div>
@@ -940,17 +1559,12 @@ export default function App() {
               <div>
                 🛡️ Mere gennemsigtighed omkring Hjælper
               </div>
-
             </div>
-
           </div>
 
           <div className="roadmap-card">
-
             <div className="roadmap-header">
-
               <div>
-
                 <div className="roadmap-version">
                   V2.2
                 </div>
@@ -958,17 +1572,14 @@ export default function App() {
                 <h2>
                   ✨ Coming Soon
                 </h2>
-
               </div>
 
               <div className="roadmap-status">
                 Hemmeligt
               </div>
-
             </div>
 
             <div className="roadmap-items">
-
               <div>
                 ✨ Nye features
               </div>
@@ -980,44 +1591,32 @@ export default function App() {
               <div>
                 👀 Mere bliver afsløret senere
               </div>
-
             </div>
-
           </div>
 
           <div className="roadmap-note">
             Ikke alt bliver afsløret på forhånd. 👀
           </div>
-
         </div>
-
       </div>
     );
   }
 
-  /*
-   * =====================================================
-   * USER DASHBOARD
-   * =====================================================
-   */
-
   if (
     user &&
-    user.role === "user" &&
     (
       page === "user-dashboard" ||
       page === "user-privacy" ||
       page === "user-terms" ||
-      page === "user-cookies"
+      page === "user-cookies" ||
+      page === "account" ||
+      page === "support"
     )
   ) {
     return (
       <div className="dashboard">
-
         <aside className="sidebar">
-
           <div className="sidebar-brand">
-
             <div className="brand-icon">
               ✨
             </div>
@@ -1028,93 +1627,208 @@ export default function App() {
               </h2>
 
               <span>
-                Bruger Dashboard
+                {isStaff
+                  ? "Admin Dashboard"
+                  : "Bruger Dashboard"}
               </span>
             </div>
-
           </div>
 
           <nav>
+            {isStaff ? (
+              <>
+                <button
+                  className={`nav-item ${
+                    page === "overview"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("overview")
+                  }
+                >
+                  🏠 Dashboard
+                </button>
+
+                <button
+                  className={`nav-item ${
+                    page === "bot"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("bot")
+                  }
+                >
+                  🤖 Bot
+                </button>
+
+                <button
+                  className={`nav-item ${
+                    page === "stats"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("stats")
+                  }
+                >
+                  📊 Stats
+                </button>
+
+                <button
+                  className={`nav-item ${
+                    page === "cogs"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("cogs")
+                  }
+                >
+                  🧩 Cogs
+                </button>
+
+                <button
+                  className={`nav-item ${
+                    page === "servers"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("servers")
+                  }
+                >
+                  🖥️ Servere
+                </button>
+
+                <button
+                  className={`nav-item ${
+                    page === "logs"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("logs")
+                  }
+                >
+                  📜 Logs
+                </button>
+
+                {(isOwner || isManager) && (
+                  <button
+                    className={`nav-item ${
+                      page === "system"
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      setPage("system")
+                    }
+                  >
+                    ⚙️ System
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                className={`nav-item ${
+                  page === "user-dashboard"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  setPage("user-dashboard")
+                }
+              >
+                🏠 Dashboard
+              </button>
+            )}
 
             <button
               className={`nav-item ${
-                page === "user-dashboard"
+                page === "account"
                   ? "active"
                   : ""
               }`}
-              onClick={() =>
-                setPage("user-dashboard")
-              }
+              onClick={goToAccount}
             >
-              🏠 Dashboard
+              👤 Konto
             </button>
 
+            <button
+              className={`nav-item ${
+                page === "support"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={goToSupport}
+            >
+              🛟 Support
+            </button>
           </nav>
 
           <div className="sidebar-bottom">
+            {!isStaff && (
+              <>
+                <button
+                  className={`nav-item ${
+                    page === "user-privacy"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("user-privacy")
+                  }
+                >
+                  🔒 Privacy Policy
+                </button>
 
-            <button
-              className={`nav-item ${
-                page === "user-privacy"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("user-privacy")
-              }
-            >
-              🔒 Privacy Policy
-            </button>
+                <button
+                  className={`nav-item ${
+                    page === "user-terms"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("user-terms")
+                  }
+                >
+                  📜 Terms of Service
+                </button>
 
-            <button
-              className={`nav-item ${
-                page === "user-terms"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("user-terms")
-              }
-            >
-              📜 Terms of Service
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "user-cookies"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("user-cookies")
-              }
-            >
-              🍪 Cookie Policy
-            </button>
+                <button
+                  className={`nav-item ${
+                    page === "user-cookies"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("user-cookies")
+                  }
+                >
+                  🍪 Cookie Policy
+                </button>
+              </>
+            )}
 
             <div className="user-mini">
-
               <div className="user-avatar">
-
                 <img
                   src={getAvatarUrl()}
                   alt=""
                 />
-
               </div>
 
               <div className="user-info">
-
                 <strong>
                   {user.username}
                 </strong>
 
                 <span>
-                  👤 Bruger
+                  {roleLabel}
                 </span>
-
               </div>
-
             </div>
 
             <button
@@ -1123,47 +1837,60 @@ export default function App() {
             >
               🚪 Log ud
             </button>
-
           </div>
-
         </aside>
 
         <main className="main">
-
           <header className="topbar">
-
             <div>
-
               <h1>
-                {page === "user-dashboard"
+                {page === "overview"
                   ? "🏠 Dashboard"
-                  : page === "user-privacy"
-                    ? "🔒 Privacy Policy"
-                    : page === "user-terms"
-                      ? "📜 Terms of Service"
-                      : "🍪 Cookie Policy"}
+                  : page === "bot"
+                    ? "🤖 Bot"
+                    : page === "stats"
+                      ? "📊 Stats"
+                      : page === "cogs"
+                        ? "🧩 Cogs"
+                        : page === "servers"
+                          ? "🖥️ Servere"
+                          : page === "server-details"
+                            ? "🖥️ Server"
+                            : page === "logs"
+                              ? "📜 Logs"
+                              : page === "system"
+                                ? "⚙️ System"
+                                : page === "account"
+                                  ? "👤 Konto"
+                                  : page === "support"
+                                    ? "🛟 Support"
+                                    : page === "user-privacy"
+                                      ? "🔒 Privacy Policy"
+                                      : page === "user-terms"
+                                        ? "📜 Terms of Service"
+                                        : "🍪 Cookie Policy"}
               </h1>
 
               <span>
-                Hjælper • Bruger
+                Hjælper V2
               </span>
-
             </div>
 
             <div className="topbar-user">
-
-              {user.username} • 👤 Bruger
-
+              {user.username} • {roleLabel}
             </div>
-
           </header>
 
           <div className="content">
+            {page === "account" &&
+              renderAccountPage()}
+
+            {page === "support" &&
+              renderSupportPage()}
 
             {page === "user-dashboard" && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     BRUGER
                   </span>
@@ -1175,11 +1902,9 @@ export default function App() {
                   <p>
                     Dette er dit Hjælper-dashboard.
                   </p>
-
                 </div>
 
                 <div className="info-card">
-
                   <div>
                     <span>
                       Brugernavn
@@ -1209,21 +1934,19 @@ export default function App() {
                       {user.id}
                     </strong>
                   </div>
-
                 </div>
 
                 <div className="public-info-box">
-
                   <h3>
                     ✨ Hjælper
                   </h3>
 
                   <p>
-                    Du er logget ind som almindelig bruger.
-                    Admin-funktioner kræver en autoriseret
-                    staff-rolle.
+                    Du er logget ind som almindelig
+                    bruger. Brug Konto til at administrere
+                    din profil og Support hvis du har brug
+                    for hjælp.
                   </p>
-
                 </div>
               </>
             )}
@@ -1231,7 +1954,6 @@ export default function App() {
             {page === "user-privacy" && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     PRIVACY
                   </span>
@@ -1243,11 +1965,9 @@ export default function App() {
                   <p>
                     Information om data og privatliv.
                   </p>
-
                 </div>
 
                 <div className="public-info-box">
-
                   <h3>
                     Hvilke data bruger Hjælper?
                   </h3>
@@ -1290,7 +2010,6 @@ export default function App() {
                     Nødvendige cookies kan bruges til
                     sessionshåndtering og login.
                   </p>
-
                 </div>
               </>
             )}
@@ -1298,7 +2017,6 @@ export default function App() {
             {page === "user-terms" && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     VILKÅR
                   </span>
@@ -1310,11 +2028,9 @@ export default function App() {
                   <p>
                     Vilkår for brug af Hjælper.
                   </p>
-
                 </div>
 
                 <div className="public-info-box">
-
                   <h3>
                     1. Brug af tjenesten
                   </h3>
@@ -1356,7 +2072,6 @@ export default function App() {
                     Hjælper kan ændre funktioner og
                     vilkår efter behov.
                   </p>
-
                 </div>
               </>
             )}
@@ -1364,7 +2079,6 @@ export default function App() {
             {page === "user-cookies" && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     COOKIES
                   </span>
@@ -1376,11 +2090,9 @@ export default function App() {
                   <p>
                     Information om cookies.
                   </p>
-
                 </div>
 
                 <div className="public-info-box">
-
                   <h3>
                     Nødvendige cookies
                   </h3>
@@ -1411,226 +2123,13 @@ export default function App() {
                     Du kan normalt administrere cookies
                     gennem indstillingerne i din browser.
                   </p>
-
                 </div>
               </>
             )}
 
-          </div>
-
-        </main>
-
-      </div>
-    );
-  }
-
-  /*
-   * =====================================================
-   * ADMIN DASHBOARD
-   * =====================================================
-   */
-
-  if (user && isStaff) {
-    return (
-      <div className="dashboard">
-
-        <aside className="sidebar">
-
-          <div className="sidebar-brand">
-
-            <div className="brand-icon">
-              ✨
-            </div>
-
-            <div>
-              <h2>
-                Hjælper
-              </h2>
-
-              <span>
-                Admin Dashboard
-              </span>
-            </div>
-
-          </div>
-
-          <nav>
-
-            <button
-              className={`nav-item ${
-                page === "overview"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("overview")
-              }
-            >
-              🏠 Dashboard
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "bot"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("bot")
-              }
-            >
-              🤖 Bot
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "stats"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("stats")
-              }
-            >
-              📊 Stats
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "cogs"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("cogs")
-              }
-            >
-              🧩 Cogs
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "servers"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("servers")
-              }
-            >
-              🖥️ Servere
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "logs"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPage("logs")
-              }
-            >
-              📜 Logs
-            </button>
-
-            {(isOwner || isManager) && (
-              <button
-                className={`nav-item ${
-                  page === "system"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setPage("system")
-                }
-              >
-                ⚙️ System
-              </button>
-            )}
-
-          </nav>
-
-          <div className="sidebar-bottom">
-
-            <div className="user-mini">
-
-              <div className="user-avatar">
-
-                <img
-                  src={getAvatarUrl()}
-                  alt=""
-                />
-
-              </div>
-
-              <div className="user-info">
-
-                <strong>
-                  {user.username}
-                </strong>
-
-                <span>
-                  {roleLabel}
-                </span>
-
-              </div>
-
-            </div>
-
-            <button
-              className="logout-button"
-              onClick={logout}
-            >
-              🚪 Log ud
-            </button>
-
-          </div>
-
-        </aside>
-
-        <main className="main">
-
-          <header className="topbar">
-
-            <div>
-
-              <h1>
-                {page === "overview"
-                  ? "🏠 Dashboard"
-                  : page === "bot"
-                    ? "🤖 Bot"
-                    : page === "stats"
-                      ? "📊 Stats"
-                      : page === "cogs"
-                        ? "🧩 Cogs"
-                        : page === "servers"
-                          ? "🖥️ Servere"
-                          : page === "server-details"
-                            ? "🖥️ Server"
-                            : page === "logs"
-                              ? "📜 Logs"
-                              : "⚙️ System"}
-              </h1>
-
-              <span>
-                Hjælper V2
-              </span>
-
-            </div>
-
-            <div className="topbar-user">
-              {roleLabel}
-            </div>
-
-          </header>
-
-          <div className="content">
-
-            {page === "overview" && (
+            {page === "overview" && isStaff && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     OVERVIEW
                   </span>
@@ -1642,11 +2141,9 @@ export default function App() {
                   <p>
                     Her er en oversigt over Hjælper.
                   </p>
-
                 </div>
 
                 <div className="stats-grid">
-
                   <div className="stat-card">
                     <span>🟢 Status</span>
 
@@ -1686,11 +2183,9 @@ export default function App() {
                       )}
                     </strong>
                   </div>
-
                 </div>
 
                 <div className="public-info-box">
-
                   <h3>
                     🛡️ Din rolle
                   </h3>
@@ -1698,15 +2193,13 @@ export default function App() {
                   <p>
                     {roleLabel}
                   </p>
-
                 </div>
               </>
             )}
 
-            {page === "bot" && (
+            {page === "bot" && isStaff && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     BOT
                   </span>
@@ -1718,11 +2211,9 @@ export default function App() {
                   <p>
                     Information om botten.
                   </p>
-
                 </div>
 
                 <div className="stats-grid">
-
                   <div className="stat-card">
                     <span>🟢 Status</span>
 
@@ -1762,15 +2253,13 @@ export default function App() {
                       )}
                     </strong>
                   </div>
-
                 </div>
               </>
             )}
 
-            {page === "stats" && (
+            {page === "stats" && isStaff && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     STATISTIK
                   </span>
@@ -1782,13 +2271,12 @@ export default function App() {
                   <p>
                     Statistik for Hjælper.
                   </p>
-
                 </div>
 
                 <div className="stats-grid">
-
                   <div className="stat-card">
                     <span>🖥️ Servere</span>
+
                     <strong>
                       {formatNumber(
                         stats?.servers
@@ -1798,6 +2286,7 @@ export default function App() {
 
                   <div className="stat-card">
                     <span>👥 Discord-brugere</span>
+
                     <strong>
                       {formatNumber(
                         stats?.users
@@ -1807,6 +2296,7 @@ export default function App() {
 
                   <div className="stat-card">
                     <span>⚡ Commands</span>
+
                     <strong>
                       {formatNumber(
                         stats?.commands
@@ -1816,19 +2306,17 @@ export default function App() {
 
                   <div className="stat-card">
                     <span>🧩 Cogs</span>
+
                     <strong>
                       {formatNumber(
                         stats?.cogs
                       )}
                     </strong>
                   </div>
-
                 </div>
 
                 <div className="public-panel-users">
-
                   <div className="public-section-title">
-
                     <span className="eyebrow">
                       DASHBOARD
                     </span>
@@ -1836,13 +2324,12 @@ export default function App() {
                     <h3>
                       👤 Panelbrugere
                     </h3>
-
                   </div>
 
                   <div className="stats-grid">
-
                     <div className="stat-card">
                       <span>📅 I dag</span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.today ??
@@ -1853,6 +2340,7 @@ export default function App() {
 
                     <div className="stat-card">
                       <span>📆 Denne uge</span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.week ??
@@ -1863,6 +2351,7 @@ export default function App() {
 
                     <div className="stat-card">
                       <span>🗓️ Dette år</span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.year ??
@@ -1873,6 +2362,7 @@ export default function App() {
 
                     <div className="stat-card">
                       <span>👤 I alt</span>
+
                       <strong>
                         {formatNumber(
                           stats?.dashboard_users?.total ??
@@ -1880,17 +2370,14 @@ export default function App() {
                         )}
                       </strong>
                     </div>
-
                   </div>
-
                 </div>
               </>
             )}
 
-            {page === "cogs" && (
+            {page === "cogs" && isStaff && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     MODULES
                   </span>
@@ -1902,18 +2389,15 @@ export default function App() {
                   <p>
                     Aktive moduler.
                   </p>
-
                 </div>
 
                 <div className="list-card">
-
                   {cogs.length === 0 ? (
                     <div className="empty">
                       Ingen cogs fundet.
                     </div>
                   ) : (
                     cogs.map((cog, index) => {
-
                       const name =
                         typeof cog === "string"
                           ? cog
@@ -1926,10 +2410,7 @@ export default function App() {
                           className="list-row"
                           key={index}
                         >
-
-                          <span>
-                            🧩
-                          </span>
+                          <span>🧩</span>
 
                           <strong>
                             {name}
@@ -1938,20 +2419,17 @@ export default function App() {
                           <span>
                             🟢 Loaded
                           </span>
-
                         </div>
                       );
                     })
                   )}
-
                 </div>
               </>
             )}
 
-            {page === "servers" && (
+            {page === "servers" && isStaff && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     SERVERE
                   </span>
@@ -1963,7 +2441,6 @@ export default function App() {
                   <p>
                     Discord-servere hvor Hjælper er installeret.
                   </p>
-
                 </div>
 
                 {serverError && (
@@ -1973,14 +2450,12 @@ export default function App() {
                 )}
 
                 <div className="list-card">
-
                   {servers.length === 0 ? (
                     <div className="empty">
                       Ingen servere fundet.
                     </div>
                   ) : (
                     servers.map(server => {
-
                       const icon =
                         getServerIcon(server);
 
@@ -1992,9 +2467,7 @@ export default function App() {
                             openServer(server)
                           }
                         >
-
                           <div className="server-icon">
-
                             {icon ? (
                               <img
                                 src={icon}
@@ -2003,11 +2476,9 @@ export default function App() {
                             ) : (
                               "🖥️"
                             )}
-
                           </div>
 
                           <div className="server-main">
-
                             <strong>
                               {server.name ||
                                 "Ukendt server"}
@@ -2016,7 +2487,6 @@ export default function App() {
                             <small>
                               {server.id}
                             </small>
-
                           </div>
 
                           <div className="server-members">
@@ -2029,20 +2499,18 @@ export default function App() {
                           <div className="server-arrow">
                             →
                           </div>
-
                         </button>
                       );
                     })
                   )}
-
                 </div>
               </>
             )}
 
             {page === "server-details" &&
-              selectedServer && (
+              selectedServer &&
+              isStaff && (
                 <div className="server-details-page">
-
                   <button
                     className="back-button"
                     onClick={() =>
@@ -2053,9 +2521,7 @@ export default function App() {
                   </button>
 
                   <div className="server-hero">
-
                     <div className="server-hero-icon">
-
                       {getServerIcon(
                         selectedServer
                       ) ? (
@@ -2068,11 +2534,9 @@ export default function App() {
                       ) : (
                         "🖥️"
                       )}
-
                     </div>
 
                     <div className="server-hero-info">
-
                       <span className="eyebrow">
                         SERVER
                       </span>
@@ -2085,9 +2549,7 @@ export default function App() {
                         Discord ID:{" "}
                         {selectedServer.id}
                       </p>
-
                     </div>
-
                   </div>
 
                   {serverError && (
@@ -2097,9 +2559,7 @@ export default function App() {
                   )}
 
                   <div className="server-detail-grid">
-
                     <div className="server-detail-card">
-
                       <span>
                         👥 Medlemmer
                       </span>
@@ -2109,11 +2569,9 @@ export default function App() {
                           selectedServer.member_count
                         )}
                       </strong>
-
                     </div>
 
                     <div className="server-detail-card">
-
                       <span>
                         🆔 Server ID
                       </span>
@@ -2121,11 +2579,9 @@ export default function App() {
                       <strong className="server-id">
                         {selectedServer.id}
                       </strong>
-
                     </div>
 
                     <div className="server-detail-card">
-
                       <span>
                         🟢 Status
                       </span>
@@ -2133,16 +2589,12 @@ export default function App() {
                       <strong>
                         Tilsluttet
                       </strong>
-
                     </div>
-
                   </div>
 
                   {(isOwner || isManager) && (
                     <div className="server-danger-card">
-
                       <div>
-
                         <span className="eyebrow">
                           DANGER ZONE
                         </span>
@@ -2155,7 +2607,6 @@ export default function App() {
                           Dette fjerner Hjælper fra
                           denne Discord-server.
                         </p>
-
                       </div>
 
                       <button
@@ -2168,17 +2619,14 @@ export default function App() {
                       >
                         Fjern Hjælper
                       </button>
-
                     </div>
                   )}
-
                 </div>
               )}
 
-            {page === "logs" && (
+            {page === "logs" && isStaff && (
               <>
                 <div className="page-heading">
-
                   <span className="eyebrow">
                     LOGS
                   </span>
@@ -2190,11 +2638,9 @@ export default function App() {
                   <p>
                     System- og botaktivitet.
                   </p>
-
                 </div>
 
                 <div className="public-info-box">
-
                   <h3>
                     📡 System Logs
                   </h3>
@@ -2203,7 +2649,6 @@ export default function App() {
                     Live logs kan administreres via
                     Wispbyte console.
                   </p>
-
                 </div>
               </>
             )}
@@ -2212,7 +2657,6 @@ export default function App() {
               (isOwner || isManager) && (
                 <>
                   <div className="page-heading">
-
                     <span className="eyebrow">
                       SYSTEM
                     </span>
@@ -2224,13 +2668,12 @@ export default function App() {
                     <p>
                       Systeminformation.
                     </p>
-
                   </div>
 
                   <div className="stats-grid">
-
                     <div className="stat-card">
                       <span>🐍 Python</span>
+
                       <strong>
                         3.14.7
                       </strong>
@@ -2238,6 +2681,7 @@ export default function App() {
 
                     <div className="stat-card">
                       <span>🌐 API</span>
+
                       <strong>
                         FastAPI
                       </strong>
@@ -2245,6 +2689,7 @@ export default function App() {
 
                     <div className="stat-card">
                       <span>🤖 Discord</span>
+
                       <strong>
                         discord.py
                       </strong>
@@ -2252,34 +2697,23 @@ export default function App() {
 
                     <div className="stat-card">
                       <span>✨ Hjælper</span>
+
                       <strong>
                         V2
                       </strong>
                     </div>
-
                   </div>
                 </>
               )}
-
           </div>
-
         </main>
-
       </div>
     );
   }
 
-  /*
-   * =====================================================
-   * FALLBACK
-   * =====================================================
-   */
-
   return (
     <div className="loading-screen">
-
       <div className="loading-box">
-
         <div className="loading-spinner" />
 
         <h2>
@@ -2289,9 +2723,7 @@ export default function App() {
         <p>
           Indlæser...
         </p>
-
       </div>
-
     </div>
   );
 }
