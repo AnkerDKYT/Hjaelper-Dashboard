@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./style.css";
 
 const API = "/backend";
@@ -118,7 +118,6 @@ export default function App() {
     const [cogs, setCogs] = useState([]);
     const [servers, setServers] = useState([]);
     const [logs, setLogs] = useState([]);
-    const [system, setSystem] = useState(null);
 
     const [account, setAccount] = useState(null);
     const [security, setSecurity] = useState(null);
@@ -133,7 +132,6 @@ export default function App() {
 
     const [supportSubject, setSupportSubject] = useState("");
     const [supportMessage, setSupportMessage] = useState("");
-
     const [userTicketReply, setUserTicketReply] = useState("");
 
     const [supportLoading, setSupportLoading] = useState(false);
@@ -157,7 +155,6 @@ export default function App() {
     // GENERAL
     // ========================================================
 
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
     const isOwner =
@@ -186,6 +183,17 @@ export default function App() {
 
             if (data?.authenticated && data?.user) {
                 setUser(data.user);
+
+                if (
+                    data.user.role === "owner" ||
+                    data.user.role === "manager" ||
+                    data.user.role === "admin" ||
+                    data.user.is_owner === true
+                ) {
+                    setPage("admin");
+                } else {
+                    setPage("dashboard");
+                }
             } else {
                 setUser(null);
             }
@@ -196,7 +204,7 @@ export default function App() {
         }
     }
 
-    function login(type = "admin") {
+    function login(type = "user") {
         window.location.href =
             `${API}/auth/discord?login_type=${type}`;
     }
@@ -211,6 +219,7 @@ export default function App() {
         }
 
         setUser(null);
+        setPage("dashboard");
     }
 
     // ========================================================
@@ -224,9 +233,7 @@ export default function App() {
 
         if (isStaff) {
             loadAdminData();
-        }
-
-        if (!isStaff) {
+        } else {
             loadUserTickets();
         }
     }, [user]);
@@ -306,7 +313,7 @@ export default function App() {
             setSupportLoading(true);
 
             const data = await apiFetch(
-                `/api/support/tickets`
+                "/api/support/tickets"
             );
 
             const tickets = Array.isArray(data?.tickets)
@@ -324,7 +331,6 @@ export default function App() {
             setSelectedUserTicket(
                 found || ticket
             );
-
         } catch (err) {
             setSelectedUserTicket(ticket);
 
@@ -392,7 +398,6 @@ export default function App() {
             if (ticket) {
                 setSelectedUserTicket(ticket);
             }
-
         } catch (err) {
             setSupportError(
                 err.message ||
@@ -442,7 +447,6 @@ export default function App() {
             setSupportSuccess(
                 "Dit svar blev sendt."
             );
-
         } catch (err) {
             setSupportError(
                 err.message ||
@@ -480,7 +484,6 @@ export default function App() {
             setSupportSuccess(
                 "Ticketen blev lukket."
             );
-
         } catch (err) {
             setSupportError(
                 err.message ||
@@ -509,7 +512,6 @@ export default function App() {
                     ? data.tickets
                     : []
             );
-
         } catch (err) {
             setAdminTicketError(
                 err.message ||
@@ -535,7 +537,6 @@ export default function App() {
                 data?.ticket ||
                 ticket
             );
-
         } catch (err) {
             setAdminTicketError(
                 err.message ||
@@ -594,7 +595,6 @@ export default function App() {
             setAdminTicketSuccess(
                 "Svar sendt."
             );
-
         } catch (err) {
             setAdminTicketError(
                 err.message ||
@@ -632,7 +632,6 @@ export default function App() {
             setAdminTicketSuccess(
                 "Ticketen blev lukket."
             );
-
         } catch (err) {
             setAdminTicketError(
                 err.message ||
@@ -662,7 +661,6 @@ export default function App() {
             setAccount(accountData);
             setSecurity(securityData);
             setConnected(connectedData);
-
         } catch (err) {
             setError(
                 err.message ||
@@ -695,6 +693,7 @@ export default function App() {
 
         setSupportError("");
         setSupportSuccess("");
+        setError("");
 
         if (nextPage === "tickets" && isStaff) {
             loadAdminTickets();
@@ -702,6 +701,23 @@ export default function App() {
 
         if (nextPage === "support" && !isStaff) {
             loadUserTickets();
+        }
+
+        if (nextPage === "status") {
+            loadPublicStats();
+
+            if (isStaff) {
+                loadAdminData();
+            }
+        }
+
+        if (nextPage === "stats" && isStaff) {
+            loadAdminData();
+        }
+
+        if (nextPage === "admin" && isStaff) {
+            loadAdminData();
+            loadAdminTickets();
         }
     }
 
@@ -780,7 +796,7 @@ export default function App() {
     }
 
     // ========================================================
-    // LOGIN
+    // LOADING
     // ========================================================
 
     if (authLoading) {
@@ -793,6 +809,10 @@ export default function App() {
             </div>
         );
     }
+
+    // ========================================================
+    // LOGIN
+    // ========================================================
 
     if (!user) {
         return (
@@ -823,12 +843,14 @@ export default function App() {
     // ========================================================
 
     const staffNavigation = [
-        ["dashboard", "🏠", "Dashboard"],
+        ["admin", "🛡️", "Admin Panel"],
+        ["stats", "📊", "Statistik"],
+        ["status", "🟢", "Status"],
         ["bot", "🤖", "Bot"],
-        ["stats", "📊", "Stats"],
         ["cogs", "🧩", "Cogs"],
         ["servers", "🌐", "Servere"],
         ["tickets", "🎫", "Tickets"],
+        ["roadmap", "🗺️", "Roadmap"],
         ["logs", "📜", "Logs"],
     ];
 
@@ -840,6 +862,9 @@ export default function App() {
 
     const userNavigation = [
         ["dashboard", "🏠", "Dashboard"],
+        ["stats", "📊", "Statistik"],
+        ["status", "🟢", "Status"],
+        ["roadmap", "🗺️", "Roadmap"],
         ["support", "🛟", "Support"],
     ];
 
@@ -964,14 +989,24 @@ export default function App() {
 
                     <div>
                         <h1>
+
                             {page === "dashboard" &&
                                 "Dashboard"}
+
+                            {page === "admin" &&
+                                "Admin Panel"}
 
                             {page === "bot" &&
                                 "Bot"}
 
                             {page === "stats" &&
                                 "Statistik"}
+
+                            {page === "status" &&
+                                "Status"}
+
+                            {page === "roadmap" &&
+                                "Roadmap"}
 
                             {page === "cogs" &&
                                 "Cogs"}
@@ -993,6 +1028,7 @@ export default function App() {
 
                             {page === "account" &&
                                 "Konto"}
+
                         </h1>
 
                         <p>
@@ -1004,7 +1040,6 @@ export default function App() {
                     </div>
 
                     <div className="topbar-user">
-
                         <span
                             className={roleClass(
                                 user.role
@@ -1014,7 +1049,6 @@ export default function App() {
                                 user.role
                             )}
                         </span>
-
                     </div>
 
                 </header>
@@ -1028,7 +1062,7 @@ export default function App() {
                     )}
 
                     {/* ====================================================
-                        DASHBOARD
+                        USER DASHBOARD
                     ==================================================== */}
 
                     {page === "dashboard" && (
@@ -1040,10 +1074,8 @@ export default function App() {
                                 </h2>
 
                                 <p>
-                                    Her kan du se
-                                    status og
-                                    information om
-                                    Hjælper.
+                                    Velkommen til Hjælper
+                                    Dashboard.
                                 </p>
                             </div>
 
@@ -1111,28 +1143,831 @@ export default function App() {
                             <div className="card">
 
                                 <h3>
-                                    Din konto
+                                    🟢 Hurtig status
+                                </h3>
+
+                                <div className="list">
+
+                                    <div className="list-item">
+                                        <strong>
+                                            Hjælper Bot
+                                        </strong>
+
+                                        <span className="status-open">
+                                            ●{" "}
+                                            {publicStats?.online
+                                                ? "Online"
+                                                : "Offline"}
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <strong>
+                                            Dashboard
+                                        </strong>
+
+                                        <span className="status-open">
+                                            ● Online
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <strong>
+                                            Support
+                                        </strong>
+
+                                        <button
+                                            className="btn btn-secondary"
+                                            onClick={() =>
+                                                navigate(
+                                                    "support"
+                                                )
+                                            }
+                                        >
+                                            🛟 Åbn Support
+                                        </button>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div className="card">
+
+                                <h3>
+                                    🗺️ Roadmap
                                 </h3>
 
                                 <p>
-                                    Logget ind som{" "}
-                                    <strong>
-                                        {user.username}
-                                    </strong>
-                                    .
+                                    Se hvad der er
+                                    færdigt, i gang og
+                                    planlagt for Hjælper.
                                 </p>
 
-                                <span
-                                    className={
-                                        roleClass(
-                                            user.role
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() =>
+                                        navigate(
+                                            "roadmap"
                                         )
                                     }
                                 >
-                                    {roleLabel(
-                                        user.role
-                                    )}
-                                </span>
+                                    Se Roadmap →
+                                </button>
+
+                            </div>
+
+                        </section>
+                    )}
+
+                    {/* ====================================================
+                        ADMIN PANEL
+                    ==================================================== */}
+
+                    {page === "admin" && isStaff && (
+                        <section>
+
+                            <div className="page-intro">
+                                <h2>
+                                    🛡️ Admin Panel
+                                </h2>
+
+                                <p>
+                                    Velkommen til
+                                    administrationspanelet,
+                                    { " " }
+                                    <strong>
+                                        {user.username}
+                                    </strong>.
+                                </p>
+                            </div>
+
+                            <div className="stats-grid">
+
+                                <div className="card stat-card">
+                                    <span>🤖</span>
+
+                                    <div>
+                                        <small>
+                                            Bot
+                                        </small>
+
+                                        <strong>
+                                            {botStatus?.online
+                                                ? "Online"
+                                                : "Offline"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>🌐</span>
+
+                                    <div>
+                                        <small>
+                                            Servere
+                                        </small>
+
+                                        <strong>
+                                            {stats?.servers ??
+                                                servers.length ??
+                                                0}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>🎫</span>
+
+                                    <div>
+                                        <small>
+                                            Åbne tickets
+                                        </small>
+
+                                        <strong>
+                                            {
+                                                adminTickets.filter(
+                                                    ticket =>
+                                                        ticket.status !==
+                                                        "closed"
+                                                ).length
+                                            }
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>👥</span>
+
+                                    <div>
+                                        <small>
+                                            Panelbrugere
+                                        </small>
+
+                                        <strong>
+                                            {stats?.panel_users_total ??
+                                                0}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div className="card">
+
+                                <h3>
+                                    ⚡ Hurtige handlinger
+                                </h3>
+
+                                <div className="ticket-actions">
+
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={() =>
+                                            navigate(
+                                                "tickets"
+                                            )
+                                        }
+                                    >
+                                        🎫 Se Tickets
+                                    </button>
+
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() =>
+                                            navigate(
+                                                "stats"
+                                            )
+                                        }
+                                    >
+                                        📊 Statistik
+                                    </button>
+
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() =>
+                                            navigate(
+                                                "status"
+                                            )
+                                        }
+                                    >
+                                        🟢 Status
+                                    </button>
+
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() =>
+                                            navigate(
+                                                "servers"
+                                            )
+                                        }
+                                    >
+                                        🌐 Servere
+                                    </button>
+
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() =>
+                                            navigate(
+                                                "cogs"
+                                            )
+                                        }
+                                    >
+                                        🧩 Cogs
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                            <div className="card">
+
+                                <h3>
+                                    👤 Din administratorprofil
+                                </h3>
+
+                                <div className="list">
+
+                                    <div className="list-item">
+                                        <strong>
+                                            Bruger
+                                        </strong>
+
+                                        <span>
+                                            {user.username}
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <strong>
+                                            Rolle
+                                        </strong>
+
+                                        <span
+                                            className={roleClass(
+                                                user.role
+                                            )}
+                                        >
+                                            {roleLabel(
+                                                user.role
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <strong>
+                                            Discord ID
+                                        </strong>
+
+                                        <span>
+                                            {user.id}
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </section>
+                    )}
+
+                    {/* ====================================================
+                        STATS
+                    ==================================================== */}
+
+                    {page === "stats" && (
+                        <section>
+
+                            <div className="page-intro">
+                                <h2>
+                                    📊 Statistik
+                                </h2>
+
+                                <p>
+                                    Statistik for
+                                    Hjælper og
+                                    dashboardet.
+                                </p>
+                            </div>
+
+                            <div className="stats-grid">
+
+                                <div className="card stat-card">
+                                    <span>🌐</span>
+
+                                    <div>
+                                        <small>
+                                            Servere
+                                        </small>
+
+                                        <strong>
+                                            {isStaff
+                                                ? stats?.servers ?? 0
+                                                : publicStats?.servers ?? "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>👥</span>
+
+                                    <div>
+                                        <small>
+                                            Discord brugere
+                                        </small>
+
+                                        <strong>
+                                            {isStaff
+                                                ? stats?.users ?? 0
+                                                : "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>⚡</span>
+
+                                    <div>
+                                        <small>
+                                            Commands
+                                        </small>
+
+                                        <strong>
+                                            {isStaff
+                                                ? stats?.commands ??
+                                                  publicStats?.commands ??
+                                                  0
+                                                : publicStats?.commands ??
+                                                  "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>🧩</span>
+
+                                    <div>
+                                        <small>
+                                            Cogs
+                                        </small>
+
+                                        <strong>
+                                            {isStaff
+                                                ? stats?.cogs ?? 0
+                                                : "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {isStaff && (
+                                <div className="card">
+
+                                    <h3>
+                                        Panelbrugere
+                                    </h3>
+
+                                    <div className="stats-grid">
+
+                                        <div>
+                                            <small>
+                                                I dag
+                                            </small>
+
+                                            <h2>
+                                                {stats?.panel_users_today ??
+                                                    0}
+                                            </h2>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Denne uge
+                                            </small>
+
+                                            <h2>
+                                                {stats?.panel_users_week ??
+                                                    0}
+                                            </h2>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Dette år
+                                            </small>
+
+                                            <h2>
+                                                {stats?.panel_users_year ??
+                                                    0}
+                                            </h2>
+                                        </div>
+
+                                        <div>
+                                            <small>
+                                                Total
+                                            </small>
+
+                                            <h2>
+                                                {stats?.panel_users_total ??
+                                                    0}
+                                            </h2>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            )}
+
+                        </section>
+                    )}
+
+                    {/* ====================================================
+                        STATUS
+                    ==================================================== */}
+
+                    {page === "status" && (
+                        <section>
+
+                            <div className="page-intro">
+                                <h2>
+                                    🟢 Status
+                                </h2>
+
+                                <p>
+                                    Aktuel status for
+                                    Hjælper-systemet.
+                                </p>
+                            </div>
+
+                            <div className="card">
+
+                                <div className="list">
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                🤖 Discord Bot
+                                            </strong>
+
+                                            <small>
+                                                Hjælper Discord
+                                                bot
+                                            </small>
+                                        </div>
+
+                                        <span
+                                            className={
+                                                (
+                                                    isStaff
+                                                        ? botStatus?.online
+                                                        : publicStats?.online
+                                                )
+                                                    ? "status-open"
+                                                    : "status-closed"
+                                            }
+                                        >
+                                            ●{" "}
+                                            {(
+                                                isStaff
+                                                    ? botStatus?.online
+                                                    : publicStats?.online
+                                            )
+                                                ? "Online"
+                                                : "Offline"}
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                🌐 Dashboard API
+                                            </strong>
+
+                                            <small>
+                                                Hjælper V2 API
+                                            </small>
+                                        </div>
+
+                                        <span className="status-open">
+                                            ● Online
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                🔐 Login
+                                            </strong>
+
+                                            <small>
+                                                Discord OAuth
+                                            </small>
+                                        </div>
+
+                                        <span className="status-open">
+                                            ● Online
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                🎫 Support
+                                            </strong>
+
+                                            <small>
+                                                Ticket-system
+                                            </small>
+                                        </div>
+
+                                        <span className="status-open">
+                                            ● Online
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div className="stats-grid">
+
+                                <div className="card stat-card">
+                                    <span>🌐</span>
+
+                                    <div>
+                                        <small>
+                                            Servere
+                                        </small>
+
+                                        <strong>
+                                            {isStaff
+                                                ? stats?.servers ?? 0
+                                                : publicStats?.servers ?? "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>⚡</span>
+
+                                    <div>
+                                        <small>
+                                            Commands
+                                        </small>
+
+                                        <strong>
+                                            {publicStats?.commands ??
+                                                stats?.commands ??
+                                                "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div className="card stat-card">
+                                    <span>👥</span>
+
+                                    <div>
+                                        <small>
+                                            Panelbrugere
+                                        </small>
+
+                                        <strong>
+                                            {publicStats?.panel_users_total ??
+                                                stats?.panel_users_total ??
+                                                "—"}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </section>
+                    )}
+
+                    {/* ====================================================
+                        ROADMAP
+                    ==================================================== */}
+
+                    {page === "roadmap" && (
+                        <section>
+
+                            <div className="page-intro">
+                                <h2>
+                                    🗺️ Roadmap
+                                </h2>
+
+                                <p>
+                                    Planerne for Hjælper
+                                    dashboardet og
+                                    botten.
+                                </p>
+                            </div>
+
+                            <div className="card">
+
+                                <div className="list">
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                ✅ Dashboard
+                                            </strong>
+
+                                            <small>
+                                                Grundlæggende
+                                                dashboard og
+                                                login.
+                                            </small>
+                                        </div>
+
+                                        <span className="status-open">
+                                            Færdig
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                ✅ Account-system
+                                            </strong>
+
+                                            <small>
+                                                Profil,
+                                                sikkerhed og
+                                                connected
+                                                accounts.
+                                            </small>
+                                        </div>
+
+                                        <span className="status-open">
+                                            Færdig
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                ✅ Support &
+                                                Tickets
+                                            </strong>
+
+                                            <small>
+                                                Bruger- og
+                                                admin-ticket
+                                                system.
+                                            </small>
+                                        </div>
+
+                                        <span className="status-open">
+                                            Færdig
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                🔄 Statistik &
+                                                tracking
+                                            </strong>
+
+                                            <small>
+                                                Flere
+                                                dashboard-
+                                                statistikker
+                                                og tracking.
+                                            </small>
+                                        </div>
+
+                                        <span className="status-answered">
+                                            I gang
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 Moderation
+                                            </strong>
+
+                                            <small>
+                                                Moderations-
+                                                funktioner til
+                                                botten.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 Welcome System
+                                            </strong>
+
+                                            <small>
+                                                Velkomstsystem
+                                                til Discord-
+                                                servere.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 AutoMod
+                                            </strong>
+
+                                            <small>
+                                                Automatisk
+                                                moderation.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 Autoroles
+                                            </strong>
+
+                                            <small>
+                                                Automatisk
+                                                tildeling af
+                                                roller.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 Suggestions
+                                            </strong>
+
+                                            <small>
+                                                Forslags-system
+                                                til Discord.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 Ansøgninger
+                                            </strong>
+
+                                            <small>
+                                                Ansøgningssystem
+                                                til servere.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                    <div className="list-item">
+                                        <div>
+                                            <strong>
+                                                📅 Mini-games
+                                            </strong>
+
+                                            <small>
+                                                Små spil og
+                                                community-
+                                                funktioner.
+                                            </small>
+                                        </div>
+
+                                        <span>
+                                            Planlagt
+                                        </span>
+                                    </div>
+
+                                </div>
 
                             </div>
 
@@ -1150,10 +1985,12 @@ export default function App() {
 
                                 <div className="card stat-card">
                                     <span>🤖</span>
+
                                     <div>
                                         <small>
                                             Status
                                         </small>
+
                                         <strong>
                                             {botStatus?.online
                                                 ? "Online"
@@ -1164,10 +2001,12 @@ export default function App() {
 
                                 <div className="card stat-card">
                                     <span>🌐</span>
+
                                     <div>
                                         <small>
                                             Servere
                                         </small>
+
                                         <strong>
                                             {botStatus?.guilds ??
                                                 0}
@@ -1177,10 +2016,12 @@ export default function App() {
 
                                 <div className="card stat-card">
                                     <span>🆔</span>
+
                                     <div>
                                         <small>
                                             Bot ID
                                         </small>
+
                                         <strong>
                                             {botStatus?.id ||
                                                 "—"}
@@ -1210,124 +2051,6 @@ export default function App() {
                     )}
 
                     {/* ====================================================
-                        STATS
-                    ==================================================== */}
-
-                    {page === "stats" && isStaff && (
-                        <section>
-
-                            <div className="stats-grid">
-
-                                <div className="card stat-card">
-                                    <span>🌐</span>
-                                    <div>
-                                        <small>
-                                            Servere
-                                        </small>
-                                        <strong>
-                                            {stats?.servers ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>👥</span>
-                                    <div>
-                                        <small>
-                                            Discord brugere
-                                        </small>
-                                        <strong>
-                                            {stats?.users ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>⚡</span>
-                                    <div>
-                                        <small>
-                                            Commands
-                                        </small>
-                                        <strong>
-                                            {stats?.commands ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="card stat-card">
-                                    <span>🧩</span>
-                                    <div>
-                                        <small>
-                                            Cogs
-                                        </small>
-                                        <strong>
-                                            {stats?.cogs ??
-                                                0}
-                                        </strong>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div className="card">
-
-                                <h3>
-                                    Panelbrugere
-                                </h3>
-
-                                <div className="stats-grid">
-
-                                    <div>
-                                        <small>
-                                            I dag
-                                        </small>
-                                        <h2>
-                                            {stats?.panel_users_today ??
-                                                0}
-                                        </h2>
-                                    </div>
-
-                                    <div>
-                                        <small>
-                                            Denne uge
-                                        </small>
-                                        <h2>
-                                            {stats?.panel_users_week ??
-                                                0}
-                                        </h2>
-                                    </div>
-
-                                    <div>
-                                        <small>
-                                            Dette år
-                                        </small>
-                                        <h2>
-                                            {stats?.panel_users_year ??
-                                                0}
-                                        </h2>
-                                    </div>
-
-                                    <div>
-                                        <small>
-                                            Total
-                                        </small>
-                                        <h2>
-                                            {stats?.panel_users_total ??
-                                                0}
-                                        </h2>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </section>
-                    )}
-
-                    {/* ====================================================
                         COGS
                     ==================================================== */}
 
@@ -1337,6 +2060,7 @@ export default function App() {
                             <div className="card">
 
                                 <div className="card-header">
+
                                     <div>
                                         <h2>
                                             Cogs
@@ -1375,6 +2099,7 @@ export default function App() {
                                             🔄 Reload
                                         </button>
                                     )}
+
                                 </div>
 
                                 <div className="list">
@@ -1447,6 +2172,7 @@ export default function App() {
                                                         server.id
                                                     }
                                                 >
+
                                                     <div className="server-info">
 
                                                         {server.icon ? (
@@ -1537,6 +2263,7 @@ export default function App() {
                                 {!selectedAdminTicket ? (
                                     <>
                                         <div className="page-intro">
+
                                             <h2>
                                                 🎫 Tickets
                                             </h2>
@@ -1547,12 +2274,21 @@ export default function App() {
                                                 support-sager
                                                 fra brugerne.
                                             </p>
+
                                         </div>
 
                                         {adminTicketError && (
                                             <div className="alert alert-error">
                                                 {
                                                     adminTicketError
+                                                }
+                                            </div>
+                                        )}
+
+                                        {adminTicketSuccess && (
+                                            <div className="alert alert-success">
+                                                {
+                                                    adminTicketSuccess
                                                 }
                                             </div>
                                         )}
@@ -1571,6 +2307,7 @@ export default function App() {
                                             {adminTickets.length ===
                                             0 ? (
                                                 <div className="card empty-state">
+
                                                     <h3>
                                                         Ingen
                                                         tickets
@@ -1582,6 +2319,7 @@ export default function App() {
                                                         support-sager
                                                         lige nu.
                                                     </p>
+
                                                 </div>
                                             ) : (
                                                 adminTickets.map(
@@ -1597,6 +2335,7 @@ export default function App() {
                                                                 )
                                                             }
                                                         >
+
                                                             <div className="ticket-card-top">
 
                                                                 <div>
@@ -1803,7 +2542,9 @@ export default function App() {
 
                                 {!selectedUserTicket ? (
                                     <>
+
                                         <div className="page-intro">
+
                                             <h2>
                                                 🛟 Support
                                             </h2>
@@ -1814,6 +2555,7 @@ export default function App() {
                                                 Opret en
                                                 ticket.
                                             </p>
+
                                         </div>
 
                                         {supportError && (
@@ -1896,6 +2638,7 @@ export default function App() {
                                         <div className="card">
 
                                             <div className="card-header">
+
                                                 <div>
                                                     <h3>
                                                         Mine tickets
@@ -1916,6 +2659,7 @@ export default function App() {
                                                 >
                                                     🔄 Opdater
                                                 </button>
+
                                             </div>
 
                                             <div className="ticket-list">
@@ -1923,6 +2667,7 @@ export default function App() {
                                                 {userTickets.length ===
                                                 0 ? (
                                                     <div className="empty-state">
+
                                                         <h3>
                                                             Ingen
                                                             tickets
@@ -1936,6 +2681,7 @@ export default function App() {
                                                             tickets
                                                             endnu.
                                                         </p>
+
                                                     </div>
                                                 ) : (
                                                     userTickets.map(
@@ -1951,6 +2697,7 @@ export default function App() {
                                                                     )
                                                                 }
                                                             >
+
                                                                 <div className="ticket-card-top">
 
                                                                     <div>
@@ -2165,6 +2912,7 @@ export default function App() {
 
                                 {logs.length > 0 ? (
                                     <div className="list">
+
                                         {logs.map(
                                             (log, index) => (
                                                 <div
@@ -2179,6 +2927,7 @@ export default function App() {
                                                 </div>
                                             )
                                         )}
+
                                     </div>
                                 ) : (
                                     <div className="empty-state">
@@ -2215,6 +2964,7 @@ export default function App() {
                                     <div className="list">
 
                                         <div className="list-item">
+
                                             <strong>
                                                 Din rolle
                                             </strong>
@@ -2228,9 +2978,11 @@ export default function App() {
                                                     user.role
                                                 )}
                                             </span>
+
                                         </div>
 
                                         <div className="list-item">
+
                                             <strong>
                                                 API
                                             </strong>
@@ -2238,9 +2990,11 @@ export default function App() {
                                             <span>
                                                 Hjælper V2
                                             </span>
+
                                         </div>
 
                                         <div className="list-item">
+
                                             <strong>
                                                 Session
                                             </strong>
@@ -2248,6 +3002,7 @@ export default function App() {
                                             <span>
                                                 Aktiv
                                             </span>
+
                                         </div>
 
                                     </div>
@@ -2287,6 +3042,7 @@ export default function App() {
                                     )}
 
                                     <div>
+
                                         <h2>
                                             {user.username}
                                         </h2>
@@ -2305,6 +3061,7 @@ export default function App() {
                                             Discord ID:{" "}
                                             {user.id}
                                         </p>
+
                                     </div>
 
                                 </div>
