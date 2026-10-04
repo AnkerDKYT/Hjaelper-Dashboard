@@ -21,6 +21,12 @@ export default function App() {
   const [connected, setConnected] = useState(null);
 
   const [supportTickets, setSupportTickets] = useState([]);
+  const [adminTickets, setAdminTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketReply, setTicketReply] = useState("");
+  const [ticketLoading, setTicketLoading] = useState(false);
+  const [ticketError, setTicketError] = useState("");
+  const [ticketMessage, setTicketMessage] = useState("");
 
   const [bio, setBio] = useState("");
   const [supportSubject, setSupportSubject] = useState("");
@@ -82,7 +88,8 @@ export default function App() {
         page === "servers" ||
         page === "server-details" ||
         page === "logs" ||
-        page === "system"
+        page === "system" ||
+        page === "tickets"
       ) {
         setPage("user-dashboard");
       }
@@ -94,6 +101,7 @@ export default function App() {
   useEffect(() => {
     if (isStaff) {
       loadAdminData();
+      loadAdminTickets();
     }
   }, [isStaff]);
 
@@ -263,6 +271,80 @@ export default function App() {
     }
   }
 
+  async function loadAdminTickets() {
+    if (!isStaff) return;
+
+    try {
+      const response = await fetch(
+        `${API}/api/support/admin/tickets`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status !== 404) {
+          console.error(
+            "Admin tickets kunne ikke hentes:",
+            response.status
+          );
+        }
+        return;
+      }
+
+      const data = await response.json();
+
+      setAdminTickets(
+        data.tickets || []
+      );
+    } catch (error) {
+      console.error(
+        "Admin tickets fejl:",
+        error
+      );
+    }
+  }
+
+  async function loadAdminTicket(ticketId) {
+    if (!isStaff) return;
+
+    try {
+      setTicketLoading(true);
+      setTicketError("");
+
+      const response = await fetch(
+        `${API}/api/support/admin/tickets/${ticketId}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        setTicketError(
+          "Kunne ikke hente ticketen."
+        );
+        return;
+      }
+
+      const data = await response.json();
+
+      setSelectedTicket(
+        data.ticket || data
+      );
+    } catch (error) {
+      console.error(
+        "Ticket kunne ikke hentes:",
+        error
+      );
+
+      setTicketError(
+        "Der opstod en fejl."
+      );
+    } finally {
+      setTicketLoading(false);
+    }
+  }
+
   function goToAccount() {
     setPage("account");
     setAccountMessage("");
@@ -273,6 +355,15 @@ export default function App() {
     setPage("support");
     setSupportMessageStatus("");
     loadSupport();
+  }
+
+  function goToTickets() {
+    setPage("tickets");
+    setSelectedTicket(null);
+    setTicketReply("");
+    setTicketError("");
+    setTicketMessage("");
+    loadAdminTickets();
   }
 
   function adminLogin() {
@@ -300,6 +391,8 @@ export default function App() {
     setSecurity(null);
     setConnected(null);
     setSupportTickets([]);
+    setAdminTickets([]);
+    setSelectedTicket(null);
     setSelectedServer(null);
     setPage("login");
   }
@@ -352,6 +445,109 @@ export default function App() {
       minute: "2-digit",
       second: "2-digit",
     });
+  }
+
+  function getTicketStatus(ticket) {
+    const status =
+      String(ticket?.status || "open").toLowerCase();
+
+    if (
+      status === "closed" ||
+      status === "lukket"
+    ) {
+      return {
+        text: "⚪ Lukket",
+        className: "ticket-closed",
+      };
+    }
+
+    if (
+      status === "pending" ||
+      status === "afventer"
+    ) {
+      return {
+        text: "🟡 Afventer",
+        className: "ticket-open",
+      };
+    }
+
+    return {
+      text: "🟢 Åben",
+      className: "ticket-open",
+    };
+  }
+
+  function getTicketUser(ticket) {
+    return (
+      ticket?.username ||
+      ticket?.user_name ||
+      ticket?.author_name ||
+      ticket?.user?.username ||
+      ticket?.author?.username ||
+      ticket?.discord_username ||
+      ticket?.user_id ||
+      "Ukendt bruger"
+    );
+  }
+
+  function getTicketMessages(ticket) {
+    if (
+      Array.isArray(ticket?.messages) &&
+      ticket.messages.length > 0
+    ) {
+      return ticket.messages;
+    }
+
+    if (
+      ticket?.message ||
+      ticket?.content
+    ) {
+      return [
+        {
+          id: "initial-message",
+          message:
+            ticket.message ||
+            ticket.content,
+          content:
+            ticket.message ||
+            ticket.content,
+          author_name:
+            getTicketUser(ticket),
+          created_at:
+            ticket.created_at,
+          is_staff: false,
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  function getMessageText(message) {
+    return (
+      message?.message ||
+      message?.content ||
+      message?.text ||
+      ""
+    );
+  }
+
+  function getMessageAuthor(message) {
+    if (message?.is_staff) {
+      return (
+        message?.author_name ||
+        message?.username ||
+        message?.author?.username ||
+        "Hjælper Staff"
+      );
+    }
+
+    return (
+      message?.author_name ||
+      message?.username ||
+      message?.author?.username ||
+      "Bruger"
+    );
   }
 
   async function saveProfile() {
@@ -590,6 +786,128 @@ export default function App() {
       setSupportMessageStatus(
         "Der opstod en fejl."
       );
+    }
+  }
+
+  async function replyToTicket(ticketId) {
+    setTicketError("");
+    setTicketMessage("");
+
+    if (!ticketReply.trim()) {
+      setTicketError(
+        "Skriv en besked først."
+      );
+      return;
+    }
+
+    try {
+      setTicketLoading(true);
+
+      const response = await fetch(
+        `${API}/api/support/admin/tickets/${ticketId}/reply`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: ticketReply.trim(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setTicketError(
+          data.detail ||
+          "Kunne ikke sende svaret."
+        );
+        return;
+      }
+
+      setTicketReply("");
+      setTicketMessage(
+        "✅ Svaret blev sendt."
+      );
+
+      if (data.ticket) {
+        setSelectedTicket(data.ticket);
+      } else {
+        await loadAdminTicket(ticketId);
+      }
+
+      await loadAdminTickets();
+    } catch (error) {
+      console.error(
+        "Kunne ikke svare på ticket:",
+        error
+      );
+
+      setTicketError(
+        "Der opstod en fejl."
+      );
+    } finally {
+      setTicketLoading(false);
+    }
+  }
+
+  async function closeAdminTicket(ticketId) {
+    setTicketError("");
+    setTicketMessage("");
+
+    if (
+      !window.confirm(
+        "Vil du lukke denne ticket?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setTicketLoading(true);
+
+      const response = await fetch(
+        `${API}/api/support/admin/tickets/${ticketId}/close`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setTicketError(
+          data.detail ||
+          "Kunne ikke lukke ticketen."
+        );
+        return;
+      }
+
+      setTicketMessage(
+        "✅ Ticketen blev lukket."
+      );
+
+      if (data.ticket) {
+        setSelectedTicket(data.ticket);
+      } else {
+        await loadAdminTicket(ticketId);
+      }
+
+      await loadAdminTickets();
+    } catch (error) {
+      console.error(
+        "Kunne ikke lukke admin ticket:",
+        error
+      );
+
+      setTicketError(
+        "Der opstod en fejl."
+      );
+    } finally {
+      setTicketLoading(false);
     }
   }
 
@@ -1068,10 +1386,325 @@ export default function App() {
                   Du har ingen supportsager endnu.
                 </div>
               ) : (
-                supportTickets.map(ticket => (
-                  <div
-                    className="ticket-card"
+                supportTickets.map(ticket => {
+                  const status =
+                    getTicketStatus(ticket);
+
+                  return (
+                    <div
+                      className="ticket-card"
+                      key={ticket.id}
+                    >
+                      <div className="ticket-top">
+                        <strong>
+                          #{ticket.id}
+                        </strong>
+
+                        <span
+                          className={
+                            status.className
+                          }
+                        >
+                          {status.text}
+                        </span>
+                      </div>
+
+                      <h4>
+                        {ticket.subject}
+                      </h4>
+
+                      <p>
+                        {ticket.message ||
+                          ticket.content}
+                      </p>
+
+                      <small>
+                        Oprettet:{" "}
+                        {ticket.created_at}
+                      </small>
+
+                      {ticket.status === "open" && (
+                        <button
+                          className="secondary-button close-ticket-button"
+                          onClick={() =>
+                            closeSupportTicket(
+                              ticket.id
+                            )
+                          }
+                        >
+                          Luk sag
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  function renderAdminTicketsPage() {
+    if (selectedTicket) {
+      const status =
+        getTicketStatus(selectedTicket);
+
+      const messages =
+        getTicketMessages(selectedTicket);
+
+      return (
+        <>
+          <div className="page-heading">
+            <button
+              className="back-button"
+              onClick={() => {
+                setSelectedTicket(null);
+                setTicketReply("");
+                setTicketError("");
+                setTicketMessage("");
+              }}
+            >
+              ← Tilbage til tickets
+            </button>
+
+            <span className="eyebrow">
+              TICKET #{selectedTicket.id}
+            </span>
+
+            <h2>
+              🎫 {selectedTicket.subject}
+            </h2>
+
+            <p>
+              👤 {getTicketUser(selectedTicket)}
+            </p>
+          </div>
+
+          {ticketError && (
+            <div className="error-box">
+              {ticketError}
+            </div>
+          )}
+
+          {ticketMessage && (
+            <div className="success-box">
+              {ticketMessage}
+            </div>
+          )}
+
+          <div className="account-card">
+            <div className="account-card-title">
+              <div>
+                <span className="eyebrow">
+                  STATUS
+                </span>
+
+                <h3>
+                  {status.text}
+                </h3>
+              </div>
+
+              <small>
+                Oprettet:{" "}
+                {selectedTicket.created_at ||
+                  "-"}
+              </small>
+            </div>
+
+            <div className="support-ticket-list">
+              {messages.length === 0 ? (
+                <div className="empty">
+                  Ingen beskeder i denne ticket.
+                </div>
+              ) : (
+                messages.map(
+                  (message, index) => (
+                    <div
+                      className="ticket-card"
+                      key={
+                        message.id ||
+                        `${selectedTicket.id}-${index}`
+                      }
+                    >
+                      <div className="ticket-top">
+                        <strong>
+                          {getMessageAuthor(
+                            message
+                          )}
+                        </strong>
+
+                        <small>
+                          {message.created_at ||
+                            message.timestamp ||
+                            ""}
+                        </small>
+                      </div>
+
+                      <p>
+                        {getMessageText(
+                          message
+                        )}
+                      </p>
+                    </div>
+                  )
+                )
+              )}
+            </div>
+          </div>
+
+          {String(
+            selectedTicket.status
+          ).toLowerCase() !== "closed" && (
+            <div className="account-card">
+              <div className="account-card-title">
+                <div>
+                  <span className="eyebrow">
+                    SVAR
+                  </span>
+
+                  <h3>
+                    💬 Svar på ticket
+                  </h3>
+                </div>
+              </div>
+
+              <textarea
+                value={ticketReply}
+                onChange={event =>
+                  setTicketReply(
+                    event.target.value
+                  )
+                }
+                maxLength={3000}
+                placeholder="Skriv dit svar til brugeren..."
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  marginTop: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    replyToTicket(
+                      selectedTicket.id
+                    )
+                  }
+                  disabled={ticketLoading}
+                >
+                  {ticketLoading
+                    ? "Sender..."
+                    : "📨 Send svar"}
+                </button>
+
+                <button
+                  className="danger-button"
+                  onClick={() =>
+                    closeAdminTicket(
+                      selectedTicket.id
+                    )
+                  }
+                  disabled={ticketLoading}
+                >
+                  🔒 Luk ticket
+                </button>
+              </div>
+            </div>
+          )}
+
+          {String(
+            selectedTicket.status
+          ).toLowerCase() === "closed" && (
+            <div className="public-info-box">
+              <h3>
+                🔒 Ticketen er lukket
+              </h3>
+
+              <p>
+                Denne ticket er lukket og kan ikke
+                længere besvares.
+              </p>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div className="page-heading">
+          <span className="eyebrow">
+            SUPPORT
+          </span>
+
+          <h2>
+            🎫 Tickets
+          </h2>
+
+          <p>
+            Her kan staff se og håndtere tickets fra brugere.
+          </p>
+        </div>
+
+        {ticketError && (
+          <div className="error-box">
+            {ticketError}
+          </div>
+        )}
+
+        <div className="account-card">
+          <div className="account-card-title">
+            <div>
+              <span className="eyebrow">
+                ALLE SAGER
+              </span>
+
+              <h3>
+                📋 Supporttickets
+              </h3>
+            </div>
+
+            <button
+              className="secondary-button small-button"
+              onClick={loadAdminTickets}
+            >
+              🔄 Opdater
+            </button>
+          </div>
+
+          <div className="support-ticket-list">
+            {adminTickets.length === 0 ? (
+              <div className="empty">
+                Ingen tickets fundet.
+              </div>
+            ) : (
+              adminTickets.map(ticket => {
+                const status =
+                  getTicketStatus(ticket);
+
+                return (
+                  <button
                     key={ticket.id}
+                    className="ticket-card"
+                    onClick={() => {
+                      setTicketError("");
+                      setTicketMessage("");
+                      setTicketReply("");
+                      loadAdminTicket(ticket.id);
+                    }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      border: "none",
+                      font: "inherit",
+                    }}
                   >
                     <div className="ticket-top">
                       <strong>
@@ -1080,46 +1713,31 @@ export default function App() {
 
                       <span
                         className={
-                          ticket.status === "open"
-                            ? "ticket-open"
-                            : "ticket-closed"
+                          status.className
                         }
                       >
-                        {ticket.status === "open"
-                          ? "🟢 Åben"
-                          : "⚪ Lukket"}
+                        {status.text}
                       </span>
                     </div>
 
                     <h4>
-                      {ticket.subject}
+                      {ticket.subject ||
+                        "Uden emne"}
                     </h4>
 
                     <p>
-                      {ticket.message}
+                      👤 {getTicketUser(ticket)}
                     </p>
 
                     <small>
                       Oprettet:{" "}
-                      {ticket.created_at}
+                      {ticket.created_at ||
+                        "Ukendt"}
                     </small>
-
-                    {ticket.status === "open" && (
-                      <button
-                        className="secondary-button close-ticket-button"
-                        onClick={() =>
-                          closeSupportTicket(
-                            ticket.id
-                          )
-                        }
-                      >
-                        Luk sag
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
       </>
@@ -1871,16 +2489,6 @@ export default function App() {
     return renderRoadmap();
   }
 
-  /*
-   * VIGTIGT:
-   * Hele dashboardet rendres for alle autentificerede brugere.
-   *
-   * Før var denne if kun åben for:
-   * user-dashboard, account, support osv.
-   *
-   * Derfor endte Ejer/Manager/Admin på
-   * "Hjælper - Indlæser..." når page var "overview".
-   */
   if (user) {
     return (
       <div className="dashboard">
@@ -1973,6 +2581,17 @@ export default function App() {
 
                 <button
                   className={`nav-item ${
+                    page === "tickets"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={goToTickets}
+                >
+                  🎫 Tickets
+                </button>
+
+                <button
+                  className={`nav-item ${
                     page === "logs"
                       ? "active"
                       : ""
@@ -2000,18 +2619,31 @@ export default function App() {
                 )}
               </>
             ) : (
-              <button
-                className={`nav-item ${
-                  page === "user-dashboard"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setPage("user-dashboard")
-                }
-              >
-                🏠 Dashboard
-              </button>
+              <>
+                <button
+                  className={`nav-item ${
+                    page === "user-dashboard"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setPage("user-dashboard")
+                  }
+                >
+                  🏠 Dashboard
+                </button>
+
+                <button
+                  className={`nav-item ${
+                    page === "support"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={goToSupport}
+                >
+                  🛟 Support
+                </button>
+              </>
             )}
 
             <button
@@ -2023,17 +2655,6 @@ export default function App() {
               onClick={goToAccount}
             >
               👤 Konto
-            </button>
-
-            <button
-              className={`nav-item ${
-                page === "support"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={goToSupport}
-            >
-              🛟 Support
             </button>
           </nav>
 
@@ -2125,21 +2746,23 @@ export default function App() {
                           ? "🖥️ Servere"
                           : page === "server-details"
                             ? "🖥️ Server"
-                            : page === "logs"
-                              ? "📜 Logs"
-                              : page === "system"
-                                ? "⚙️ System"
-                                : page === "account"
-                                  ? "👤 Konto"
-                                  : page === "support"
-                                    ? "🛟 Support"
-                                    : page === "user-privacy"
-                                      ? "🔒 Privacy Policy"
-                                      : page === "user-terms"
-                                        ? "📜 Terms of Service"
-                                        : page === "user-dashboard"
-                                          ? "🏠 Dashboard"
-                                          : "🍪 Cookie Policy"}
+                            : page === "tickets"
+                              ? "🎫 Tickets"
+                              : page === "logs"
+                                ? "📜 Logs"
+                                : page === "system"
+                                  ? "⚙️ System"
+                                  : page === "account"
+                                    ? "👤 Konto"
+                                    : page === "support"
+                                      ? "🛟 Support"
+                                      : page === "user-privacy"
+                                        ? "🔒 Privacy Policy"
+                                        : page === "user-terms"
+                                          ? "📜 Terms of Service"
+                                          : page === "user-dashboard"
+                                            ? "🏠 Dashboard"
+                                            : "🍪 Cookie Policy"}
               </h1>
 
               <span>
@@ -2157,7 +2780,12 @@ export default function App() {
               renderAccountPage()}
 
             {page === "support" &&
+              !isStaff &&
               renderSupportPage()}
+
+            {page === "tickets" &&
+              isStaff &&
+              renderAdminTicketsPage()}
 
             {page === "user-dashboard" && (
               <>
