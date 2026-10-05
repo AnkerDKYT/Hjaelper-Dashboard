@@ -1408,3 +1408,193 @@ function UserAvatar({ user }) {
     </div>
   );
 }
+
+return (
+    <div>
+      <button className="back-button" onClick={onBack} style={{ marginBottom: "15px" }}>
+        ← Tilbage til oversigt
+      </button>
+
+      <div className="page-heading">
+        <div className="eyebrow">TICKET DETALJER</div>
+        <h2>{selectedTicket.subject}</h2>
+        <p>Status: <strong className={selectedTicket.status === "closed" ? "status-offline" : "status-online"}>{selectedTicket.status}</strong></p>
+      </div>
+
+      <div className="public-info-box" style={{ marginBottom: "20px" }}>
+        <h3>Beskeder</h3>
+        <div className="messages-list" style={{ marginTop: "15px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          {messagesList.map((msg, index) => (
+            <div key={index} style={{ padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ fontSize: "12px", opacity: 0.7, marginBottom: "4px" }}>
+                {msg.sender_name || msg.author || "Bruger"}
+              </div>
+              <div>{msg.message || msg.content}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {selectedTicket.status !== "closed" && (
+        <div className="public-info-box" style={{ marginBottom: "20px" }}>
+          <h3>Skriv et svar</h3>
+          <textarea
+            className="input-field"
+            rows="3"
+            placeholder="Skriv din besked her..."
+            value={replyMessage}
+            onChange={(e) => setReplyMessage(e.target.value)}
+            style={{ width: "100%", marginTop: "10px", padding: "10px", borderRadius: "6px", background: "rgba(0,0,0,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.1)" }}
+          />
+          <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+            <button className="primary-button" onClick={() => onReply(selectedTicket.id)}>
+              Send svar
+            </button>
+            <button className="logout-button" style={{ backgroundColor: "#d9534f", color: "white" }} onClick={() => onClose(selectedTicket.id)}>
+              Luk ticket
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ======================================================
+   ACCOUNT PAGE
+====================================================== */
+
+function AccountPage({
+  user,
+  account,
+  security,
+  sessions,
+  loginHistory,
+  connected,
+  profileUsername,
+  setProfileUsername,
+  onSaveProfile,
+  onLogoutAll,
+  onDeleteSession,
+  onDeleteAccount,
+}) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">KONTO</div>
+        <h2>Kontoindstillinger</h2>
+        <p>Administrer din profil, sikkerhed og aktive sessioner.</p>
+      </div>
+
+      <div className="public-info-box" style={{ marginBottom: "20px" }}>
+        <h3>Profil</h3>
+        <form onSubmit={onSaveProfile} style={{ marginTop: "15px" }}>
+          <label style={{ display: "block", marginBottom: "8px", fontSize: "14px" }}>Brugernavn</label>
+          <input
+            type="text"
+            value={profileUsername}
+            onChange={(e) => setProfileUsername(e.target.value)}
+            style={{ width: "100%", padding: "10px", borderRadius: "6px", background: "rgba(0,0,0,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.1)", marginBottom: "15px" }}
+          />
+          <button className="primary-button" type="submit">Gem ændringer</button>
+        </form>
+      </div>
+
+      <div className="public-info-box" style={{ marginBottom: "20px" }}>
+        <h3>Sikkerhed & Sessioner</h3>
+        <p style={{ marginTop: "10px", marginBottom: "15px" }}>Aktive sessioner: {sessions.length}</p>
+        <button className="logout-button" onClick={onLogoutAll} style={{ backgroundColor: "#f0ad4e", color: "white", marginBottom: "20px" }}>
+          Log ud af alle andre sessioner
+        </button>
+
+        <div style={{ marginTop: "15px" }}>
+          <h4 style={{ marginBottom: "10px" }}>Aktive enheder</h4>
+          {sessions.map((session, idx) => (
+            <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", background: "rgba(255,255,255,0.03)", borderRadius: "6px", marginBottom: "8px" }}>
+              <span>{session.ip || session.device || "Ukendt enhed"}</span>
+              <button className="logout-button" style={{ backgroundColor: "#d9534f", color: "white", padding: "5px 10px", fontSize: "12px" }} onClick={() => onDeleteSession(session.id)}>
+                Fjern
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="public-info-box" style={{ border: "1px solid rgba(217,83,79,0.3)" }}>
+        <h3>Farligzone</h3>
+        <p style={{ marginTop: "10px", marginBottom: "15px" }}>Slet din konto permanent fra systemet.</p>
+        <button className="logout-button" style={{ backgroundColor: "#d9534f", color: "white" }} onClick={onDeleteAccount}>
+          Slet konto
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Roadmap() {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">ROADMAP</div>
+        <h2>Kommende funktioner</h2>
+        <p>Se hvad der er på vej til Hjælper.</p>
+      </div>
+
+      <div className="public-info-box">
+        <h3>V2.2 Planer</h3>
+        <p style={{ marginTop: "10px" }}>Vi arbejder løbende på at forbedre botten, tilføje nye cogs og udvide dashboard-mulighederne.</p>
+      </div>
+    </div>
+  );
+}
+
+function SystemPage({ user, security }) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">SYSTEM</div>
+        <h2>Systemovervågning</h2>
+        <p>Interne systemoplysninger for ejere og managers.</p>
+      </div>
+
+      <div className="public-info-box">
+        <h3>Miljø</h3>
+        <p style={{ marginTop: "10px" }}>Rolle: {user?.role}</p>
+        <p>Sikkerhedsstatus: Optimal</p>
+      </div>
+    </div>
+  );
+}
+
+function LogsPage() {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">LOGS</div>
+        <h2>Systemlogfiler</h2>
+        <p>Se seneste hændelser fra botten og API'et.</p>
+      </div>
+
+      <div className="public-info-box">
+        <h3>Seneste log</h3>
+        <p style={{ marginTop: "10px", fontFamily: "monospace" }}>[INFO] API kører stabilt på port 9305.</p>
+      </div>
+    </div>
+  );
+}
+
+function UserAvatar({ user }) {
+  const avatarUrl = user?.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : null;
+
+  return (
+    <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#5865F2", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontWeight: "bold" }}>
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <span>{user?.username?.[0]?.toUpperCase() || "U"}</span>
+      )}
+    </div>
+  );
+}
