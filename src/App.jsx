@@ -34,20 +34,13 @@ export default function App() {
   const [replyMessage, setReplyMessage] = useState("");
 
   const [profileUsername, setProfileUsername] = useState("");
-
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const isOwner =
-    user?.role === "owner" ||
-    user?.is_owner === true;
-
+  const isOwner = user?.role === "owner" || user?.is_owner === true;
   const isManager = user?.role === "manager";
   const isAdmin = user?.role === "admin";
 
-  const isStaff =
-    isOwner ||
-    isManager ||
-    isAdmin;
+  const isStaff = isOwner || isManager || isAdmin;
 
   const roleLabel =
     user?.role === "owner"
@@ -101,9 +94,7 @@ export default function App() {
 
     if (!response.ok) {
       throw new Error(
-        data?.detail ||
-        data?.message ||
-        `HTTP ${response.status}`
+        data?.detail || data?.message || `HTTP ${response.status}`
       );
     }
 
@@ -154,19 +145,11 @@ export default function App() {
   }
 
   async function loadStaffData() {
-    await Promise.all([
-      loadStats(),
-      loadCogs(),
-      loadServers(),
-      loadTickets(),
-    ]);
+    await Promise.all([loadStats(), loadCogs(), loadServers(), loadTickets()]);
   }
 
   async function loadUserData() {
-    await Promise.all([
-      loadAccount(),
-      loadTickets(),
-    ]);
+    await Promise.all([loadAccount(), loadTickets()]);
   }
 
   async function loadStats() {
@@ -181,11 +164,7 @@ export default function App() {
   async function loadCogs() {
     try {
       const data = await apiFetch("/api/cogs");
-      setCogs(
-        Array.isArray(data)
-          ? data
-          : data?.cogs || []
-      );
+      setCogs(Array.isArray(data) ? data : data?.cogs || []);
     } catch (err) {
       setError(err.message);
     }
@@ -194,12 +173,7 @@ export default function App() {
   async function loadServers() {
     try {
       const data = await apiFetch("/api/servers");
-
-      setServers(
-        Array.isArray(data)
-          ? data
-          : data?.servers || []
-      );
+      setServers(Array.isArray(data) ? data : data?.servers || []);
     } catch (err) {
       setError(err.message);
     }
@@ -207,17 +181,12 @@ export default function App() {
 
   async function loadTickets() {
     try {
-      const data = await apiFetch(
-        isStaff
-          ? "/api/support/admin/tickets"
-          : "/api/support/tickets"
-      );
+      const endpoint = isStaff
+        ? "/api/support/admin/tickets"
+        : "/api/support/tickets";
 
-      setTickets(
-        Array.isArray(data)
-          ? data
-          : data?.tickets || []
-      );
+      const data = await apiFetch(endpoint);
+      setTickets(Array.isArray(data) ? data : data?.tickets || []);
     } catch {
       setTickets([]);
     }
@@ -241,19 +210,8 @@ export default function App() {
 
       setAccount(accountData);
       setSecurity(securityData);
-
-      setSessions(
-        Array.isArray(sessionsData)
-          ? sessionsData
-          : sessionsData?.sessions || []
-      );
-
-      setLoginHistory(
-        Array.isArray(historyData)
-          ? historyData
-          : historyData?.history || []
-      );
-
+      setSessions(Array.isArray(sessionsData) ? sessionsData : sessionsData?.sessions || []);
+      setLoginHistory(Array.isArray(historyData) ? historyData : historyData?.history || []);
       setConnected(connectedData);
 
       const username =
@@ -269,13 +227,11 @@ export default function App() {
   }
 
   function adminLogin() {
-    window.location.href =
-      `${API}/auth/discord?login_type=admin`;
+    window.location.href = `${API}/auth/discord?login_type=admin`;
   }
 
   function userLogin() {
-    window.location.href =
-      `${API}/auth/discord?login_type=user`;
+    window.location.href = `${API}/auth/discord?login_type=user`;
   }
 
   async function logout() {
@@ -291,23 +247,6 @@ export default function App() {
     setPage("login");
     setSelectedTicket(null);
     setSelectedServer(null);
-  }
-
-  function goPublic(target) {
-    setPage(target);
-    setError("");
-    setSuccess("");
-  }
-
-  function goDashboard() {
-    setError("");
-    setSuccess("");
-
-    if (isStaff) {
-      setPage("admin");
-    } else {
-      setPage("dashboard");
-    }
   }
 
   async function createTicket(event) {
@@ -331,9 +270,7 @@ export default function App() {
 
       setTicketSubject("");
       setTicketMessage("");
-
       await loadTickets();
-
       setSuccess("Din ticket er blevet oprettet.");
     } catch (err) {
       setError(err.message);
@@ -351,7 +288,7 @@ export default function App() {
 
       const endpoint = isStaff
         ? `/api/support/admin/tickets/${ticketId}/reply`
-        : `/api/support/${ticketId}/reply`;
+        : `/api/support/tickets/${ticketId}/reply`;
 
       await apiFetch(endpoint, {
         method: "POST",
@@ -361,28 +298,25 @@ export default function App() {
       });
 
       setReplyMessage("");
-
       await loadTickets();
 
-      const updated = await apiFetch(
-        isStaff
-          ? `/api/support/admin/tickets/${ticketId}`
-          : `/api/support/tickets`
-      );
+      // Hent opdateret ticket-detalje så visningen opdateres med det nye svar
+      const singleEndpoint = isStaff
+        ? `/api/support/admin/tickets/${ticketId}`
+        : `/api/support/tickets/${ticketId}`;
 
-      if (isStaff) {
-        setSelectedTicket(updated);
-      } else {
-        const list =
-          Array.isArray(updated)
-            ? updated
-            : updated?.tickets || [];
-
+      try {
+        const updatedTicket = await apiFetch(singleEndpoint);
+        setSelectedTicket(updatedTicket);
+      } catch {
+        // Fallback hvis enkelt-endpoint ikke findes, filtrer fra listen i stedet
+        const listEndpoint = isStaff
+          ? "/api/support/admin/tickets"
+          : "/api/support/tickets";
+        const data = await apiFetch(listEndpoint);
+        const list = Array.isArray(data) ? data : data?.tickets || [];
         setSelectedTicket(
-          list.find(
-            (ticket) =>
-              String(ticket.id) === String(ticketId)
-          ) || null
+          list.find((t) => String(t.id) === String(ticketId)) || null
         );
       }
     } catch (err) {
@@ -403,7 +337,6 @@ export default function App() {
       });
 
       await loadTickets();
-
       setSuccess("Ticketen er blevet lukket.");
 
       if (selectedTicket) {
@@ -421,28 +354,16 @@ export default function App() {
     try {
       setError("");
 
-      if (isStaff) {
-        const data = await apiFetch(
-          `/api/support/admin/tickets/${ticket.id}`
-        );
+      const endpoint = isStaff
+        ? `/api/support/admin/tickets/${ticket.id}`
+        : `/api/support/tickets/${ticket.id}`;
 
+      try {
+        const data = await apiFetch(endpoint);
         setSelectedTicket(data);
-      } else {
-        const data = await apiFetch(
-          "/api/support/tickets"
-        );
-
-        const list =
-          Array.isArray(data)
-            ? data
-            : data?.tickets || [];
-
-        setSelectedTicket(
-          list.find(
-            (item) =>
-              String(item.id) === String(ticket.id)
-          ) || ticket
-        );
+      } catch {
+        // Hvis enkelt-hentning fejler, brug elementet fra den eksisterende liste
+        setSelectedTicket(ticket);
       }
     } catch {
       setSelectedTicket(ticket);
@@ -459,7 +380,6 @@ export default function App() {
 
     try {
       setError("");
-
       await apiFetch("/api/account/profile", {
         method: "PATCH",
         body: JSON.stringify({
@@ -468,7 +388,6 @@ export default function App() {
       });
 
       await loadAccount();
-
       setSuccess("Profilen er blevet opdateret.");
     } catch (err) {
       setError(err.message);
@@ -478,18 +397,10 @@ export default function App() {
   async function logoutAllSessions() {
     try {
       setError("");
-
-      await apiFetch(
-        "/api/account/security/logout-all",
-        {
-          method: "POST",
-        }
-      );
-
-      setSuccess(
-        "Alle andre aktive sessioner er blevet logget ud."
-      );
-
+      await apiFetch("/api/account/security/logout-all", {
+        method: "POST",
+      });
+      setSuccess("Alle andre aktive sessioner er blevet logget ud.");
       await loadAccount();
     } catch (err) {
       setError(err.message);
@@ -498,15 +409,10 @@ export default function App() {
 
   async function deleteSession(sessionId) {
     try {
-      await apiFetch(
-        `/api/account/sessions/${sessionId}`,
-        {
-          method: "DELETE",
-        }
-      );
-
+      await apiFetch(`/api/account/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
       await loadAccount();
-
       setSuccess("Sessionen er blevet fjernet.");
     } catch (err) {
       setError(err.message);
@@ -540,17 +446,12 @@ export default function App() {
     if (!confirmed) return;
 
     try {
-      await apiFetch(
-        `/api/servers/${guildId}/leave`,
-        {
-          method: "POST",
-        }
-      );
+      await apiFetch(`/api/servers/${guildId}/leave`, {
+        method: "POST",
+      });
 
       setSelectedServer(null);
-
       await loadServers();
-
       setSuccess("Botten har forladt serveren.");
     } catch (err) {
       setError(err.message);
@@ -560,13 +461,10 @@ export default function App() {
   async function reloadCogs() {
     try {
       setError("");
-
       await apiFetch("/api/reload-cogs", {
         method: "POST",
       });
-
       await loadCogs();
-
       setSuccess("Cogs er blevet genindlæst.");
     } catch (err) {
       setError(err.message);
@@ -585,33 +483,18 @@ export default function App() {
     );
   }
 
-  /*
-   * ======================================================
-   * PUBLIC PAGES
-   * ======================================================
-   */
-
   if (!user) {
     if (page === "stats") {
       return (
-        <PublicLayout
-          title="Statistik"
-          onBack={() => goPublic("login")}
-        >
-          <PublicStats
-            stats={publicStats}
-            lastUpdated={lastUpdated}
-          />
+        <PublicLayout title="Statistik" onBack={() => setPage("login")}>
+          <PublicStats stats={publicStats} lastUpdated={lastUpdated} />
         </PublicLayout>
       );
     }
 
     if (page === "status") {
       return (
-        <PublicLayout
-          title="Status"
-          onBack={() => goPublic("login")}
-        >
+        <PublicLayout title="Status" onBack={() => setPage("login")}>
           <PublicStatus status={publicStatus} />
         </PublicLayout>
       );
@@ -619,10 +502,7 @@ export default function App() {
 
     if (page === "roadmap") {
       return (
-        <PublicLayout
-          title="Roadmap"
-          onBack={() => goPublic("login")}
-        >
+        <PublicLayout title="Roadmap" onBack={() => setPage("login")}>
           <Roadmap />
         </PublicLayout>
       );
@@ -630,20 +510,14 @@ export default function App() {
 
     return (
       <PublicLanding
-        onStats={() => goPublic("stats")}
-        onStatus={() => goPublic("status")}
-        onRoadmap={() => goPublic("roadmap")}
+        onStats={() => setPage("stats")}
+        onStatus={() => setPage("status")}
+        onRoadmap={() => setPage("roadmap")}
         onAdminLogin={adminLogin}
         onUserLogin={userLogin}
       />
     );
   }
-
-  /*
-   * ======================================================
-   * USER DASHBOARD
-   * ======================================================
-   */
 
   if (!isStaff) {
     return (
@@ -663,21 +537,9 @@ export default function App() {
           />
         )}
 
-        {page === "stats" && (
-          <DashboardPublicStats
-            stats={publicStats}
-          />
-        )}
-
-        {page === "status" && (
-          <DashboardPublicStatus
-            status={publicStatus}
-          />
-        )}
-
-        {page === "roadmap" && (
-          <Roadmap />
-        )}
+        {page === "stats" && <DashboardPublicStats stats={publicStats} />}
+        {page === "status" && <DashboardPublicStatus status={publicStatus} />}
+        {page === "roadmap" && <Roadmap />}
 
         {page === "support" && (
           <SupportPage
@@ -716,26 +578,11 @@ export default function App() {
           />
         )}
 
-        {error && (
-          <div className="error-box">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="success-box">
-            {success}
-          </div>
-        )}
+        {error && <div className="error-box">{error}</div>}
+        {success && <div className="success-box">{success}</div>}
       </DashboardLayout>
     );
   }
-
-  /*
-   * ======================================================
-   * STAFF DASHBOARD
-   * ======================================================
-   */
 
   return (
     <DashboardLayout
@@ -763,38 +610,13 @@ export default function App() {
         />
       )}
 
-      {page === "stats" && (
-        <StaffStats
-          stats={stats}
-          publicStats={publicStats}
-        />
-      )}
-
-      {page === "status" && (
-        <DashboardPublicStatus
-          status={publicStatus}
-        />
-      )}
-
-      {page === "bot" && (
-        <BotPage
-          stats={stats}
-          publicStats={publicStats}
-        />
-      )}
-
-      {page === "cogs" && (
-        <CogsPage
-          cogs={cogs}
-          onReload={reloadCogs}
-        />
-      )}
+      {page === "stats" && <StaffStats stats={stats} publicStats={publicStats} />}
+      {page === "status" && <DashboardPublicStatus status={publicStatus} />}
+      {page === "bot" && <BotPage stats={stats} />}
+      {page === "cogs" && <CogsPage cogs={cogs} onReload={reloadCogs} />}
 
       {page === "servers" && !selectedServer && (
-        <ServersPage
-          servers={servers}
-          onSelect={setSelectedServer}
-        />
+        <ServersPage servers={servers} onSelect={setSelectedServer} />
       )}
 
       {page === "servers" && selectedServer && (
@@ -825,20 +647,9 @@ export default function App() {
         />
       )}
 
-      {page === "roadmap" && (
-        <Roadmap />
-      )}
-
-      {page === "logs" && (
-        <LogsPage />
-      )}
-
-      {page === "system" && (
-        <SystemPage
-          user={user}
-          security={security}
-        />
-      )}
+      {page === "roadmap" && <Roadmap />}
+      {page === "logs" && <LogsPage />}
+      {page === "system" && <SystemPage user={user} security={security} />}
 
       {page === "account" && (
         <AccountPage
@@ -857,38 +668,22 @@ export default function App() {
         />
       )}
 
-      {error && (
-        <div className="error-box">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="success-box">
-          {success}
-        </div>
-      )}
+      {error && <div className="error-box">{error}</div>}
+      {success && <div className="success-box">{success}</div>}
     </DashboardLayout>
   );
 }
 
 /* ======================================================
-   PUBLIC LANDING
+   PUBLIC LANDING & LAYOUT COMPONENTS
 ====================================================== */
 
-function PublicLanding({
-  onStats,
-  onStatus,
-  onRoadmap,
-  onAdminLogin,
-  onUserLogin,
-}) {
+function PublicLanding({ onStats, onStatus, onRoadmap, onAdminLogin, onUserLogin }) {
   return (
     <div className="public-page">
       <div className="public-topbar">
         <div className="brand">
           <div className="brand-icon">H</div>
-
           <div>
             <h1>Hjælper</h1>
             <span>Dashboard</span>
@@ -898,154 +693,63 @@ function PublicLanding({
 
       <main className="public-content">
         <div className="public-title">
-          <div className="eyebrow">
-            HJÆLPER V2
-          </div>
-
+          <div className="eyebrow">HJÆLPER V2</div>
           <h2>Velkommen til Hjælper</h2>
-
-          <p>
-            Administrer botten, se statistik og få
-            support fra ét samlet dashboard.
-          </p>
+          <p>Administrer botten, se statistik og få support fra ét samlet dashboard.</p>
         </div>
 
         <div className="stats-grid">
-          <button
-            className="stat-card"
-            onClick={onStats}
-            style={{
-              border: "1px solid rgba(255,255,255,0.07)",
-              color: "inherit",
-              textAlign: "left",
-              cursor: "pointer",
-            }}
-          >
+          <button className="stat-card" onClick={onStats} style={{ border: "1px solid rgba(255,255,255,0.07)", color: "inherit", textAlign: "left", cursor: "pointer" }}>
             <span>📊 Statistik</span>
             <strong>Se statistik</strong>
           </button>
 
-          <button
-            className="stat-card"
-            onClick={onStatus}
-            style={{
-              border: "1px solid rgba(255,255,255,0.07)",
-              color: "inherit",
-              textAlign: "left",
-              cursor: "pointer",
-            }}
-          >
+          <button className="stat-card" onClick={onStatus} style={{ border: "1px solid rgba(255,255,255,0.07)", color: "inherit", textAlign: "left", cursor: "pointer" }}>
             <span>🟢 Status</span>
             <strong>System status</strong>
           </button>
 
-          <button
-            className="stat-card"
-            onClick={onRoadmap}
-            style={{
-              border: "1px solid rgba(255,255,255,0.07)",
-              color: "inherit",
-              textAlign: "left",
-              cursor: "pointer",
-            }}
-          >
-            <span>🗺️ Roadmap</span>
+          <button className="stat-card" onClick={onRoadmap} style={{ border: "1px solid rgba(255,255,255,0.07)", color: "inherit", textAlign: "left", cursor: "pointer" }}>
+            <span>🗺️️ Roadmap</span>
             <strong>Se roadmap</strong>
           </button>
         </div>
 
-        <div
-          className="public-info-box"
-          style={{ marginTop: "25px" }}
-        >
-          <div className="eyebrow">
-            LOGIN
-          </div>
-
+        <div className="public-info-box" style={{ marginTop: "25px" }}>
+          <div className="eyebrow">LOGIN</div>
           <h3>Log ind med Discord</h3>
+          <p>Vælg den login-type, du skal bruge. Staff får adgang til Admin Panel, mens almindelige brugere får adgang til deres bruger-dashboard.</p>
 
-          <p>
-            Vælg den login-type, du skal bruge.
-            Staff får adgang til Admin Panel, mens
-            almindelige brugere får adgang til deres
-            bruger-dashboard.
-          </p>
-
-          <button
-            className="login"
-            style={{
-              marginTop: "20px",
-              minHeight: "60px",
-            }}
-            onClick={onAdminLogin}
-          >
-            <span>
-              <span className="discord-icon">
-                🛡️
-              </span>
-
-              <strong>
-                Admin Login med Discord
-              </strong>
-            </span>
-
+          <button className="login" style={{ marginTop: "20px", minHeight: "60px" }} onClick={onAdminLogin}>
+            <span><span className="discord-icon">🛡️</span><strong>Admin Login med Discord</strong></span>
             <span>→</span>
           </button>
 
-          <button
-            className="login secondary-login"
-            style={{
-              minHeight: "60px",
-            }}
-            onClick={onUserLogin}
-          >
-            <span>
-              <span className="discord-icon">
-                👤
-              </span>
-
-              <strong>
-                Bruger Login med Discord
-              </strong>
-            </span>
-
+          <button className="login secondary-login" style={{ minHeight: "60px" }} onClick={onUserLogin}>
+            <span><span className="discord-icon">👤</span><strong>Bruger Login med Discord</strong></span>
             <span>→</span>
           </button>
         </div>
 
-        <div className="login-footer">
-          Hjælper · 2026
-        </div>
+        <div className="login-footer">Hjælper · 2026</div>
       </main>
     </div>
   );
 }
 
-/* ======================================================
-   PUBLIC LAYOUT
-====================================================== */
-
-function PublicLayout({
-  title,
-  onBack,
-  children,
-}) {
+function PublicLayout({ title, onBack, children }) {
   return (
     <div className="public-page">
       <div className="public-topbar">
         <div className="brand">
           <div className="brand-icon">H</div>
-
           <div>
             <h1>Hjælper</h1>
             <span>{title}</span>
           </div>
         </div>
 
-        <button
-          className="back-button"
-          onClick={onBack}
-        >
+        <button className="back-button" onClick={onBack}>
           ← Tilbage
         </button>
       </div>
@@ -1055,65 +759,27 @@ function PublicLayout({
   );
 }
 
-/* ======================================================
-   PUBLIC STATS
-====================================================== */
-
-function PublicStats({
-  stats,
-  lastUpdated,
-}) {
+function PublicStats({ stats, lastUpdated }) {
   const data = stats || {};
 
   const values = [
-    [
-      "🤖 Bot status",
-      data.bot_online === false
-        ? "Offline"
-        : "Online",
-    ],
-    [
-      "🖥️ Servere",
-      data.servers ??
-      data.server_count ??
-      data.guilds ??
-      0,
-    ],
-    [
-      "👥 Brugere",
-      data.users ??
-      data.user_count ??
-      data.total_users ??
-      0,
-    ],
-    [
-      "💬 Commands",
-      data.commands ??
-      data.command_count ??
-      0,
-    ],
+    ["🤖 Bot status", data.bot_online === false ? "Offline" : "Online"],
+    ["🖥️ Servere", data.servers ?? data.server_count ?? data.guilds ?? 0],
+    ["👥 Brugere", data.users ?? data.user_count ?? data.total_users ?? 0],
+    ["💬 Commands", data.commands ?? data.command_count ?? 0],
   ];
 
   return (
     <div className="public-content">
       <div className="public-title">
-        <div className="eyebrow">
-          STATISTIK
-        </div>
-
+        <div className="eyebrow">STATISTIK</div>
         <h2>Hjælper statistik</h2>
-
-        <p>
-          Aktuel offentlig statistik for Hjælper.
-        </p>
+        <p>Aktuel offentlig statistik for Hjælper.</p>
       </div>
 
       <div className="stats-grid">
         {values.map(([label, value]) => (
-          <div
-            className="stat-card"
-            key={label}
-          >
+          <div className="stat-card" key={label}>
             <span>{label}</span>
             <strong>{value}</strong>
           </div>
@@ -1121,99 +787,53 @@ function PublicStats({
       </div>
 
       <div className="last-updated">
-        Sidst opdateret{" "}
-        {lastUpdated
-          ? lastUpdated.toLocaleTimeString("da-DK")
-          : "—"}
+        Sidst opdateret {lastUpdated ? lastUpdated.toLocaleTimeString("da-DK") : "—"}
       </div>
     </div>
   );
 }
 
-/* ======================================================
-   PUBLIC STATUS
-====================================================== */
-
-function PublicStatus({
-  status,
-}) {
-  const online =
-    status?.bot_online !== false &&
-    status?.online !== false;
+function PublicStatus({ status }) {
+  const online = status?.bot_online !== false && status?.online !== false;
 
   return (
     <div className="public-content">
       <div className="public-title">
-        <div className="eyebrow">
-          STATUS
-        </div>
-
+        <div className="eyebrow">STATUS</div>
         <h2>System status</h2>
-
-        <p>
-          Se den aktuelle status for Hjælper.
-        </p>
+        <p>Se den aktuelle status for Hjælper.</p>
       </div>
 
       <div className="public-status-grid">
         <div className="public-status-card">
-          <div className="status-icon">
-            🤖
-          </div>
-
+          <div className="status-icon">🤖</div>
           <div>
             <span>Discord bot</span>
-
-            <strong
-              className={
-                online
-                  ? "status-online"
-                  : "status-offline"
-              }
-            >
-              {online
-                ? "Online"
-                : "Offline"}
+            <strong className={online ? "status-online" : "status-offline"}>
+              {online ? "Online" : "Offline"}
             </strong>
           </div>
         </div>
 
         <div className="public-status-card">
-          <div className="status-icon">
-            🌐
-          </div>
-
+          <div className="status-icon">🌐</div>
           <div>
             <span>Dashboard API</span>
-
-            <strong className="status-online">
-              Online
-            </strong>
+            <strong className="status-online">Online</strong>
           </div>
         </div>
 
         <div className="public-status-card">
-          <div className="status-icon">
-            🔐
-          </div>
-
+          <div className="status-icon">🔐</div>
           <div>
             <span>Discord OAuth</span>
-
-            <strong className="status-online">
-              Online
-            </strong>
+            <strong className="status-online">Online</strong>
           </div>
         </div>
       </div>
 
       <div className="public-info-box">
-        <h3>
-          {online
-            ? "Alle systemer ser gode ud"
-            : "Botten er offline"}
-        </h3>
-
+        <h3>{online ? "Alle systemer ser gode ud" : "Botten er offline"}</h3>
         <p>
           {online
             ? "Hjælper-dashboardet og de vigtigste services svarer normalt."
@@ -1224,22 +844,7 @@ function PublicStatus({
   );
 }
 
-/* ======================================================
-   DASHBOARD LAYOUT
-====================================================== */
-
-function DashboardLayout({
-  user,
-  roleLabel,
-  page,
-  setPage,
-  onLogout,
-  children,
-  staffMode,
-  userMode,
-  isOwner,
-  isManager,
-}) {
+function DashboardLayout({ user, roleLabel, page, setPage, onLogout, children, staffMode, isOwner, isManager }) {
   const staffItems = [
     ["admin", "🏠", "Admin Panel"],
     ["stats", "📊", "Statistik"],
@@ -1253,18 +858,10 @@ function DashboardLayout({
   ];
 
   if (isOwner || isManager) {
-    staffItems.push([
-      "system",
-      "⚙️",
-      "System",
-    ]);
+    staffItems.push(["system", "⚙️", "System"]);
   }
 
-  staffItems.push([
-    "account",
-    "👤",
-    "Konto",
-  ]);
+  staffItems.push(["account", "👤", "Konto"]);
 
   const userItems = [
     ["dashboard", "🏠", "Dashboard"],
@@ -1275,77 +872,43 @@ function DashboardLayout({
     ["account", "👤", "Konto"],
   ];
 
-  const items = staffMode
-    ? staffItems
-    : userItems;
-
-  const currentTitle =
-    items.find(
-      ([key]) => key === page
-    )?.[2] || "Dashboard";
+  const items = staffMode ? staffItems : userItems;
+  const currentTitle = items.find(([key]) => key === page)?.[2] || "Dashboard";
 
   return (
     <div className="dashboard">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-icon">
-            H
-          </div>
-
+          <div className="brand-icon">H</div>
           <div>
             <h2>Hjælper</h2>
-            <span>
-              {staffMode
-                ? "Admin Dashboard"
-                : "Bruger Dashboard"}
-            </span>
+            <span>{staffMode ? "Admin Dashboard" : "Bruger Dashboard"}</span>
           </div>
         </div>
 
         <nav>
-          {items.map(
-            ([key, icon, label]) => (
-              <button
-                key={key}
-                className={
-                  `nav-item ${
-                    page === key
-                      ? "active"
-                      : ""
-                  }`
-                }
-                onClick={() => {
-                  setPage(key);
-                }}
-              >
-                <span>{icon}</span>
-                <span>{label}</span>
-              </button>
-            )
-          )}
+          {items.map(([key, icon, label]) => (
+            <button
+              key={key}
+              className={`nav-item ${page === key ? "active" : ""}`}
+              onClick={() => setPage(key)}
+            >
+              <span>{icon}</span>
+              <span>{label}</span>
+            </button>
+          ))}
         </nav>
 
         <div className="sidebar-bottom">
           <div className="user-mini">
             <UserAvatar user={user} />
-
             <div className="user-info">
-              <strong>
-                {user?.username ||
-                  user?.global_name ||
-                  "Bruger"}
-              </strong>
-
-              <span>
-                {roleLabel}
-              </span>
+              <strong>{user?.username || user?.global_name || "Bruger"}</strong>
+              <span>{roleLabel}</span>
             </div>
           </div>
 
-          <button
-            className="logout-button"
-            onClick={onLogout}
-          >
+          <button className="logout-button" onClick={onLogout}>
             ↪ Log ud
           </button>
         </div>
@@ -1355,102 +918,49 @@ function DashboardLayout({
         <header className="topbar">
           <div>
             <h1>{currentTitle}</h1>
-            <span>
-              Hjælper Dashboard
-            </span>
+            <span>Hjælper Dashboard</span>
           </div>
-
-          <div className="topbar-user">
-            {roleLabel}
-          </div>
+          <div className="topbar-user">{roleLabel}</div>
         </header>
 
-        <div className="content">
-          {children}
-        </div>
+        <div className="content">{children}</div>
       </main>
     </div>
   );
 }
 
-/* ======================================================
-   USER DASHBOARD
-====================================================== */
-
-function UserDashboard({
-  user,
-  tickets,
-  onSupport,
-}) {
-  const openTickets = tickets.filter(
-    (ticket) =>
-      ticket.status !== "closed"
-  ).length;
+function UserDashboard({ user, tickets, onSupport }) {
+  const openTickets = tickets.filter((t) => t.status !== "closed").length;
 
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          DASHBOARD
-        </div>
-
-        <h2>
-          Hej{" "}
-          {user?.username ||
-            user?.global_name ||
-            "Bruger"} 👋
-        </h2>
-
-        <p>
-          Velkommen tilbage til Hjælper.
-        </p>
+        <div className="eyebrow">DASHBOARD</div>
+        <h2>Hej {user?.username || user?.global_name || "Bruger"} 👋</h2>
+        <p>Velkommen tilbage til Hjælper.</p>
       </div>
 
       <div className="stats-grid">
         <div className="stat-card">
           <span>🎫 Mine tickets</span>
-          <strong>
-            {tickets.length}
-          </strong>
+          <strong>{tickets.length}</strong>
         </div>
 
         <div className="stat-card">
           <span>🟢 Åbne tickets</span>
-          <strong>
-            {openTickets}
-          </strong>
+          <strong>{openTickets}</strong>
         </div>
 
         <div className="stat-card">
           <span>🔐 Login</span>
-          <strong>
-            Discord
-          </strong>
+          <strong>Discord</strong>
         </div>
       </div>
 
-      <div
-        className="public-info-box"
-        style={{
-          marginTop: "20px",
-        }}
-      >
-        <h3>
-          Har du brug for hjælp?
-        </h3>
-
-        <p>
-          Opret en support-ticket, hvis du
-          har brug for hjælp med Hjælper.
-        </p>
-
-        <button
-          className="primary-button"
-          style={{
-            marginTop: "15px",
-          }}
-          onClick={onSupport}
-        >
+      <div className="public-info-box" style={{ marginTop: "20px" }}>
+        <h3>Har du brug for hjælp?</h3>
+        <p>Opret en support-ticket, hvis du har brug for hjælp med Hjælper.</p>
+        <button className="primary-button" style={{ marginTop: "15px" }} onClick={onSupport}>
           🛟 Åbn Support
         </button>
       </div>
@@ -1458,629 +968,171 @@ function UserDashboard({
   );
 }
 
-/* ======================================================
-   DASHBOARD PUBLIC STATS
-====================================================== */
-
-function DashboardPublicStats({
-  stats,
-}) {
+function DashboardPublicStats({ stats }) {
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          STATISTIK
-        </div>
-
+        <div className="eyebrow">STATISTIK</div>
         <h2>Statistik</h2>
-
-        <p>
-          Offentlig statistik for Hjælper.
-        </p>
+        <p>Offentlig statistik for Hjælper.</p>
       </div>
-
-      <PublicStats
-        stats={stats}
-      />
+      <PublicStats stats={stats} />
     </div>
   );
 }
 
-/* ======================================================
-   DASHBOARD STATUS
-====================================================== */
-
-function DashboardPublicStatus({
-  status,
-}) {
+function DashboardPublicStatus({ status }) {
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          STATUS
-        </div>
-
-        <h2>Status</h2>
-
-        <p>
-          Aktuel status for Hjælper.
-        </p>
+        <div className="eyebrow">STATUS</div>
+        <h2>Systemstatus</h2>
+        <p>Aktuel driftssikkerhed og status for Hjælper-tjenesterne.</p>
       </div>
-
-      <PublicStatus
-        status={status}
-      />
+      <PublicStatus status={status} />
     </div>
   );
 }
 
-/* ======================================================
-   ADMIN PANEL
-====================================================== */
-
-function AdminPanel({
-  user,
-  stats,
-  servers,
-  cogs,
-  tickets,
-  onStats,
-  onServers,
-  onCogs,
-  onTickets,
-  onPage,
-}) {
-  const openTickets = tickets.filter(
-    (ticket) =>
-      ticket.status !== "closed"
-  ).length;
+function AdminPanel({ user, stats, servers, cogs, tickets, onPage }) {
+  const openTickets = tickets.filter((t) => t.status !== "closed").length;
 
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          ADMIN PANEL
-        </div>
-
-        <h2>
-          Velkommen,{" "}
-          {user?.username ||
-            "Admin"} 👋
-        </h2>
-
-        <p>
-          Administrer Hjælper fra dette panel.
-        </p>
+        <div className="eyebrow">ADMIN PANEL</div>
+        <h2>Velkommen tilbage, {user?.username || "Admin"} 🛡️</h2>
+        <p>Her er et hurtigt overblik over botten og dens systemer.</p>
       </div>
 
       <div className="stats-grid">
-        <div className="stat-card">
+        <div className="stat-card" onClick={() => onPage("servers")} style={{ cursor: "pointer" }}>
           <span>🖥️ Servere</span>
-          <strong>
-            {servers.length}
-          </strong>
+          <strong>{stats?.servers || servers.length || 0}</strong>
         </div>
 
-        <div className="stat-card">
-          <span>🧩 Cogs</span>
-          <strong>
-            {cogs.length}
-          </strong>
+        <div className="stat-card" onClick={() => onPage("cogs")} style={{ cursor: "pointer" }}>
+          <span>🧩 Aktive Cogs</span>
+          <strong>{cogs.length}</strong>
         </div>
 
-        <div className="stat-card">
-          <span>🎫 Åbne tickets</span>
-          <strong>
-            {openTickets}
-          </strong>
-        </div>
-
-        <div className="stat-card">
-          <span>📊 Bot status</span>
-          <strong>
-            {stats?.bot_online === false
-              ? "Offline"
-              : "Online"}
-          </strong>
+        <div className="stat-card" onClick={() => onPage("tickets")} style={{ cursor: "pointer" }}>
+          <span>🎫 Åbne Tickets</span>
+          <strong>{openTickets}</strong>
         </div>
       </div>
 
-      <div
-        className="public-info-box"
-        style={{
-          marginTop: "20px",
-        }}
-      >
-        <h3>
-          Hurtige handlinger
-        </h3>
-
-        <p>
-          Gå direkte til de vigtigste dele
-          af admin-panelet.
-        </p>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            marginTop: "16px",
-          }}
-        >
-          <button
-            className="primary-button"
-            onClick={() => {
-              onStats();
-              onPage("stats");
-            }}
-          >
-            📊 Statistik
-          </button>
-
-          <button
-            className="secondary-button"
-            onClick={() => {
-              onServers();
-              onPage("servers");
-            }}
-          >
-            🖥️ Servere
-          </button>
-
-          <button
-            className="secondary-button"
-            onClick={() => {
-              onCogs();
-              onPage("cogs");
-            }}
-          >
-            🧩 Cogs
-          </button>
-
-          <button
-            className="secondary-button"
-            onClick={() => {
-              onTickets();
-              onPage("tickets");
-            }}
-          >
-            🎫 Tickets
-          </button>
-        </div>
+      <div className="public-info-box" style={{ marginTop: "25px" }}>
+        <h3>Genveje</h3>
+        <p>Brug menuen til venstre for at navigere til bot-indstillinger, logfiler, servere eller systemstatus.</p>
       </div>
     </div>
   );
 }
 
-/* ======================================================
-   STAFF STATS
-====================================================== */
-
-function StaffStats({
-  stats,
-  publicStats,
-}) {
-  const data = stats || {};
-  const publicData = publicStats || {};
-
-  const values = [
-    [
-      "🤖 Bot status",
-      data.bot_online === false
-        ? "Offline"
-        : "Online",
-    ],
-    [
-      "🖥️ Servere",
-      data.servers ??
-      data.server_count ??
-      publicData.servers ??
-      0,
-    ],
-    [
-      "👥 Brugere",
-      data.users ??
-      data.user_count ??
-      publicData.users ??
-      0,
-    ],
-    [
-      "💬 Commands",
-      data.commands ??
-      data.command_count ??
-      publicData.commands ??
-      0,
-    ],
-    [
-      "🧩 Cogs",
-      data.cogs ??
-      data.cog_count ??
-      0,
-    ],
-    [
-      "⏱️ Uptime",
-      data.uptime ??
-      "—",
-    ],
-  ];
+function StaffStats({ stats, publicStats }) {
+  const combined = { ...publicStats, ...stats };
 
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          STATISTIK
-        </div>
-
-        <h2>Bot statistik</h2>
-
-        <p>
-          Statistik og information om Hjælper.
-        </p>
+        <div className="eyebrow">STATISTIK</div>
+        <h2>Udvidet Statistik</h2>
+        <p>Detaljerede nøgletal for staff-medlemmer.</p>
       </div>
-
-      <div className="stats-grid">
-        {values.map(
-          ([label, value]) => (
-            <div
-              className="stat-card"
-              key={label}
-            >
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          )
-        )}
-      </div>
+      <PublicStats stats={combined} lastUpdated={new Date()} />
     </div>
   );
 }
 
-/* ======================================================
-   BOT
-====================================================== */
-
-function BotPage({
-  stats,
-  publicStats,
-}) {
-  const online =
-    stats?.bot_online !== false;
-
+function BotPage({ stats }) {
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          BOT
-        </div>
-
-        <h2>Hjælper bot</h2>
-
-        <p>
-          Information om den aktive Discord-bot.
-        </p>
+        <div className="eyebrow">BOT</div>
+        <h2>Bot-indstillinger</h2>
+        <p>Information og kontrolpanel for Discord-botten.</p>
       </div>
 
-      <div className="info-card">
-        <div>
-          <span>Status</span>
-          <strong>
-            {online
-              ? "🟢 Online"
-              : "🔴 Offline"}
-          </strong>
-        </div>
-
-        <div>
-          <span>Navn</span>
-          <strong>
-            {stats?.bot_name ||
-              "Hjælper"}
-          </strong>
-        </div>
-
-        <div>
-          <span>Servers</span>
-          <strong>
-            {stats?.servers ??
-              publicStats?.servers ??
-              0}
-          </strong>
-        </div>
-
-        <div>
-          <span>Activity</span>
-          <strong>
-            Playing Hjælper servere
-          </strong>
-        </div>
+      <div className="public-info-box">
+        <h3>Status & Detaljer</h3>
+        <p>Uptime: {stats?.uptime || "Ukendt"}</p>
+        <p>Latens (Ping): {stats?.ping || "—"} ms</p>
       </div>
     </div>
   );
 }
 
-/* ======================================================
-   COGS
-====================================================== */
-
-function CogsPage({
-  cogs,
-  onReload,
-}) {
+function CogsPage({ cogs, onReload }) {
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          COGS
-        </div>
-
-        <h2>Bot Cogs</h2>
-
-        <p>
-          Se alle loaded bot-moduler.
-        </p>
+        <div className="eyebrow">COGS</div>
+        <h2>Moduler (Cogs)</h2>
+        <p>Administrer og genindlæs bot-moduler.</p>
       </div>
 
-      <div
-        style={{
-          marginBottom: "15px",
-        }}
-      >
-        <button
-          className="primary-button"
-          onClick={onReload}
-        >
-          🔄 Genindlæs Cogs
-        </button>
-      </div>
-
-      <div className="list-card">
-        {cogs.length === 0 ? (
-          <div className="empty">
-            Ingen cogs fundet.
-          </div>
-        ) : (
-          cogs.map((cog, index) => {
-            const name =
-              typeof cog === "string"
-                ? cog
-                : cog?.name ||
-                  cog?.cog ||
-                  `Cog ${index + 1}`;
-
-            const status =
-              typeof cog === "object"
-                ? cog?.status ||
-                  "Loaded"
-                : "Loaded";
-
-            return (
-              <div
-                className="list-row"
-                key={`${name}-${index}`}
-              >
-                <span>🧩</span>
-
-                <strong>{name}</strong>
-
-                <span>
-                  {status}
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ======================================================
-   SERVERS
-====================================================== */
-
-function ServersPage({
-  servers,
-  onSelect,
-}) {
-  return (
-    <div>
-      <div className="page-heading">
-        <div className="eyebrow">
-          SERVER MANAGEMENT
-        </div>
-
-        <h2>Servere</h2>
-
-        <p>
-          Servere hvor Hjælper er tilføjet.
-        </p>
-      </div>
-
-      <div className="list-card">
-        {servers.length === 0 ? (
-          <div className="empty">
-            Ingen servere fundet.
-          </div>
-        ) : (
-          servers.map(
-            (server, index) => {
-              const guildId =
-                server.id ||
-                server.guild_id;
-
-              const name =
-                server.name ||
-                server.guild_name ||
-                "Ukendt server";
-
-              const members =
-                server.members ??
-                server.member_count ??
-                0;
-
-              const icon =
-                server.icon ||
-                server.icon_url;
-
-              return (
-                <button
-                  className="server-row"
-                  key={
-                    guildId ||
-                    `${name}-${index}`
-                  }
-                  onClick={() =>
-                    onSelect(server)
-                  }
-                >
-                  <div className="server-icon">
-                    {icon ? (
-                      <img
-                        src={icon}
-                        alt=""
-                      />
-                    ) : (
-                      "🖥️"
-                    )}
-                  </div>
-
-                  <div className="server-main">
-                    <strong>
-                      {name}
-                    </strong>
-
-                    <small>
-                      {guildId ||
-                        "Ukendt ID"}
-                    </small>
-                  </div>
-
-                  <div className="server-members">
-                    👥 {members}
-                  </div>
-
-                  <div className="server-arrow">
-                    →
-                  </div>
-                </button>
-              );
-            }
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ======================================================
-   SERVER DETAILS
-====================================================== */
-
-function ServerDetails({
-  server,
-  onBack,
-  onLeave,
-}) {
-  const name =
-    server?.name ||
-    server?.guild_name ||
-    "Ukendt server";
-
-  const id =
-    server?.id ||
-    server?.guild_id ||
-    "Ukendt";
-
-  const members =
-    server?.members ??
-    server?.member_count ??
-    0;
-
-  const owner =
-    server?.owner ||
-    server?.owner_name ||
-    "Ukendt";
-
-  const icon =
-    server?.icon ||
-    server?.icon_url;
-
-  return (
-    <div className="server-details-page">
-      <button
-        className="back-button"
-        onClick={onBack}
-      >
-        ← Alle servere
+      <button className="primary-button" onClick={onReload} style={{ marginBottom: "20px" }}>
+        🔄 Genindlæs alle Cogs
       </button>
 
-      <div className="server-hero">
-        <div className="server-hero-icon">
-          {icon ? (
-            <img
-              src={icon}
-              alt=""
-            />
-          ) : (
-            "🖥️"
-          )}
-        </div>
-
-        <div className="server-hero-info">
-          <div className="eyebrow">
-            DISCORD SERVER
+      <div className="stats-grid">
+        {cogs.map((cog, index) => (
+          <div className="stat-card" key={index}>
+            <span>🧩 Modul</span>
+            <strong>{typeof cog === "string" ? cog : cog.name || "Ukendt Cog"}</strong>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-          <h2>{name}</h2>
-
-          <p>
-            Server ID: {id}
-          </p>
-        </div>
+function ServersPage({ servers, onSelect }) {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">SERVERE</div>
+        <h2>Tilsluttede Servere</h2>
+        <p>Vælg en server for at se detaljer.</p>
       </div>
 
-      <div className="server-detail-grid">
-        <div className="server-detail-card">
-          <span>👥 Medlemmer</span>
-          <strong>{members}</strong>
-        </div>
+      <div className="stats-grid">
+        {servers.map((server) => (
+          <div
+            className="stat-card"
+            key={server.id || server.guild_id}
+            onClick={() => onSelect(server)}
+            style={{ cursor: "pointer", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <span>🖥️ Server</span>
+            <strong>{server.name || "Ukendt Server"}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        <div className="server-detail-card">
-          <span>👑 Ejer</span>
-          <strong>{owner}</strong>
-        </div>
-
-        <div className="server-detail-card">
-          <span>🆔 Server ID</span>
-          <strong className="server-id">
-            {id}
-          </strong>
-        </div>
+function ServerDetails({ server, onBack, onLeave }) {
+  return (
+    <div>
+      <div className="page-heading">
+        <button className="back-button" onClick={onBack} style={{ marginBottom: "15px" }}>
+          ← Tilbage til servere
+        </button>
+        <div className="eyebrow">SERVER DETALJER</div>
+        <h2>{server.name}</h2>
+        <p>ID: {server.id || server.guild_id}</p>
       </div>
 
-      <div className="server-danger-card">
-        <div>
-          <div className="eyebrow">
-            DANGER ZONE
-          </div>
-
-          <h3>
-            Forlad server
-          </h3>
-
-          <p>
-            Dette får Hjælper til at forlade
-            serveren. Handlingen kan ikke
-            fortrydes fra dashboardet.
-          </p>
-        </div>
-
+      <div className="public-info-box">
+        <h3>Handlinger</h3>
+        <p>Fjern botten fra denne server, hvis den ikke længere skal være der.</p>
         <button
-          className="danger-button"
-          onClick={() =>
-            onLeave(id)
-          }
+          className="logout-button"
+          style={{ marginTop: "15px", backgroundColor: "#d9534f", color: "white" }}
+          onClick={() => onLeave(server.id || server.guild_id)}
         >
           Forlad server
         </button>
@@ -2090,7 +1142,7 @@ function ServerDetails({
 }
 
 /* ======================================================
-   SUPPORT / TICKETS
+   SUPPORT PAGE (TICKETS - RETTET)
 ====================================================== */
 
 function SupportPage({
@@ -2110,1044 +1162,210 @@ function SupportPage({
   staff,
 }) {
   if (selectedTicket) {
+    const messagesList = Array.isArray(selectedTicket.messages)
+      ? selectedTicket.messages
+      : selectedTicket.replies || [];
+
     return (
-      <TicketDetails
-        ticket={selectedTicket}
-        staff={staff}
-        replyMessage={replyMessage}
-        setReplyMessage={setReplyMessage}
-        onReply={onReply}
-        onClose={onClose}
-        onBack={onBack}
-      />
+      <div>
+        <button className="back-button" onClick={onBack} style={{ marginBottom: "15px" }}>
+          ← Tilbage til oversigt
+        </button>
+
+        <div className="page-heading">
+          <div className="eyebrow">TICKET #{selectedTicket.id}</div>
+          <h2>{selectedTicket.subject}</h2>
+          <p>Status: <strong>{selectedTicket.status || "Åben"}</strong></p>
+        </div>
+
+        <div className="public-info-box" style={{ marginBottom: "20px" }}>
+          <p><strong>Oprindelig besked:</strong></p>
+          <p>{selectedTicket.message || selectedTicket.body || "Ingen besked"}</p>
+        </div>
+
+        {messagesList.length > 0 && (
+          <div className="public-info-box" style={{ marginBottom: "20px" }}>
+            <h3>Svarhistorik</h3>
+            {messagesList.map((msg, idx) => (
+              <div key={idx} style={{ marginTop: "10px", padding: "10px", background: "rgba(255,255,255,0.03)", borderRadius: "6px" }}>
+                <p style={{ fontSize: "0.85rem", opacity: 0.7 }}>
+                  <strong>{msg.author || msg.username || "Bruger"}</strong>
+                </p>
+                <p>{msg.message || msg.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {selectedTicket.status !== "closed" && (
+          <div className="public-info-box">
+            <h3>Send svar</h3>
+            <textarea
+              className="ticket-textarea"
+              rows="3"
+              placeholder="Skriv et svar..."
+              value={replyMessage}
+              onChange={(e) => setReplyMessage(e.target.value)}
+              style={{ width: "100%", padding: "10px", marginTop: "10px", borderRadius: "6px" }}
+            />
+            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+              <button className="primary-button" onClick={() => onReply(selectedTicket.id)}>
+                Send svar
+              </button>
+              <button className="logout-button" onClick={() => onClose(selectedTicket.id)} style={{ backgroundColor: "#d9534f", color: "white" }}>
+                Luk ticket
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          {staff
-            ? "TICKETS"
-            : "SUPPORT"}
-        </div>
-
-        <h2>
-          {staff
-            ? "Alle tickets"
-            : "Support"}
-        </h2>
-
-        <p>
-          {staff
-            ? "Se og håndter alle supporttickets."
-            : "Opret og administrer dine supporttickets."}
-        </p>
+        <div className="eyebrow">SUPPORT</div>
+        <h2>{staff ? "Support Tickets (Admin)" : "Mine Tickets"}</h2>
+        <p>Opret eller besvar support-henvendelser.</p>
       </div>
 
-      <div
-        className={
-          staff
-            ? "support-grid"
-            : "support-grid"
-        }
-      >
-        {!staff &&
-          onCreateTicket && (
-            <form
-              className="account-card"
-              onSubmit={onCreateTicket}
-            >
-              <div className="account-card-title">
-                <div>
-                  <div className="eyebrow">
-                    NY TICKET
-                  </div>
-
-                  <h3>
-                    Opret ticket
-                  </h3>
-                </div>
-              </div>
-
-              <label>
-                Emne
-              </label>
-
-              <input
-                value={ticketSubject}
-                onChange={(event) =>
-                  setTicketSubject(
-                    event.target.value
-                  )
-                }
-                placeholder="Hvad har du brug for hjælp til?"
-                maxLength={100}
-              />
-
-              <label>
-                Besked
-              </label>
-
-              <textarea
-                value={ticketMessage}
-                onChange={(event) =>
-                  setTicketMessage(
-                    event.target.value
-                  )
-                }
-                placeholder="Beskriv dit problem..."
-                maxLength={3000}
-              />
-
-              <div className="character-count">
-                {ticketMessage.length}/3000
-              </div>
-
-              <button
-                className="primary-button"
-                type="submit"
-              >
-                🎫 Opret ticket
-              </button>
-            </form>
-          )}
-
-        <div className="account-card">
-          <div className="account-card-title">
-            <div>
-              <div className="eyebrow">
-                {staff
-                  ? "SUPPORT"
-                  : "MINE TICKETS"}
-              </div>
-
-              <h3>
-                {staff
-                  ? "Tickets"
-                  : "Mine tickets"}
-              </h3>
-            </div>
-          </div>
-
-          <div className="support-ticket-list">
-            {tickets.length === 0 ? (
-              <div className="empty">
-                {staff
-                  ? "Der er ingen tickets."
-                  : "Du har ingen tickets endnu."}
-              </div>
-            ) : (
-              tickets.map(
-                (ticket) => (
-                  <button
-                    key={ticket.id}
-                    className="ticket-card"
-                    onClick={() =>
-                      onOpenTicket(ticket)
-                    }
-                    style={{
-                      width: "100%",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                      color: "inherit",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div className="ticket-top">
-                      <strong>
-                        #{ticket.id}
-                      </strong>
-
-                      <span
-                        className={
-                          ticket.status ===
-                          "closed"
-                            ? "ticket-closed"
-                            : "ticket-open"
-                        }
-                      >
-                        {ticket.status ===
-                        "closed"
-                          ? "Lukket"
-                          : ticket.status ===
-                            "answered"
-                            ? "Besvaret"
-                            : "Åben"}
-                      </span>
-                    </div>
-
-                    <h4>
-                      {ticket.subject}
-                    </h4>
-
-                    <p>
-                      {ticket.message}
-                    </p>
-
-                    {staff && (
-                      <small>
-                        👤{" "}
-                        {ticket.username ||
-                          ticket.user_id}
-                      </small>
-                    )}
-
-                    <br />
-
-                    <small>
-                      {ticket.created_at ||
-                        ""}
-                    </small>
-                  </button>
-                )
-              )
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ======================================================
-   TICKET DETAILS
-====================================================== */
-
-function TicketDetails({
-  ticket,
-  staff,
-  replyMessage,
-  setReplyMessage,
-  onReply,
-  onClose,
-  onBack,
-}) {
-  const replies =
-    Array.isArray(ticket?.replies)
-      ? ticket.replies
-      : [];
-
-  return (
-    <div>
-      <button
-        className="back-button"
-        onClick={onBack}
-        style={{
-          marginBottom: "20px",
-        }}
-      >
-        ←{" "}
-        {staff
-          ? "Alle tickets"
-          : "Mine tickets"}
-      </button>
-
-      <div className="page-heading">
-        <div className="eyebrow">
-          TICKET #{ticket?.id}
-        </div>
-
-        <h2>
-          {ticket?.subject ||
-            "Support ticket"}
-        </h2>
-
-        <p>
-          {ticket?.username
-            ? `Oprettet af ${ticket.username}`
-            : "Support samtale"}
-        </p>
-      </div>
-
-      <div className="account-card">
-        <div className="ticket-card">
-          <div className="ticket-top">
-            <strong>
-              👤{" "}
-              {ticket?.username ||
-                ticket?.user_id ||
-                "Bruger"}
-            </strong>
-
-            <span
-              className={
-                ticket?.status ===
-                "closed"
-                  ? "ticket-closed"
-                  : "ticket-open"
-              }
-            >
-              {ticket?.status ===
-              "closed"
-                ? "Lukket"
-                : ticket?.status ===
-                  "answered"
-                  ? "Besvaret"
-                  : "Åben"}
-            </span>
-          </div>
-
-          <h4>
-            {ticket?.subject}
-          </h4>
-
-          <p>
-            {ticket?.message}
-          </p>
-
-          <small>
-            {ticket?.created_at || ""}
-          </small>
-        </div>
-
-        {replies.length > 0 && (
-          <div
-            style={{
-              marginTop: "15px",
-              display: "grid",
-              gap: "10px",
-            }}
-          >
-            {replies.map(
-              (reply) => (
-                <div
-                  className="ticket-card"
-                  key={reply.id}
-                >
-                  <div className="ticket-top">
-                    <strong>
-                      {reply.username ||
-                        "Bruger"}
-                    </strong>
-
-                    <span>
-                      {reply.role_name ||
-                        reply.role ||
-                        ""}
-                    </span>
-                  </div>
-
-                  <p>
-                    {reply.message}
-                  </p>
-
-                  <small>
-                    {reply.created_at ||
-                      ""}
-                  </small>
-                </div>
-              )
-            )}
-          </div>
-        )}
-
-        {ticket?.status !== "closed" && (
-          <>
-            <div
-              className="account-subtitle"
-            >
-              Svar på ticket
-            </div>
-
-            <textarea
-              value={replyMessage}
-              onChange={(event) =>
-                setReplyMessage(
-                  event.target.value
-                )
-              }
-              placeholder="Skriv dit svar..."
-              style={{
-                width: "100%",
-                minHeight: "120px",
-                padding: "13px",
-                borderRadius: "10px",
-                border:
-                  "1px solid rgba(255,255,255,0.08)",
-                background: "#0d121c",
-                color: "white",
-                resize: "vertical",
-              }}
+      {!staff && (
+        <form onSubmit={onCreateTicket} className="public-info-box" style={{ marginBottom: "25px" }}>
+          <h3>Opret ny ticket</h3>
+          <div style={{ marginTop: "15px" }}>
+            <input
+              type="text"
+              placeholder="Emne"
+              value={ticketSubject}
+              onChange={(e) => setTicketSubject(e.target.value)}
+              style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px" }}
             />
-
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                marginTop: "12px",
-              }}
-            >
-              <button
-                className="primary-button"
-                onClick={() =>
-                  onReply(ticket.id)
-                }
-              >
-                💬 Send svar
-              </button>
-
-              <button
-                className="secondary-button"
-                onClick={() =>
-                  onClose(ticket.id)
-                }
-              >
-                🔒 Luk ticket
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ======================================================
-   ROADMAP
-====================================================== */
-
-function Roadmap() {
-  const items = [
-    {
-      version: "V2.0",
-      title: "Dashboard",
-      status: "I gang",
-      active: true,
-      tasks: [
-        "Discord OAuth login",
-        "Admin dashboard",
-        "Bruger dashboard",
-        "Statistik",
-        "Status",
-      ],
-    },
-    {
-      version: "V2.1",
-      title: "Support",
-      status: "I gang",
-      active: true,
-      tasks: [
-        "Support tickets",
-        "Ticket svar",
-        "Admin ticket management",
-        "Ticket historik",
-      ],
-    },
-    {
-      version: "V2.2",
-      title: "Bot Management",
-      status: "Planlagt",
-      active: false,
-      tasks: [
-        "Cogs management",
-        "Server management",
-        "Flere bot-statistikker",
-        "Systemværktøjer",
-      ],
-    },
-    {
-      version: "V3.0",
-      title: "Mere",
-      status: "Planlagt",
-      active: false,
-      tasks: [
-        "Flere dashboard features",
-        "Flere integrationer",
-        "Optimeringer",
-        "Nye Hjælper features",
-      ],
-    },
-  ];
-
-  return (
-    <div className="roadmap">
-      <div className="public-title">
-        <div className="eyebrow">
-          ROADMAP
-        </div>
-
-        <h2>
-          Hvad kommer der?
-        </h2>
-
-        <p>
-          Planen for udviklingen af Hjælper.
-        </p>
-      </div>
-
-      {items.map(
-        (item) => (
-          <div
-            className={
-              `roadmap-card ${
-                item.active
-                  ? "active"
-                  : ""
-              }`
-            }
-            key={item.version}
-          >
-            <div className="roadmap-header">
-              <div>
-                <div className="roadmap-version">
-                  {item.version}
-                </div>
-
-                <h2>
-                  {item.title}
-                </h2>
-              </div>
-
-              <div
-                className={
-                  `roadmap-status ${
-                    item.active
-                      ? "active"
-                      : ""
-                  }`
-                }
-              >
-                {item.status}
-              </div>
-            </div>
-
-            <div className="roadmap-items">
-              {item.tasks.map(
-                (task) => (
-                  <div key={task}>
-                    {item.active
-                      ? "✓"
-                      : "○"}{" "}
-                    {task}
-                  </div>
-                )
-              )}
-            </div>
+            <textarea
+              placeholder="Beskriv dit problem..."
+              value={ticketMessage}
+              onChange={(e) => setTicketMessage(e.target.value)}
+              rows="3"
+              style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px" }}
+            />
+            <button type="submit" className="primary-button">Opret ticket</button>
           </div>
-        )
+        </form>
       )}
 
-      <div className="roadmap-note">
-        Roadmapen kan ændre sig under udviklingen.
+      <div className="stats-grid">
+        {tickets.map((ticket) => (
+          <div
+            className="stat-card"
+            key={ticket.id}
+            onClick={() => onOpenTicket(ticket)}
+            style={{ cursor: "pointer", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <span>🎫 Ticket #{ticket.id}</span>
+            <strong>{ticket.subject}</strong>
+            <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>Status: {ticket.status || "åben"}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ======================================================
-   LOGS
-====================================================== */
+function Roadmap() {
+  return (
+    <div>
+      <div className="page-heading">
+        <div className="eyebrow">ROADMAP</div>
+        <h2>Kommende funktioner</h2>
+        <p>Se hvad vi arbejder på til Hjælper V2.</p>
+      </div>
+
+      <div className="public-info-box">
+        <h3>Fremtidsplaner</h3>
+        <p>• Udvidet logning og automatisering<br />• Flere tilpassede moduler (Cogs)<br />• Forbedret brugergrænseflade</p>
+      </div>
+    </div>
+  );
+}
 
 function LogsPage() {
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          LOGS
-        </div>
-
-        <h2>System logs</h2>
-
-        <p>
-          Seneste dashboard-information.
-        </p>
+        <div className="eyebrow">LOGS</div>
+        <h2>Systemlogfiler</h2>
+        <p>Se seneste hændelser og fejl fra botten.</p>
       </div>
 
-      <div className="list-card">
-        <div className="list-row">
-          <span>🔐</span>
-
-          <strong>
-            Discord OAuth er aktiv
-          </strong>
-
-          <span>
-            Login
-          </span>
-        </div>
-
-        <div className="list-row">
-          <span>🌐</span>
-
-          <strong>
-            Dashboard API er online
-          </strong>
-
-          <span>
-            API
-          </span>
-        </div>
-
-        <div className="list-row">
-          <span>🤖</span>
-
-          <strong>
-            Hjælper bot system aktivt
-          </strong>
-
-          <span>
-            Bot
-          </span>
-        </div>
+      <div className="public-info-box">
+        <p>[INFO] Bot startede uden fejl.<br />[DEBUG] Forbindelse til database etableret.</p>
       </div>
     </div>
   );
 }
 
-/* ======================================================
-   SYSTEM
-====================================================== */
-
-function SystemPage({
-  user,
-  security,
-}) {
+function SystemPage({ user }) {
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          SYSTEM
-        </div>
-
-        <h2>System</h2>
-
-        <p>
-          Information om dashboard-systemet.
-        </p>
+        <div className="eyebrow">SYSTEM</div>
+        <h2>Systemoversigt</h2>
+        <p>Avancerede indstillinger for ejere og managers.</p>
       </div>
 
-      <div className="info-card">
-        <div>
-          <span>Dashboard</span>
-          <strong>
-            Hjælper V2
-          </strong>
-        </div>
-
-        <div>
-          <span>API</span>
-          <strong>
-            Online
-          </strong>
-        </div>
-
-        <div>
-          <span>Din rolle</span>
-          <strong>
-            {user?.role_name ||
-              (user?.role === "owner"
-                ? "Ejer"
-                : user?.role === "manager"
-                  ? "Manager"
-                  : "Admin")}
-          </strong>
-        </div>
-
-        <div>
-          <span>Sessions</span>
-          <strong>
-            {security?.active_sessions ??
-              "—"}
-          </strong>
-        </div>
+      <div className="public-info-box">
+        <h3>Servermiljø</h3>
+        <p>Rolle: {user?.role}</p>
+        <p>Sikkerhedsstatus: Aktiv</p>
       </div>
     </div>
   );
 }
 
-/* ======================================================
-   ACCOUNT
-====================================================== */
-
 function AccountPage({
-  user,
-  account,
-  security,
-  sessions,
-  loginHistory,
-  connected,
   profileUsername,
   setProfileUsername,
   onSaveProfile,
   onLogoutAll,
-  onDeleteSession,
   onDeleteAccount,
+  sessions,
 }) {
-  const avatar =
-    user?.avatar_url ||
-    user?.avatar ||
-    account?.avatar_url ||
-    account?.avatar;
-
-  const username =
-    user?.username ||
-    user?.global_name ||
-    account?.username ||
-    "Bruger";
-
-  const userId =
-    user?.id ||
-    account?.id ||
-    account?.user_id ||
-    "Ukendt";
-
   return (
     <div>
       <div className="page-heading">
-        <div className="eyebrow">
-          KONTO
-        </div>
-
-        <h2>Din konto</h2>
-
-        <p>
-          Administrer din profil og sikkerhed.
-        </p>
+        <div className="eyebrow">KONTO</div>
+        <h2>Kontoindstillinger</h2>
+        <p>Administrer din profil, sessioner og sikkerhed.</p>
       </div>
 
-      <div className="account-grid">
-        <div className="account-profile-card">
-          <div className="large-avatar">
-            {avatar ? (
-              <img
-                src={avatar}
-                alt=""
-              />
-            ) : (
-              "👤"
-            )}
-          </div>
-
-          <div className="account-profile-info">
-            <div className="eyebrow">
-              DISCORD
-            </div>
-
-            <h3>{username}</h3>
-
-            <p>
-              {user?.role === "owner"
-                ? "👑 Ejer"
-                : user?.role === "manager"
-                  ? "💼 Manager"
-                  : user?.role === "admin"
-                    ? "🛡️ Admin"
-                    : "👤 Bruger"}
-            </p>
-
-            <small>
-              ID: {userId}
-            </small>
-          </div>
-        </div>
-
-        <form
-          className="account-card"
-          onSubmit={onSaveProfile}
-        >
-          <div className="account-card-title">
-            <div>
-              <div className="eyebrow">
-                PROFIL
-              </div>
-
-              <h3>
-                Profiloplysninger
-              </h3>
-            </div>
-          </div>
-
-          <label>
-            Brugernavn
-          </label>
-
+      <form onSubmit={onSaveProfile} className="public-info-box" style={{ marginBottom: "20px" }}>
+        <h3>Profil</h3>
+        <div style={{ marginTop: "15px" }}>
+          <label style={{ display: "block", marginBottom: "5px" }}>Brugernavn:</label>
           <input
+            type="text"
             value={profileUsername}
-            onChange={(event) =>
-              setProfileUsername(
-                event.target.value
-              )
-            }
-            maxLength={100}
+            onChange={(e) => setProfileUsername(e.target.value)}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px" }}
           />
-
-          <button
-            className="primary-button"
-            type="submit"
-          >
-            Gem ændringer
-          </button>
-        </form>
-      </div>
-
-      <div className="account-card">
-        <div className="account-card-title">
-          <div>
-            <div className="eyebrow">
-              CONNECTED ACCOUNTS
-            </div>
-
-            <h3>
-              Forbundne konti
-            </h3>
-          </div>
+          <button type="submit" className="primary-button">Gem ændringer</button>
         </div>
+      </form>
 
-        <div className="connected-account">
-          <div className="connected-icon">
-            💜
-          </div>
-
-          <div className="connected-main">
-            <strong>
-              Discord
-            </strong>
-
-            <span>
-              {username}
-            </span>
-          </div>
-
-          <div className="connected-status">
-            Forbundet
-          </div>
-        </div>
-
-        {connected &&
-          Array.isArray(
-            connected.accounts
-          ) &&
-          connected.accounts.map(
-            (item, index) => (
-              <div
-                className="connected-account"
-                key={index}
-                style={{
-                  marginTop: "8px",
-                }}
-              >
-                <div className="connected-icon">
-                  🔗
-                </div>
-
-                <div className="connected-main">
-                  <strong>
-                    {item.name ||
-                      item.provider ||
-                      "Account"}
-                  </strong>
-
-                  <span>
-                    {item.username ||
-                      item.email ||
-                      ""}
-                  </span>
-                </div>
-
-                <div className="connected-status">
-                  Forbundet
-                </div>
-              </div>
-            )
-          )}
-      </div>
-
-      <div className="account-card">
-        <div className="account-card-title">
-          <div>
-            <div className="eyebrow">
-              SECURITY
-            </div>
-
-            <h3>
-              Sikkerhed
-            </h3>
-          </div>
-        </div>
-
-        <div className="info-card">
-          <div>
-            <span>
-              Aktive sessions
-            </span>
-
-            <strong>
-              {security?.active_sessions ??
-                sessions.length}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Sidste login
-            </span>
-
-            <strong>
-              {security?.last_login ||
-                "—"}
-            </strong>
-          </div>
-        </div>
-
-        <button
-          className="secondary-button"
-          style={{
-            marginTop: "15px",
-          }}
-          onClick={onLogoutAll}
-        >
-          🔒 Log ud af andre sessions
+      <div className="public-info-box" style={{ marginBottom: "20px" }}>
+        <h3>Sikkerhed & Sessioner</h3>
+        <p style={{ marginTop: "10px" }}>Aktive sessioner: {sessions.length}</p>
+        <button className="primary-button" style={{ marginTop: "10px" }} onClick={onLogoutAll}>
+          Log ud af alle andre sessioner
         </button>
       </div>
 
-      <div className="account-card">
-        <div className="account-card-title">
-          <div>
-            <div className="eyebrow">
-              SESSIONS
-            </div>
-
-            <h3>
-              Aktive sessions
-            </h3>
-          </div>
-        </div>
-
-        <div className="session-list">
-          {sessions.length === 0 ? (
-            <div className="empty">
-              Ingen sessions fundet.
-            </div>
-          ) : (
-            sessions.map(
-              (session, index) => (
-                <div
-                  className="session-row"
-                  key={
-                    session.id ||
-                    session.session_id ||
-                    index
-                  }
-                >
-                  <div className="session-icon">
-                    💻
-                  </div>
-
-                  <div className="session-main">
-                    <strong>
-                      {session.device ||
-                        session.browser ||
-                        "Browser"}
-                    </strong>
-
-                    <span>
-                      {session.ip ||
-                        "IP skjult"}
-                    </span>
-
-                    <small>
-                      {session.created_at ||
-                        session.last_active ||
-                        ""}
-                    </small>
-                  </div>
-
-                  {session.current ? (
-                    <span className="session-current">
-                      Denne session
-                    </span>
-                  ) : (
-                    <button
-                      className="secondary-button small-button"
-                      onClick={() =>
-                        onDeleteSession(
-                          session.id ||
-                          session.session_id
-                        )
-                      }
-                    >
-                      Fjern
-                    </button>
-                  )}
-                </div>
-              )
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="account-card">
-        <div className="account-card-title">
-          <div>
-            <div className="eyebrow">
-              LOGIN HISTORY
-            </div>
-
-            <h3>
-              Login historik
-            </h3>
-          </div>
-        </div>
-
-        <div className="login-history">
-          {loginHistory.length === 0 ? (
-            <div className="empty">
-              Ingen loginhistorik fundet.
-            </div>
-          ) : (
-            loginHistory.map(
-              (item, index) => (
-                <div
-                  className="history-row"
-                  key={
-                    item.id ||
-                    index
-                  }
-                >
-                  <div>
-                    <strong>
-                      {item.provider ||
-                        "Discord"}
-                    </strong>
-
-                    <span>
-                      {item.created_at ||
-                        item.timestamp ||
-                        ""}
-                    </span>
-                  </div>
-
-                  <span className="history-success">
-                    {item.success === false
-                      ? "Fejlet"
-                      : "Succes"}
-                  </span>
-                </div>
-              )
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="danger-account-card">
-        <div>
-          <div className="eyebrow">
-            DANGER ZONE
-          </div>
-
-          <h3>
-            Slet konto
-          </h3>
-
-          <p>
-            Dette sletter din dashboard-konto
-            permanent.
-          </p>
-        </div>
-
+      <div className="public-info-box" style={{ borderColor: "#d9534f" }}>
+        <h3>Faresone</h3>
+        <p style={{ marginTop: "10px" }}>Slet din konto permanent fra systemet.</p>
         <button
-          className="danger-button"
+          className="logout-button"
+          style={{ marginTop: "10px", backgroundColor: "#d9534f", color: "white" }}
           onClick={onDeleteAccount}
         >
           Slet konto
@@ -3157,27 +1375,36 @@ function AccountPage({
   );
 }
 
-/* ======================================================
-   USER AVATAR
-====================================================== */
+function UserAvatar({ user }) {
+  const avatarUrl = user?.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : null;
 
-function UserAvatar({
-  user,
-}) {
-  const avatar =
-    user?.avatar_url ||
-    user?.avatar;
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt="Avatar"
+        style={{ width: "40px", height: "40px", borderRadius: "50%" }}
+      />
+    );
+  }
 
   return (
-    <div className="user-avatar">
-      {avatar ? (
-        <img
-          src={avatar}
-          alt=""
-        />
-      ) : (
-        "👤"
-      )}
+    <div
+      style={{
+        width: "40px",
+        height: "40px",
+        borderRadius: "50%",
+        background: "#5865F2",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: "bold",
+        color: "white",
+      }}
+    >
+      {(user?.username || user?.global_name || "U")[0].toUpperCase()}
     </div>
   );
 }
